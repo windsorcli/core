@@ -3,8 +3,6 @@ title: "ADR-0002: Cluster secrets — ExternalSecret materialization over the sh
 description: "The sensitive: schema marker and the flux: system secrets:/data: mechanism are shipped (plain Secret only, cli #3022/#3091/#3100). This ADR decides how the same facet-authored secrets: entries materialize as an ExternalSecret instead, once ADR-0004 (External Secrets Operator) and ADR-0005 (secrets store) are both enabled — no new driver field, no schema key collision with the existing build-time secrets: block."
 ---
 
-# ADR-0002: Cluster secrets — ExternalSecret materialization over the shipped sensitive/secrets: mechanism
-
 ## Status
 
 Proposed (2026-07-20). Revised (2026-08-04): the plain-`Secret` path is

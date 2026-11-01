@@ -291,6 +291,34 @@ run "instance_expansion_with_count" {
   }
 }
 
+# mac_address is provider-computed, unknown until apply under the mock provider.
+run "instance_id_flows_to_controlplanes" {
+  command = apply
+
+  variables {
+    context_id = "test"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        image = "ubuntu/22.04"
+        ipv4  = "10.30.0.10/24"
+      }
+    ]
+  }
+
+  assert {
+    condition     = output.instances[0].instance_id != null && output.instances[0].instance_id != ""
+    error_message = "instances[].instance_id should surface the underlying instance's mac_address"
+  }
+
+  assert {
+    condition     = output.controlplanes[0].instance_id == output.instances[0].instance_id
+    error_message = "controlplanes[].instance_id should match the same instance's instance_id"
+  }
+}
+
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 # Also validates that disks can reference pools defined in storage_pools.

@@ -99,6 +99,18 @@ variable "master_ipv4_cidr_block" {
   default     = "172.16.0.0/28"
 }
 
+variable "pod_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's pod range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.20.0.0/14"
+}
+
+variable "service_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's Service range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.24.0.0/20"
+}
+
 variable "authorized_networks" {
   description = "CIDR blocks allowed to reach the control plane's public endpoint"
   type        = list(string)
@@ -108,6 +120,17 @@ variable "authorized_networks" {
 #---------------------------------------------------------------------------------------------------
 # Cluster
 #---------------------------------------------------------------------------------------------------
+
+variable "kubernetes_version" {
+  description = "Minimum Kubernetes version for the control plane, such as '1.36'. Must be available in the release channel. Null leaves the channel default."
+  type        = string
+  default     = "1.36"
+  nullable    = true
+  validation {
+    condition     = var.kubernetes_version == null || can(regex("^1\\.\\d+(\\.\\d+(-gke\\.\\d+)?)?$", var.kubernetes_version))
+    error_message = "kubernetes_version must look like '1.36' or '1.36.2-gke.2064000'."
+  }
+}
 
 variable "release_channel" {
   description = "GKE release channel: RAPID, REGULAR, or STABLE"
@@ -132,6 +155,7 @@ variable "system_node_pool" {
     autoscaling_enabled = optional(bool, false)
     min_count           = optional(number, 1)
     max_count           = optional(number, 3)
+    auto_repair         = optional(bool, true)
   })
   default = {}
 
@@ -192,6 +216,7 @@ variable "pools" {
       value  = optional(string)
       effect = string
     })), [])
+    auto_repair = optional(bool, true)
   }))
   default = {}
 

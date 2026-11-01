@@ -4,6 +4,3 @@ patches:
   - path: realm-client.patch.yaml
     target:
       kind: KeycloakRealmImport
-  - path: placeholder.patch.yaml
-    target:
-      kind: KeycloakRealmImport

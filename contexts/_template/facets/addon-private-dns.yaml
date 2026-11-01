@@ -10,6 +10,13 @@ requires:
   - paths:
       - dns.private_domain
     message: Self-hosted private DNS serves and publishes records into this zone.
+  # Workstation contexts reach CoreDNS through the node port instead.
+  - when: >-
+      gateway.enabled == true && (workstation.runtime ?? '') == '' &&
+      gateway_exposure.internal == 'NodePort'
+    paths:
+      - gateway_effective.unsupported
+    message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
 # =============================================================================
 # Kustomize — CoreDNS + external-dns
@@ -51,19 +58,48 @@ flux:
       components:
         - coredns
         - coredns/etcd
+        - "${(dns.public_domain ?? '') != '' ? 'coredns/public-zone' : ''}"
         - "${telemetry.metrics.enabled ? 'coredns/prometheus' : ''}"
         - "${topology == 'ha' ? 'coredns/ha' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"
         - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
         - external-dns
-        - external-dns/providers/coredns
-        # Gateway API HTTPRoute source — pulled in only when the cluster has a
-        # Gateway controller. external-dns crashes on startup if it's told to
-        # watch HTTPRoute resources whose CRDs aren't installed.
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       substitutions:
-        external_domain: ${dns.private_domain}
-        loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+        private_domain: ${dns.private_domain}
+        public_domain: "${dns.public_domain ?? ''}"
+        dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
       timeout: 20m
       interval: 5m
+    # One external-dns instance per zone, writing to the coredns etcd backend.
+    resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
+      - name: public
+        when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/coredns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/coredns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: ${dns.private_domain}
+        timeout: 5m
+        interval: 5m

@@ -49,6 +49,12 @@ variable "allow_management_os" {
   default     = true
 }
 
+variable "force_management_os_migration" {
+  description = "Acknowledges that destroying an External switch with allow_management_os migrates the host IP back to the NIC and can drop the host connection. Required for the provider to destroy such a switch"
+  type        = bool
+  default     = false
+}
+
 variable "nat_name" {
   description = "Name of the NetNat instance paired with the switch. Required when switch_type=NAT; rejected otherwise"
   type        = string
@@ -143,20 +149,50 @@ variable "network_cidr" {
   default     = null
 }
 
+variable "network_dhcp" {
+  description = "When true, controlplane/worker CIDATA seeds request DHCP on the guest interface instead of a static address, and instances may omit ipv4."
+  type        = bool
+  default     = false
+}
+
 variable "vhd_dir" {
   description = "Default directory on the host where per-instance VHDXs are placed (e.g. C:\\\\hyperv\\\\vhds). Each instance gets <vhd_dir>\\\\<name>.vhdx unless root_disk_path is set explicitly"
   type        = string
   default     = "C:\\hyperv\\vhds"
 }
 
+variable "name_suffix" {
+  description = "Suffix for Hyper-V object names: the VM name and the default root VHDX filename. Keeps two contexts sharing one host from colliding. Output hostnames stay unsuffixed so Talos identity is unaffected."
+  type        = string
+  default     = ""
+}
+
+variable "guest_ipv4_timeout" {
+  description = "How long compute waits after creating a DHCP VM before reading guest IPs. A zero duration skips the wait. Instances with a declared ipv4 never wait."
+  type        = string
+  default     = "5m"
+
+  validation {
+    condition     = can(regex("^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$", var.guest_ipv4_timeout))
+    error_message = "guest_ipv4_timeout must be a Go duration such as 5m, 90s, or 0s."
+  }
+}
+
 variable "images" {
-  description = "Map of image references the module places on the host. Each entry uses url-mode (provider downloads; SHA-256 verified when checksum is set), local_path-mode (streamed from the runner), or host_path-mode (file already exists). Instances reference an image by its map key; the resulting destination_path becomes the differencing-VHD parent."
+  description = <<-EOT
+    Map of image references the module places on the host. url-mode fetches on the
+    runner by default (runner_download) and streams to the host; set false for a
+    host-direct GET. local_path-mode streams from the runner; host_path-mode attests
+    the file already exists. Instances reference an image by map key;
+    destination_path is the differencing-VHD parent.
+  EOT
   type = map(object({
     destination_path = string
     keep_on_destroy  = optional(bool, false)
     url              = optional(string)
     checksum         = optional(string)
     compression      = optional(string)
+    runner_download  = optional(bool, true)
     local_path       = optional(string)
   }))
   default = {}
@@ -177,7 +213,7 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …)"
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). Omit ipv4 for DHCP so outputs use Hyper-V integration-services addresses."
   type = list(object({
     name                 = string              # VM name (becomes prefix when count > 1)
     count                = optional(number, 1) # Number of VMs. >1 stamps a pool with -1, -2 suffixes
@@ -191,7 +227,7 @@ variable "instances" {
     memory_max           = optional(number)     # When set, dynamic memory is enabled with min=memory and max=memory_max
     root_disk_size       = optional(number, 30) # Root disk size in GiB; used only when image is empty (fresh dynamic VHDX)
     root_disk_path       = optional(string)     # Override path for the per-instance root VHDX. Defaults to vhd_dir\\<name>.vhdx
-    ipv4                 = optional(string)     # Informational only on Hyper-V; surfaced in outputs. CIDR or bare IP. Sequential when count > 1
+    ipv4                 = optional(string)     # Guest IPv4. Omit for DHCP; outputs then use integration-services addresses
     mac_address          = optional(string)     # Static MAC; leave unset for Hyper-V dynamic allocation
     vlan_id              = optional(number)     # Access-mode VLAN ID
     switch_name          = optional(string)     # Override the switch this VM's NIC binds to. Defaults to network_name
@@ -201,8 +237,10 @@ variable "instances" {
     # ISO mount: a key into var.images (use the resulting destination_path) or an absolute host path. Empty/null = no DVD.
     dvd_iso_path  = optional(string)
     boot_from_dvd = optional(bool, false) # When true and dvd_iso_path is set, gen 2 boot order leads with the DVD (install-from-ISO flow)
-    # Second DVD slot — cloud-init NoCloud / Windows unattend seed ISOs. Same resolution as dvd_iso_path: a key into var.images or an absolute host path. Not in boot_order — read by the guest at runtime via volume-label scan.
-    cidata_iso_path = optional(string)
+    # Second DVD slot — cloud-init NoCloud / Windows unattend seed ISOs. Populated
+    # automatically by this module via var.cluster_name/talos_version/cluster_endpoint
+    # inputs when destination_dir is set; not passed directly.
+    # Not in boot_order — read by the guest at runtime via volume-label scan.
   }))
   default = []
 
@@ -215,4 +253,90 @@ variable "instances" {
     condition     = alltrue([for inst in var.instances : contains(["Off", "Running"], inst.desired_state)])
     error_message = "instance.desired_state must be Off or Running"
   }
+}
+
+variable "destination_dir" {
+  description = "Directory on the Hyper-V host where per-node CIDATA seed ISOs are staged (e.g. C:\\hyperv\\images). When empty, no CIDATA ISOs are created."
+  type        = string
+  default     = ""
+}
+
+variable "network_gateway" {
+  description = "Default route gateway written into each node's CIDATA network-config (cloud-init v2 gateway4 field). Required when destination_dir is non-empty and network_dhcp is false."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.network_dhcp || var.destination_dir == "" || var.network_gateway != null
+    error_message = "network_gateway is required when destination_dir is set and network_dhcp is false."
+  }
+}
+
+variable "network_nameservers" {
+  description = "DNS resolvers written into each node's CIDATA network-config (cloud-init v2 nameservers.addresses list)."
+  type        = list(string)
+  default     = ["1.1.1.1", "8.8.8.8"]
+}
+
+variable "network_interface" {
+  description = "NIC name glob for the CIDATA network-config match.name field (cloud-init v2). Default e* matches both eth0 and enX0 — covers Hyper-V synthetic NICs across kernel versions."
+  type        = string
+  default     = "e*"
+}
+
+variable "cluster_name" {
+  description = "Talos cluster name. Baked into every per-node machineconfig."
+  type        = string
+  default     = "talos"
+}
+
+variable "cluster_endpoint" {
+  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://192.168.0.10:6443). Required when instances include controlplane or worker roles."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
+    error_message = "cluster_endpoint must start with https://"
+  }
+}
+
+variable "controlplane_vip" {
+  description = "When true, bake the cluster_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses."
+  type        = bool
+  default     = false
+}
+
+variable "talos_version" {
+  description = "Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.talos_version == "" || can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
+    error_message = "talos_version should be in semver format like '1.12.6'."
+  }
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version to install."
+  type        = string
+  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
+  default = "1.37.2"
+}
+
+variable "common_config_patches" {
+  description = "Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig."
+  type        = string
+  default     = ""
+}
+
+variable "controlplane_config_patches" {
+  description = "Controlplane-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
+}
+
+variable "worker_config_patches" {
+  description = "Worker-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
 }

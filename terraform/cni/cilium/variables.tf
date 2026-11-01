@@ -1,32 +1,64 @@
 variable "cilium_version" {
   description = "Version of the Cilium Helm chart to install."
   type        = string
-  # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
-  default = "1.20.2"
+  # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
+  default = "1.20.3"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.cilium_version))
     error_message = "cilium_version must be in X.Y.Z format."
   }
 }
 
-variable "cluster_endpoint" {
-  description = "Kubernetes API server endpoint (https://host:port). Required when kube_proxy_replacement is true so Cilium can reach the API server before eBPF service rules are active."
+variable "chart_repository" {
+  description = "Helm repository the Cilium chart is read from. Accepts an oci:// registry address such as oci://registry.example.com/charts or a web address such as https://helm.cilium.io. The chart name stays cilium."
+  type        = string
+  default     = "oci://quay.io/cilium/charts"
+  nullable    = false
+  validation {
+    condition     = can(regex("^(https?://|oci://).+", var.chart_repository))
+    error_message = "chart_repository must start with 'oci://', 'https://', or 'http://'."
+  }
+}
+
+variable "image_registry" {
+  description = "Registry path the Cilium images are pulled from, without a scheme or trailing slash (e.g. registry.example.com/cilium). The agent, operator, envoy, and certgen images are read from <image_registry>/<image>."
+  type        = string
+  default     = "quay.io/cilium"
+  nullable    = false
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$", var.image_registry))
+    error_message = "image_registry must be a registry host with an optional port and path, with no scheme or trailing slash."
+  }
+}
+
+variable "k8s_service_host" {
+  description = "API server host Cilium reaches before its eBPF service rules are active. Required when kube_proxy_replacement is true."
   type        = string
   default     = ""
   validation {
-    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
-    error_message = "cluster_endpoint must be empty or start with 'https://'."
+    condition     = can(regex("^[A-Za-z0-9.-]*$", var.k8s_service_host))
+    error_message = "k8s_service_host must be a hostname or IPv4 address, without scheme or port."
+  }
+}
+
+variable "k8s_service_port" {
+  description = "API server port for k8s_service_host."
+  type        = number
+  default     = 6443
+  validation {
+    condition     = var.k8s_service_port >= 1 && var.k8s_service_port <= 65535
+    error_message = "k8s_service_port must be between 1 and 65535."
   }
 }
 
 variable "kube_proxy_replacement" {
-  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires cluster_endpoint to be set. Recommended for Talos and EKS."
+  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires k8s_service_host to be set. Recommended for Talos."
   type        = bool
   default     = true
 }
 
 variable "ipam_mode" {
-  description = "Cilium IPAM mode. 'kubernetes' uses node CIDR ranges (default, works for Talos and standard EKS). 'eni' uses AWS ENI-based allocation for EKS native networking."
+  description = "Cilium IPAM mode. 'kubernetes' uses node CIDR ranges (default, works for Talos). 'eni' uses AWS ENI-based allocation for EKS native networking."
   type        = string
   default     = "kubernetes"
   validation {

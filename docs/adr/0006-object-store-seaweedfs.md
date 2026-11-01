@@ -3,8 +3,6 @@ title: "ADR-0006: SeaweedFS as a second object_store driver"
 description: Adds object_store.driver enum value seaweedfs alongside the shipped minio. No CRD/operator tier like MinIO's Operator+Tenant split — SeaweedFS is Helm-chart-native StatefulSets. HA requires the filer's metadata store to move off embedded LevelDB onto the existing database capability, a dependency MinIO's HA story doesn't have.
 ---
 
-# ADR-0006: SeaweedFS as a second `object_store` driver
-
 ## Status
 
 Proposed.

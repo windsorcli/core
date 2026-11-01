@@ -21,7 +21,9 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      # Talos KubePrism, the node-local API load balancer.
+      k8s_service_host: localhost
+      k8s_service_port: 7445
       # Talos forbids privileged pods and mounts cgroups at init — both required
       # for Cilium on Talos.
       privileged: false
@@ -45,7 +47,13 @@ flux:
   - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
     resources:
-      - dependsOn:
+      - name: external
+        when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - cni-install
+      - name: internal
+        when: gateway_effective.internal == true
+        dependsOn:
           - cni-install
 
   # ---------------------------------------------------------------------------
@@ -58,7 +66,7 @@ flux:
   #
 
   # Talos: cilium/talos applies Talos-specific security context + cgroup
-  # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
+  # settings. Cilium reaches the API through KubePrism on localhost:7445.
   # cilium/l2 (LBIPAM + L2 announcements) is skipped when a cloud LB controller
   # owns LoadBalancer Services (hetzner CCM): cloud networks aren't a flat L2
   # domain, so ARP-announced pool IPs never route.
@@ -71,18 +79,31 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
-        - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
+        - "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium/l2' : ''}"
       substitutions:
-        k8s_service_host: ${talos_common.k8s_service_host}
-        loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-        loadbalancer_end_ip: ${network.loadbalancer_ips.end}
+        k8s_service_host: localhost
+        k8s_service_port: "7445"
         cluster_name: ${context}
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m
       interval: 5m
+
+  # LBIPAM pool and L2 announcement policy; their CRDs come from the chart, so
+  # they apply after the install tier.
+  - name: cni
+    when: talos_enabled && lb_effective.driver == 'cilium' && lb_effective.controller_required != true
+    resources:
+      - components:
+          - cilium/l2
+          - "${(network.loadbalancer_ips.start ?? '') != '' ? 'cilium/l2/pool' : ''}"
+        substitutions:
+          loadbalancer_start_ip: "${network.loadbalancer_ips.start ?? ''}"
+          loadbalancer_end_ip: "${network.loadbalancer_ips.end ?? ''}"
+        timeout: 5m
+        interval: 5m
 
   # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
@@ -94,7 +115,7 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
       substitutions:

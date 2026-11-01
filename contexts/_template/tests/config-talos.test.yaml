@@ -7,10 +7,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -54,8 +53,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -83,12 +80,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
@@ -100,6 +100,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -119,12 +121,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.local/realms/platform
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
@@ -154,6 +159,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -175,18 +182,21 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: other-client
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://sso.corp/realms/other
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
 
-  - name: oidc enabled with pki enabled adds oidc-ca-file from the pki terraform output
+  - name: oidc enabled adds oidc-ca-file from the pki terraform output
     values:
       platform: metal
       gateway:
@@ -198,8 +208,6 @@ cases:
           enabled: true
           issuer_url: https://keycloak.example.com/realms/windsor
           client_id: kubernetes
-      pki:
-        enabled: true
     terraformOutputs:
       pki:
         cert: |-
@@ -225,8 +233,6 @@ cases:
                   - hostPath: /var/kubernetes/oidc-ca.crt
                     mountPath: /etc/kubernetes/oidc-ca.crt
                     readonly: true
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -267,8 +273,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -317,8 +321,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -367,8 +369,6 @@ cases:
                     requests:
                       cpu: 50m
                       memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -450,8 +450,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -559,8 +557,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -611,8 +607,6 @@ cases:
                     requests:
                       cpu: 50m
                       memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -651,12 +645,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: roles
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: email
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
@@ -681,8 +678,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -707,9 +702,38 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+
+  - name: oidc with trusted_cas appends the roots to the OIDC CA file
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        trusted_cas:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTA
+            -----END CERTIFICATE-----
+    terraformOutputs:
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n      \n        -----BEGIN CERTIFICATE-----\n        ROOTA\n        -----END CERTIFICATE-----"

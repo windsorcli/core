@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -30,8 +29,10 @@ cases:
     values:
       platform: metal
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -59,18 +60,22 @@ cases:
                 - keycloak
               substitutions:
                 keycloak_hostname: https://keycloak.example.local
-                keycloak_image: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
+                keycloak_image: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
                 keycloak_start_optimized: "false"
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - keycloak/gateway
+                - keycloak/gateway-admin
               substitutions:
-                external_domain: example.local
+                keycloak_domain: example.local
+                private_domain: example.local
+                keycloak_gateway_name: internal
             - components:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
+                keycloak_admin_group: platform-admins
         - name: database
           install:
             components:
@@ -78,7 +83,7 @@ cases:
               - cloudnativepg/prometheus
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # No gateway needed to install — Keycloak still comes up (port-forward
   # keycloak-service to reach it), just without the gateway route.
@@ -113,6 +118,7 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
+                keycloak_admin_group: platform-admins
     exclude:
       flux:
         - name: identity
@@ -127,6 +133,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -151,6 +159,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -172,7 +182,7 @@ cases:
     values:
       platform: docker
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
         enabled: true
         driver: envoy
@@ -208,6 +218,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       topology: ha
       network: *default-network
@@ -233,6 +245,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -282,6 +296,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -306,6 +322,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -321,6 +339,7 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: corp
+                keycloak_admin_group: platform-admins
 
   # Inferred SSO (dev): identity + Grafana both on registers the grafana realm client.
   - name: grafana sso is inferred and patches the client into the realm
@@ -330,6 +349,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -347,9 +368,40 @@ cases:
                 - keycloak/realm/dev-user
               substitutions:
                 keycloak_realm: platform
+                keycloak_admin_group: platform-admins
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
                 dev_admin_password: admin-password
+
+  # Outside dev, Grafana SSO needs no client secret: the client is public with PKCE.
+  - name: grafana sso outside dev needs no client secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+                - keycloak/realm/clients/grafana
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm/dev-user
 
   # Grafana SSO needs Keycloak reachable over HTTPS through the gateway. Without
   # it, the realm client would point at an issuer the browser can never reach.
@@ -378,6 +430,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -406,6 +460,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -431,6 +487,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -454,6 +512,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -477,6 +537,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -501,6 +563,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -514,7 +578,7 @@ cases:
         - name: identity
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # Disabled: no identity system and no Keycloak CRDs.
   - name: excludes identity when disabled
@@ -534,7 +598,7 @@ cases:
         - name: identity
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # Metrics enabled (default): keycloak/prometheus overlay wires the operator's
   # own ServiceMonitor + Keycloak's server/user-event metrics. The ServiceMonitor
@@ -545,6 +609,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -566,6 +632,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -588,13 +656,13 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
       identity:
         enabled: true
-        keycloak:
-          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:
@@ -611,6 +679,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -622,3 +692,62 @@ cases:
           resources:
             - components:
                 - grafana/dashboards/identity
+
+  # A public domain puts Keycloak login on the external gateway and admin on the internal one.
+  - name: public domain limits the external Keycloak route to the login paths
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      platform: metal
+      dev: true
+      identity:
+        enabled: true
+        driver: keycloak
+      dns:
+        public_domain: public.example.com
+        private_domain: private.example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: public.example.com
+                keycloak_gateway_name: external
+                keycloak_realm: platform
+                keycloak_admin_group: platform-admins
+                private_domain: private.example.com
+
+  - name: identity.admin_group overrides the realm group name
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        admin_group: ops-admins
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_admin_group: ops-admins

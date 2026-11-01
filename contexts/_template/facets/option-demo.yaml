@@ -7,14 +7,14 @@ metadata:
 when: demo.enabled == true
 
 # Single source of truth for demo-db's database name, used by the
-# Instance CR and its DatabaseCredentials resources below.
+# Instance CR and the AppRole below.
 config:
   - name: demo_database_name
     value: demo
   # Flexible Server names are globally unique in Azure; other drivers
   # keep the plain literal.
   - name: database_instance_name
-    value: "${database.postgres.driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
+    value: "${database_effective.cloud_driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
 
 # =============================================================================
 # Flux — demo applications
@@ -23,7 +23,7 @@ config:
 # Sample apps reconciled onto the running cluster, a resources-only system.
 # Each demo.resources.* flag toggles one app. database adds a shared
 # namespace plus a driver variant (cloudnativepg, rds, azuredb, or
-# cloudsql), bundling that driver's own app credentials. The monitor
+# cloudsql), plus the shared app credential. The monitor
 # credential and its exporter are provisioned automatically by the
 # database facet's own WatchOperations, not by this facet.
 # dependsOn follows whichever operator owns the active driver.
@@ -37,7 +37,7 @@ flux:
   # cloudnativepg driver: shared namespace plus the in-cluster Cluster CR.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudnativepg'
+    when: demo.resources.database == true && database.postgres.enabled == true
     dependsOn:
       - database-install
     resources:
@@ -53,7 +53,7 @@ flux:
   # dependsOn drops the Role/Grant before the Instance goes away.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
     dependsOn:
       - provisioning-resources
     resources:
@@ -61,31 +61,28 @@ flux:
           - database
           - database/rds
         substitutions:
-          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
-          kms_key_arn: "${terraform_output('database', 'key_id') ?? ''}"
-          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
-          aws_region: "${aws.region ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'db.t4g.micro'}"
         healthCheckExprs:
           # Gated on the Instance's own Ready condition, not the CR apply.
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        timeout: 30m
-        deleteTimeout: 45m
+        timeout: 45m
+        deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
           - demo-resources
         components:
-          - database/rds/credentials
+          - database/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
-            kind: DatabaseCredentials
+            kind: AppRole
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         timeout: 10m
         interval: 5m
@@ -93,7 +90,7 @@ flux:
   # azuredb driver: Azure twin of rds.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'azuredb'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'
     dependsOn:
       - provisioning-resources
     resources:
@@ -101,9 +98,8 @@ flux:
           - database
           - database/azuredb
         substitutions:
-          azuredb_subnet_id: "${terraform_output('network', 'azuredb_subnet_id') ?? ''}"
-          azuredb_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           azuredb_region: "${terraform_output('network', 'region') ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'B_Standard_B1ms'}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -114,20 +110,20 @@ flux:
             kind: FlexibleServerDatabase
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
-        timeout: 30m
-        deleteTimeout: 45m
+        timeout: 45m
+        deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
           - demo-resources
         components:
-          - database/azuredb/credentials
+          - database/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
-            kind: DatabaseCredentials
+            kind: AppRole
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         timeout: 10m
         interval: 5m
@@ -135,18 +131,16 @@ flux:
   # cloudsql driver: GCP twin of rds/azuredb.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'
     dependsOn:
       - provisioning-resources
     resources:
       - components:
           - database
           - database/cloudsql
-          - "${(database.postgres.encryption.managed ?? false) ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
-          cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
-          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'db-f1-micro'}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
@@ -157,20 +151,20 @@ flux:
             kind: Database
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the DatabaseInstance's own Ready condition, not the CR apply.
-        timeout: 30m
+        timeout: 45m
         deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
           - demo-resources
         components:
-          - database/cloudsql/credentials
+          - database/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
-            kind: DatabaseCredentials
+            kind: AppRole
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         timeout: 10m
         interval: 5m
@@ -183,15 +177,30 @@ flux:
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
 
-  # Bookinfo's productpage route. Waits for gateway-resources since the
-  # HTTPRoute parents to the Gateway object created there.
+  # Bookinfo route on the internal gateway.
   - name: demo
     path: demo
-    when: demo.resources.bookinfo == true && gateway.enabled == true
+    when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_effective.internal == true
     resources:
       - dependsOn:
-          - gateway-resources
+          - gateway-resources-internal
         components:
           - bookinfo/gateway
         substitutions:
-          external_domain: ${gateway_effective.external_domain}
+          bookinfo_gateway: internal
+          bookinfo_domain: ${dns.private_domain}
+
+  # Bookinfo route on the external gateway when there is no internal one.
+  - name: demo
+    path: demo
+    when: >-
+      demo.resources.bookinfo == true && gateway.enabled == true &&
+      gateway_effective.internal != true && (dns.public_domain ?? '') != ''
+    resources:
+      - dependsOn:
+          - gateway-resources-external
+        components:
+          - bookinfo/gateway
+        substitutions:
+          bookinfo_gateway: external
+          bookinfo_domain: ${dns.public_domain}

@@ -19,6 +19,32 @@ config:
       runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
+  # Gateway addresses and LB pool on the workstation network, which Windsor creates.
+  - name: gateway
+    when: >-
+      workstation.runtime != 'docker-desktop' && (gateway.internal.ip ?? '') == '' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'LoadBalancer'
+    value:
+      internal:
+        ip: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
+  - name: gateway
+    when: >-
+      workstation.runtime != 'docker-desktop' && (gateway.external.ip ?? '') == '' &&
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'LoadBalancer'
+    value:
+      external:
+        ip: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 267)}"
+  - name: network
+    when: (network.loadbalancer_ips.start ?? '') == ''
+    value:
+      loadbalancer_ips:
+        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 268)}"
+  - name: network
+    when: (network.loadbalancer_ips.end ?? '') == ''
+    value:
+      loadbalancer_ips:
+        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
+
   # Talos image references; only used when the workstation stack runs.
   - name: talos
     value:
@@ -111,19 +137,12 @@ config:
                 memory: ${talos_common.docker_worker_gap.memory}
 
   # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
-  # skews tests) and pair with kube-vip so LoadBalancer services still get an IP.
+  # skews tests).
   - name: cluster
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
-
-  - name: lb_effective
-    when: platform == 'incus' && workstation.runtime == 'colima'
-    value:
-      enabled: "${(network.loadbalancer_driver ?? 'kube-vip') != 'none'}"
-      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
-      mode: loadbalancer
 
 # =============================================================================
 # Terraform — workstation services, compute, cluster
@@ -166,7 +185,9 @@ terraform:
     path: workstation/docker
     inputs:
       runtime: 'docker-desktop'
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
       dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
@@ -188,15 +209,17 @@ terraform:
     inputs:
       runtime: >-
         ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
-      dns_forward_target: ${network.loadbalancer_ips.start}
-      webhook_host: ${network.loadbalancer_ips.start}
+      dns_forward_target: "${gateway.internal.ip ?? ''}"
+      webhook_host: "${gateway.internal.ip ?? ''}"
       webhook_port: "${gateway.enabled == true ? 80 : 9292}"
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
       webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
-      primary_node_ip: ${network.loadbalancer_ips.start}
+      primary_node_ip: "${gateway.internal.ip ?? ''}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
@@ -207,16 +230,18 @@ terraform:
     when: "platform == 'incus'"
     path: workstation/incus
     inputs:
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
       create_network: "${(workstation.runtime ?? '') != 'colima'}"
       network_cidr: ${network.cidr_block}
-      loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-      dns_forward_target: ${network.loadbalancer_ips.start}
-      webhook_host: ${network.loadbalancer_ips.start}
+      loadbalancer_start_ip: "${gateway.internal.ip ?? ''}"
+      dns_forward_target: "${gateway.internal.ip ?? ''}"
+      webhook_host: "${gateway.internal.ip ?? ''}"
       webhook_port: 9292
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
-      primary_node_ip: ${network.loadbalancer_ips.start}
+      primary_node_ip: "${gateway.internal.ip ?? ''}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
@@ -259,7 +284,7 @@ terraform:
             memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
-            user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
+            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (values(cluster.controlplanes.nodes)[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
             environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
@@ -297,19 +322,20 @@ terraform:
       compose_project: ${terraform_output("workstation", "compose_project")}
       dns_servers: "${workstation.runtime == \"docker-desktop\" ? [terraform_output(\"workstation\", \"dns_internal_ip\")] : null}"
       cluster_nodes:
+        version: ${talos.talos_version}
         controlplanes:
           count: ${cluster.controlplanes.count ?? 1}
           image: ${cluster.controlplanes.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.controlplanes.cpu}
           memory: ${cluster_resources_effective.controlplanes.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
           image: ${cluster.workers.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.workers.cpu}
           memory: ${cluster_resources_effective.workers.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.workers.volumes ?? []}
 
   # cluster — Talos bootstrap/apply
@@ -330,6 +356,8 @@ terraform:
             ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
             : ""
         )}
+      # Incus guests take their addresses from static DHCP leases.
+      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: >-
@@ -366,9 +394,10 @@ terraform:
 flux:
 
   - name: gateway
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true && (dns.private_domain ?? '') != ''"
     resources:
-      - components:
+      - name: internal
+        components:
           - "${gateway.driver != 'cilium' ? 'dns/docker-desktop' : ''}"
         substitutions:
           gateway_dns_target: "10.96.0.53"

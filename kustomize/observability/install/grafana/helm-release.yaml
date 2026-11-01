@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: grafana
-      # renovate: datasource=helm depName=grafana package=grafana helmRepo=https://grafana.github.io/helm-charts
+      # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
       version: 10.5.15
       sourceRef:
         kind: HelmRepository
@@ -37,18 +37,18 @@ spec:
         timezone: ${timezone:-utc}
     image:
       # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
-      tag: 13.2.2@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0
+      tag: 13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
     initChownData:
       image:
         # renovate: datasource=docker depName=library/busybox package=library/busybox
-        tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+        tag: 1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
-      tag: 8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+      tag: 8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
     sidecar:
       image:
         # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
-        tag: 2.11.2@sha256:2912be006f62f9ea080194cf6d3afcd90daead8d101d0ba686a137a849f6a4f6
+        tag: 2.14.1@sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7
       dashboards:
         enabled: true
         label: grafana_dashboard

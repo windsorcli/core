@@ -4,3 +4,4 @@ resources:
   - deployment-runtime-config.yaml
   - provider.yaml
   - provider-family-azure.yaml
+  - watch-operation.yaml

@@ -71,7 +71,7 @@ cases:
               - cilium
               - cilium/talos
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
         - name: csi
           install:
             components:
@@ -115,8 +115,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none
@@ -134,6 +132,61 @@ cases:
           path: cni/cilium
           inputs:
             operator_replicas: 2
+
+  # Single-node removes the control-plane LB exclusion label so the hcloud LB
+  # has the node as a target.
+  - name: single-node leaves the control plane eligible for external load balancers
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        workers:
+          count: 0
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                nodeLabels:
+                  node.kubernetes.io/exclude-from-external-load-balancers:
+                    $patch: delete
+
+  # The oidc-ca-file patch nests under the label patch's machine key.
+  - name: single-node with oidc and pki merges both control-plane patches
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        workers:
+          count: 0
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        enabled: true
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: "machine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   # Flux controller concurrency scales above the floor of 4 for a large control
   # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
@@ -391,13 +444,14 @@ cases:
             parent_zone_name: example.org
       flux:
         - name: gateway
-          dependsOn:
-            - lb-install
-          install:
-            components:
-              - envoy/loadbalancer/hcloud-lb
-            substitutions:
-              hcloud_location: fsn1
+          resources:
+            - name: external
+              dependsOn:
+                - lb-install
+              components:
+                - envoy/loadbalancer/hcloud-lb
+              substitutions:
+                hcloud_location: fsn1
         - name: pki
           resources:
             - components:
@@ -409,39 +463,15 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/hetzner
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: example.com
-              txt_owner_id: htz1
-
-  # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
-  # private access relies on self-hosted private DNS (CoreDNS) for the private zone;
-  # the Hetzner external-dns provider does not render.
-  - name: private gateway uses private selfsigned issuer via self-hosted private DNS
-    values:
-      platform: hetzner
-      hetzner: *default-hetzner
-      dns:
-        private_domain: internal.example.com
-        private:
-          enabled: true
-      gateway:
-        enabled: true
-        driver: envoy
-        access: private
-      network: *default-network
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      flux:
-        - name: pki
           resources:
-            - components:
-                - private-issuer/selfsigned
-        - name: dns
-          install:
-            components:
-              - external-dns/providers/coredns
+            - name: public
+              components:
+                - external-dns/providers/hetzner
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                txt_owner_id: htz1
 
   # Defaults: with only the token set, the facet defaults the region to ash/us-east.
   - name: facet defaults region to ash/us-east when region fields are unset
@@ -493,3 +523,160 @@ cases:
           inputs:
             location: ash
             network_zone: us-east
+
+  - name: dns.private_domain fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: example.internal
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  - name: dev mode does not trip the private domain rejection
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+
+  - name: dev mode with an explicit private domain still composes
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: example.internal
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+
+  - name: cilium gateway gets the hcloud load balancer annotations
+    values:
+      platform: hetzner
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              dependsOn:
+                - lb-install
+              components:
+                - cilium/loadbalancer/hcloud-lb
+              substitutions:
+                hcloud_location: fsn1
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on hetzner skips ACME and the email requirement
+    values:
+      id: htz1
+      platform: hetzner
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+        dns_parent_zone: example.org
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+
+  # dns.public_zone: false keeps the public domain as a hostname with no zone,
+  # external-dns or DNS secret.
+  - name: public_zone false on hetzner skips the zone and external-dns
+    values:
+      id: htz1
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      network: *default-network
+      pki:
+        public_issuer: selfsigned
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+      flux:
+        - name: dns
+
+  - name: public_zone false with acme on hetzner fails composition
+    values:
+      id: htz1
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      network: *default-network
+      pki:
+        public_issuer: acme
+    expectError: true

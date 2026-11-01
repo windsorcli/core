@@ -8,7 +8,7 @@ variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.36.4"
+  default = "1.37.2"
   validation {
     condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in semantic version format like '1.30.3'."
@@ -19,25 +19,31 @@ variable "talos_version" {
   description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.13.9"
+  default = "1.14.2"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
   }
 }
 
-# Pre-generated cluster identity from an upstream cluster/talos-secrets module.
+# Pre-generated cluster identity from an upstream module.
 # When BOTH are null (default — incus/metal/docker/aws/azure callers): cluster/talos
 # generates secrets locally via talos_machine_secrets and applies per-node configs
 # over the maintenance-mode Talos API. When BOTH are supplied (hyperv path): the
-# secrets came from cluster/talos-secrets (which also feeds cluster/talos/config to
-# wrap signed configs into CIDATA seed ISOs). cluster/talos then skips
+# secrets came from compute/hyperv, which also signs and wraps per-node configs
+# into CIDATA seed ISOs. cluster/talos then skips
 # talos_machine_configuration_apply because the configs are already on the nodes
 # via CIDATA, and goes straight to talos_machine_bootstrap + health checks.
 variable "machine_secrets" {
   description = "Pre-generated Talos machine_secrets (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos generates its own. Must be supplied together with client_configuration."
   type        = any
   sensitive   = true
+  default     = null
+}
+
+variable "skip_machine_config_apply" {
+  description = "Skip talos_machine_configuration_apply because the machineconfig reached the nodes out of band (hyperv CIDATA). Null (default) infers it from machine_secrets being supplied."
+  type        = bool
   default     = null
 }
 
@@ -81,6 +87,22 @@ variable "cluster_endpoint" {
     condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
     error_message = "cluster_endpoint must be empty or start with 'https://'."
   }
+}
+
+variable "vip_interface" {
+  description = "Talos machine.network.interfaces entry, without vip, that carries the control-plane VIP. When set, the cluster_endpoint host becomes the shared VIP and MUST be an IPv4 address no control plane uses."
+  type        = any
+  default     = null
+  validation {
+    condition     = var.vip_interface == null || can(var.vip_interface.deviceSelector) || can(var.vip_interface.interface)
+    error_message = "vip_interface must set deviceSelector or interface."
+  }
+}
+
+variable "enable_kubelet_csr_approver" {
+  description = "Apply the vendored kubelet-csr-approver manifest to control planes as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag."
+  type        = bool
+  default     = true
 }
 
 variable "controlplanes" {

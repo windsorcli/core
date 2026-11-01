@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -31,13 +30,13 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
       identity:
         enabled: true
-        keycloak:
-          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:
@@ -54,6 +53,30 @@ cases:
               oidc_auth_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/auth
               oidc_token_url: http://keycloak-service.system-identity:8080/realms/platform/protocol/openid-connect/token
               grafana_root_url: https://grafana.example.local
+              oidc_role_attribute_path: "contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'"
+
+  - name: identity.admin_group sets the grafana admin role expression
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        admin_group: ops-admins
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          install:
+            substitutions:
+              oidc_role_attribute_path: "contains(groups[*], '/ops-admins') && 'Admin' || 'Viewer'"
 
   # External OIDC issuer (identity driver oidc): the effective issuer flows straight
   # through to Grafana's generic_oauth; the external client secret is supplied.
@@ -63,6 +86,37 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        oidc:
+          issuer: https://sso.corp/realms/platform
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/oidc
+            substitutions:
+              oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
+
+  # External provider that requires a confidential client: the supplied secret becomes
+  # a Secret and Grafana reads it from the environment.
+  - name: external oidc client secret makes grafana a confidential client
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -74,54 +128,26 @@ cases:
       observability:
         enabled: true
         grafana:
-          client_secret: ${secret("v", "grafana", "s")}
+          client_secret: s3cret-from-provider
     expect:
       flux:
         - name: observability
+          secrets:
+            grafana-oidc-client:
+              data:
+                clientSecret: s3cret-from-provider
           install:
             components:
               - grafana/oidc
-            substitutions:
-              oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
-
-  # Grafana SSO outside dev requires a client secret for either driver.
-  - name: external oidc sso without a client secret fails composition
-    values:
-      platform: metal
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-        driver: oidc
-        oidc:
-          issuer: https://sso.corp/realms/platform
-      observability:
-        enabled: true
-    expectError: true
-
-  - name: hosted keycloak sso without a pinned client secret fails composition
-    values:
-      platform: metal
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-      observability:
-        enabled: true
-    expectError: true
+              - grafana/oidc/client-secret
 
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       dns:
@@ -136,7 +162,7 @@ cases:
               - grafana
               - grafana/prometheus
             substitutions:
-              external_domain: example.local
+              private_domain: example.local
           resources:
             - timeout: 10m
               interval: 5m
@@ -171,6 +197,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -184,12 +212,12 @@ cases:
             Single sign-on is on: clicking Grafana goes straight to the login.
             Sign in with either seeded user (they work for every SSO app):
 
-              ┌──────────┬─────────────────┬────────────┐
-              │ username │ password        │ role       │
-              ├──────────┼─────────────────┼────────────┤
-              │ admin    │ admin-password  │ full admin │
-              │ viewer   │ viewer-password │ read-only  │
-              └──────────┴─────────────────┴────────────┘
+              ┌────────────┬─────────────────┬────────────┐
+              │ username   │ password        │ role       │
+              ├────────────┼─────────────────┼────────────┤
+              │ dev-admin  │ admin-password  │ full admin │
+              │ dev-viewer │ viewer-password │ read-only  │
+              └────────────┴─────────────────┴────────────┘
 
             The gateway cert is self-signed. Trust the local CA, or click through
             the browser warning on your first visit.
@@ -203,6 +231,8 @@ cases:
       time_format: 24h
       log_level: warn
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -222,10 +252,10 @@ cases:
               - grafana
               - grafana/prometheus
             substitutions:
-              external_domain: full.example.com
+              private_domain: full.example.com
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
                 - telemetry-resources
               components:
                 - grafana/dashboards/node
@@ -238,7 +268,7 @@ cases:
                 - grafana/gateway
                 - fluentd/outputs/stdout
               substitutions:
-                external_domain: full.example.com
+                private_domain: full.example.com
                 date_full: "YYYY-MM-DD HH:mm:ss"
                 date_interval_second: "HH:mm:ss"
                 date_interval_minute: "HH:mm"
@@ -248,6 +278,9 @@ cases:
   # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dns:
         domain: quickwit.example.com
@@ -290,6 +323,8 @@ cases:
       dns:
         domain: elk.example.com
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -331,13 +366,13 @@ cases:
               - kibana
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               timeout: 10m
               interval: 5m
               components:
                 - kibana/gateway
               substitutions:
-                external_domain: elk.example.com
+                private_domain: elk.example.com
 
   # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
   # aggregator (part of base telemetry) still runs.
@@ -364,6 +399,8 @@ cases:
   # Edge: trace log level; grafana dashboards appear without a route (gateway disabled), stdout output included.
   - name: trace log level creates stdout pipeline without log filter
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -397,6 +434,8 @@ cases:
   # telemetry keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -417,6 +456,8 @@ cases:
     values:
       platform: metal
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       dns:
@@ -433,7 +474,7 @@ cases:
             - csi-install
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - grafana/gateway
                 - kibana/gateway
@@ -444,6 +485,11 @@ cases:
   # never contributed and blueprint load fails.
   - name: observability omits dns-install dependency when dns is enabled on a provider-less platform
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dns:
         domain: example.com
@@ -457,3 +503,26 @@ cases:
         - name: observability
           dependsOn:
             - telemetry-install
+
+  - name: observability without a dns domain fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      observability:
+        enabled: true
+    expectError: true
+
+  - name: observability with a public domain composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability

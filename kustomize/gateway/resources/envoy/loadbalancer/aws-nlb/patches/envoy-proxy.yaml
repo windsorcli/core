@@ -1,0 +1,20 @@
+---
+# Annotations for an NLB with target-type=ip. The scheme comes from gateway_lb_scheme.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                service.beta.kubernetes.io/aws-load-balancer-type: external
+                service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+                service.beta.kubernetes.io/aws-load-balancer-scheme: ${gateway_lb_scheme}
+                service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"

@@ -13,18 +13,6 @@ terraform {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-# Locals
-#-----------------------------------------------------------------------------------------------------------------------
-
-locals {
-  # Extract host and port from cluster_endpoint (https://host:port) when kube-proxy replacement
-  # is enabled. k8sServiceHost/k8sServicePort let Cilium reach the API server directly before
-  # eBPF service rules are active.
-  k8s_service_host = var.kube_proxy_replacement ? regex("https://([^/:]+)", var.cluster_endpoint)[0] : ""
-  k8s_service_port = var.kube_proxy_replacement ? try(tonumber(regex("https://[^:]+:([0-9]+)", var.cluster_endpoint)[0]), 6443) : 0
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
 # Cilium Bootstrap
 #-----------------------------------------------------------------------------------------------------------------------
 # Cilium is installed here (before Flux) so that pod networking is available when the GitOps
@@ -40,11 +28,11 @@ locals {
 # a bootstrap re-run instead of disappearing until Flux's next reconcile.
 
 resource "helm_release" "cilium" {
-  repository   = "https://helm.cilium.io"
+  repository   = var.chart_repository
   chart        = "cilium"
   name         = "cilium"
   reuse_values = true
-  # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
+  # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
   version   = var.cilium_version
   namespace = "kube-system"
   wait      = true
@@ -68,6 +56,26 @@ resource "helm_release" "cilium" {
       # (single-node → 1, everything else → 2); see var.operator_replicas.
       operator = {
         replicas = var.operator_replicas
+        # The chart appends a cloud suffix (e.g. -generic) to this repository.
+        image = {
+          repository = "${var.image_registry}/operator"
+        }
+      }
+
+      # Image repositories follow var.image_registry so a mirror registry can serve every
+      # image the bootstrap install pulls. Tags and digests stay chart-pinned.
+      image = {
+        repository = "${var.image_registry}/cilium"
+      }
+      envoy = {
+        image = {
+          repository = "${var.image_registry}/cilium-envoy"
+        }
+      }
+      certgen = {
+        image = {
+          repository = "${var.image_registry}/certgen"
+        }
       }
 
       # ztunnel encryption is unused (encryption.type stays at its ipsec default); the
@@ -89,8 +97,8 @@ resource "helm_release" "cilium" {
     # server before its own eBPF service proxy is active.
     var.kube_proxy_replacement ? {
       kubeProxyReplacement = true
-      k8sServiceHost       = local.k8s_service_host
-      k8sServicePort       = local.k8s_service_port
+      k8sServiceHost       = var.k8s_service_host
+      k8sServicePort       = var.k8s_service_port
       } : {
       kubeProxyReplacement = null
       k8sServiceHost       = null

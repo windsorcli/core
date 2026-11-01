@@ -7,19 +7,19 @@ metadata:
 # Docker requires Talos and a workstation runtime; otherwise this facet is a no-op.
 when: "platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true) && (workstation.runtime ?? '') != ''"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Config — docker-specific Talos values
 # =============================================================================
 config:
 
-  # Controlplane at CIDR offset 10; offsets 2–9 reserved for workstation services.
-  - name: talos_common
+  # Container-mode pin: Talos 1.14 hides Docker's /etc/hostname and
+  # /etc/resolv.conf behind its own /etc overlay.
+  - name: talos
+    when: workstation.runtime != 'colima'
     value:
-      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+      # renovate: datasource=github-releases depName=talos-container package=siderolabs/talos
+      talos_version: "1.13.11"
+      kubernetes_version: "1.36.5"
 
   # Node targets for post-cluster steps (e.g. extensions), from compute outputs.
   - name: talos_node_targets
@@ -56,12 +56,13 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      kubernetes_version: ${talos.kubernetes_version ?? null}
 
       # With compute output: pass nodes through; docker-desktop adds a certSANs
       # patch. Without it (bootstrap-from-host): rewrite endpoint/node to

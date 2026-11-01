@@ -8,11 +8,6 @@ metadata:
 # overlay, so this facet owns the full compute → cluster → gitops chain.
 when: "platform == 'hetzner' && cluster.driver == 'talos'"
 
-# Remote state lives in the Talos cluster (Kubernetes backend); the `cluster`
-# component uses local state since it creates the cluster. Hetzner Object Storage
-# is not used for state — it can't encrypt at rest through Terraform's s3 backend.
-backend: cluster
-
 # =============================================================================
 # Requires
 # =============================================================================
@@ -20,10 +15,15 @@ requires:
   - paths:
       - hetzner.token
     message: Set a Hetzner Cloud API token via hetzner.token or the HCLOUD_TOKEN environment variable.
-  - when: (dns.public_domain ?? '') != ''
+  - when: >-
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
+  - when: (dns.private_domain ?? '') != '' && dev != true
+    paths:
+      - hetzner_no_private_domain
+    message: Hetzner has no private DNS and no internal gateway; unset dns.private_domain and use dns.public_domain.
   - when: (hetzner.location ?? 'ash') in ['ash', 'hil']
     paths:
       - hetzner_us_instance_type_ok
@@ -47,23 +47,30 @@ config:
     value:
       token: ${env("HCLOUD_TOKEN")}
 
-  # Cloud block storage (Hetzner Volumes via hcloud-csi) is the default; the
-  # control plane sits at CIDR offset 10 so Cilium's k8sServiceHost is stable and
-  # reachable over the private network. compute/hcloud pins the first control
-  # plane's private IP to the same offset. Every node also has a public NIC;
-  # nodeIP.validSubnets pins kubelet to the private one, since with no hint it
-  # picks the default route (public), and the apiserver then can't reach it on
-  # 10250 past the hcloud firewall.
+  # Cloud block storage (Hetzner Volumes via hcloud-csi) is the default. Every
+  # node also has a public NIC; nodeIP.validSubnets pins kubelet to the private
+  # one, since with no hint it picks the default route (public), and the
+  # apiserver then can't reach it on 10250 past the hcloud firewall.
   - name: talos_common
     value:
       storage_driver: "${cluster.storage.driver ?? 'hcloud'}"
-      k8s_service_host: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)}"
       common_patch:
         machine:
           kubelet:
             nodeIP:
               validSubnets:
                 - "${network.cidr_block ?? '10.5.0.0/16'}"
+
+  # Single-node removes the control-plane LB exclusion label so the Hetzner LB has a target.
+  - name: talos_common
+    when: topology == 'single-node'
+    value:
+      controlplane_patch:
+        machine:
+          nodeLabels:
+            node.kubernetes.io/exclude-from-external-load-balancers:
+              $patch: delete
+      controlplane_config_patches: "${string(talos_common.controlplane_patch)}"
 
   # vCPU/memory (GB) by Hetzner instance type. Hetzner sizes nodes via
   # instance_type, not cluster.controlplanes.cpu/memory, so this map feeds the
@@ -139,6 +146,10 @@ config:
       - ccx43
       - ccx53
       - ccx63
+  # Blank when dns.private_domain is set outside dev mode; the requires block above reads it to fail with a message.
+  - name: hetzner_no_private_domain
+    when: (dns.private_domain ?? '') == '' || dev == true
+    value: ok
   # 'ok' when both pools' types are US-orderable, blank otherwise. Only computed
   # for US locations; the requires block above reads it to fail with a message.
   - name: hetzner_us_instance_type_ok
@@ -158,19 +169,15 @@ config:
   # cloud node lifecycle (topology labels) is not managed; not needed here.
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/hetzner with a public domain → none in private mode,
-  # where the gateway cert uses the `private` issuer platform-base ships.
+  # selfsigned floor, then ACME/hetzner once a public domain is set and pki.public_issuer is not selfsigned.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
-    when: (dns.public_domain ?? '') != ''
+    when: >-
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     value:
       issuer_component: public-issuer/acme/hetzner
-  - name: pki_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
-    value:
-      issuer_component: ""
 
   # Derivable only from compute output; empty string otherwise, so the caller
   # falls back to an explicit cluster.endpoint.
@@ -238,7 +245,7 @@ terraform:
   # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     inputs:
       hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
@@ -249,7 +256,7 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
@@ -260,7 +267,13 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      # The oidc patch drops its "machine:" header to nest under the control-plane patch's header.
+      controlplane_config_patches: >-
+        ${let cp = talos_common.controlplane_config_patches ?? '';
+          let oidc = talos_common.oidc_ca_file_patch ?? '';
+          cp == ''
+            ? oidc
+            : (oidc == '' ? cp : cp + '\n' + trimPrefix(oidc, 'machine:\n'))}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
@@ -293,22 +306,23 @@ flux:
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
 
-  # Gateway install merge. Adds the hcloud Cloud LB annotations to the Envoy
-  # data-plane Service when the gateway runs in loadbalancer mode. hcloud CCM
+  # Gateway install merge. Adds the hcloud Cloud LB annotations to the Gateway
+  # Service (Envoy data plane or Cilium) in loadbalancer mode. hcloud CCM
   # provisions a Hetzner Cloud Load Balancer for the type=LoadBalancer Service.
   #
   # dependsOn lb-install: the Service these annotations create is finalized
   # by hcloud-ccm. Ordering the controller to tear down after the Service
   # avoids stuck finalizers on destroy.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    dependsOn:
-      - lb-install
-    install:
-      components:
-        - envoy/loadbalancer/hcloud-lb
-      substitutions:
-        hcloud_location: "${hetzner.location ?? 'ash'}"
+    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    resources:
+      - name: external
+        dependsOn:
+          - lb-install
+        components:
+          - "${gateway.driver == 'cilium' ? 'cilium/loadbalancer/hcloud-lb' : 'envoy/loadbalancer/hcloud-lb'}"
+        substitutions:
+          hcloud_location: "${hetzner.location ?? 'ash'}"
 
   # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
   # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.
@@ -346,13 +360,9 @@ flux:
       timeout: 5m
       interval: 5m
 
-  # DNS — external-dns via the Hetzner webhook provider. Anchored on the shared
-  # `dns` Kustomization so it composes with addon-private-dns. Public mode only
-  # (Hetzner DNS is a public authoritative service; there is no private-zone
-  # equivalent, so gateway.access=private falls back to selfsigned/private PKI
-  # without external-dns).
+  # DNS — external-dns via the Hetzner webhook provider, public zone only.
   - name: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     secrets:
       hetzner-dns:
         data:
@@ -360,19 +370,33 @@ flux:
     install:
       components:
         - external-dns
-        - external-dns/providers/hetzner
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
-      substitutions:
-        external_domain: "${dns.public_domain ?? ''}"
-        txt_owner_id: "${id}"
+    resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
+      - name: public
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/hetzner
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
 
   # Multi-namespace system — pki-install creates both system-pki and
   # system-pki-trust, so the target is named explicitly. cert-manager's ACME
   # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
   - name: pki
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     secrets:
       hetzner-dns:
         namespaces: [system-pki]

@@ -8,10 +8,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -49,7 +48,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            k8s_service_host: localhost
+            k8s_service_port: 7445
             privileged: false
             cgroup_auto_mount: false
         - name: gitops
@@ -73,7 +73,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -120,9 +121,14 @@ cases:
               - cilium/talos
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
-              loadbalancer_start_ip: "10.5.1.10"
-              loadbalancer_end_ip: "10.5.1.100"
+              k8s_service_host: localhost
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2
+              substitutions:
+                loadbalancer_start_ip: "10.5.1.20"
+                loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
             - policy-resources
@@ -132,6 +138,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
+              local_volume_quota: "true"
     exclude:
       kustomize:
         - name: lb-install
@@ -194,7 +201,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -257,6 +265,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /mnt/data
+              local_volume_quota: "true"
 
   # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step.
   # Also asserts the controlplanes/workers inputs come from the user-supplied node map
@@ -309,6 +318,78 @@ cases:
     exclude:
       terraform:
         - name: cluster-extensions
+
+  - name: flannel defaults the load balancer to kube-vip with the cloud provider
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+              - kube-vip/cloud-provider
+            substitutions:
+              loadbalancer_ip_range: 10.5.1.20-10.5.1.100
+
+  - name: cilium with the none load balancer driver skips the l2 pool
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: none
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: cni-resources
+        - name: lb-install
+
+  - name: cilium with the kube-vip load balancer driver fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: kube-vip
+      cluster: *default-cluster
+    expectError: true
+
+  - name: flannel with the cilium load balancer driver fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: cilium
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: cluster.vip on metal fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.5.0.5:6443
+        vip: true
+    expectError: true
 
   # Requires: metal has no compute layer, so the operator must declare the
   # controlplane nodes that windsor talks to.

@@ -9,10 +9,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   dns: &default-dns
@@ -137,7 +136,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            k8s_service_host: localhost
+            k8s_service_port: 7445
             privileged: false
             cgroup_auto_mount: false
         - name: gitops
@@ -160,7 +160,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -207,9 +208,14 @@ cases:
               - cilium/talos
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
-              loadbalancer_start_ip: "10.5.1.10"
-              loadbalancer_end_ip: "10.5.1.100"
+              k8s_service_host: localhost
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2
+              substitutions:
+                loadbalancer_start_ip: "10.5.1.20"
+                loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
             - policy-resources
@@ -219,6 +225,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
+              local_volume_quota: "false"
     exclude:
       kustomize:
         - name: lb-install
@@ -268,8 +275,6 @@ cases:
                     auto-compaction-retention: "1000"
                     max-snapshots: "3"
                     max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none
@@ -299,7 +304,9 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-      network: *default-network
+      network:
+        <<: *default-network
+        loadbalancer_driver: kube-vip
       cluster:
         driver: talos
         cni:
@@ -343,7 +350,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -390,7 +398,7 @@ cases:
               - kube-vip
               - kube-vip/arp
             substitutions:
-              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+              loadbalancer_ip_range: 10.5.1.20-10.5.1.100
             timeout: 5m
             interval: 5m
         - name: csi
@@ -402,6 +410,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /mnt/data
+              local_volume_quota: "false"
 
   # Workerless single-node: the controlplane runs everything itself, so memory gets the
   # larger baseline; cpu stays flat since it can't scale without knowing host capacity.
@@ -503,3 +512,57 @@ cases:
       kustomize:
         - name: lb-install
         - name: lb-resources
+
+  # Colima uses the Talos 1.13 pin.
+  - name: colima pins the Talos version below 1.14
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              version: "1.13.11"
+              controlplanes:
+                image: ghcr.io/siderolabs/talos:v1.13.11
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.13.11"
+            kubernetes_version: "1.36.5"
+
+  # docker and docker-desktop pin Talos below 1.14.
+  - name: Docker Desktop pins Talos below 1.14
+    values:
+      platform: docker
+      workstation:
+        runtime: docker-desktop
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              version: "1.13.11"
+              controlplanes:
+                image: ghcr.io/siderolabs/talos:v1.13.11
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.13.11"
+            kubernetes_version: "1.36.5"

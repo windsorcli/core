@@ -5,8 +5,29 @@ mock_provider "hyperv" {
       destination_path = "C:\\hyperv\\images\\mock.vhdx"
     }
   }
+  mock_data "hyperv_iso_volume" {
+    defaults = {
+      sha256         = "0000000000000000000000000000000000000000000000000000000000000000"
+      size_bytes     = 1024
+      content_base64 = ""
+    }
+  }
   mock_resource "hyperv_vhd" {}
   mock_resource "hyperv_vm" {}
+  mock_data "hyperv_vm_state" {}
+}
+
+mock_provider "time" {
+  mock_resource "time_sleep" {}
+}
+
+mock_provider "talos" {
+  mock_resource "talos_machine_secrets" {}
+  mock_data "talos_machine_configuration" {
+    defaults = {
+      machine_configuration = "version: v1alpha1\nmachine:\n  type: controlplane\n  # mocked machineconfig\n"
+    }
+  }
 }
 
 # Verifies the module creates a virtual switch with the default Internal type
@@ -83,6 +104,54 @@ run "external_switch" {
   }
 }
 
+# The destroy acknowledgement defaults to false and passes through on External switches.
+run "external_switch_force_management_os_migration_default" {
+  command = plan
+
+  variables {
+    context_id        = "test"
+    switch_type       = "External"
+    net_adapter_names = ["Ethernet"]
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == false
+    error_message = "force_management_os_migration should default to false"
+  }
+}
+
+run "external_switch_force_management_os_migration_set" {
+  command = plan
+
+  variables {
+    context_id                    = "test"
+    switch_type                   = "External"
+    net_adapter_names             = ["Ethernet"]
+    force_management_os_migration = true
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == true
+    error_message = "force_management_os_migration should pass through to the External switch"
+  }
+}
+
+# Non-External switches leave the acknowledgement unset.
+run "internal_switch_ignores_force_management_os_migration" {
+  command = plan
+
+  variables {
+    context_id                    = "test"
+    switch_type                   = "Internal"
+    force_management_os_migration = true
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == null
+    error_message = "force_management_os_migration should be null on non-External switches"
+  }
+}
+
 # Image-file URL mode: provider downloads the VHDX and verifies SHA-256.
 # Expanded instances reference the image by map key, which becomes the
 # differencing-VHD parent path.
@@ -101,7 +170,6 @@ run "url_image_with_instance" {
     instances = [
       {
         name           = "controlplane"
-        role           = "controlplane"
         count          = 1
         image          = "talos"
         cpu            = 2
@@ -120,6 +188,11 @@ run "url_image_with_instance" {
   assert {
     condition     = hyperv_image_file.images["talos"].destination_path == "C:\\hyperv\\images\\talos.vhdx"
     error_message = "image_file destination_path should match the input"
+  }
+
+  assert {
+    condition     = hyperv_image_file.images["talos"].url.runner_download == true
+    error_message = "url.runner_download should default true"
   }
 
   assert {
@@ -167,7 +240,6 @@ run "instance_count_expansion" {
     instances = [
       {
         name   = "worker"
-        role   = "worker"
         count  = 3
         image  = ""
         cpu    = 4
@@ -190,6 +262,11 @@ run "instance_count_expansion" {
   assert {
     condition     = hyperv_vhd.instance_root["worker-1"].vhd_type == "dynamic"
     error_message = "Empty image should produce a fresh dynamic VHDX (no parent)"
+  }
+
+  assert {
+    condition     = alltrue([for w in output.workers : w.instance_id != null && w.instance_id != ""])
+    error_message = "workers[].instance_id should surface each VM's resource id"
   }
 }
 
@@ -252,6 +329,155 @@ run "url_image_with_compression" {
   }
 }
 
+# name_suffix namespaces the Hyper-V VM name and the default root VHDX so two
+# contexts can share a host. Output hostnames stay unsuffixed for Talos identity.
+run "name_suffix_namespaces_host_objects" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    name_suffix   = "-ctx1"
+    talos_version = "1.12.6"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 2
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = hyperv_vm.instances["controlplane-1"].name == "controlplane-1-ctx1"
+    error_message = "VM name should carry name_suffix after the pool index"
+  }
+
+  assert {
+    condition     = hyperv_vhd.instance_root["controlplane-1"].path == "C:\\hyperv\\vhds\\controlplane-1-ctx1.vhdx"
+    error_message = "Default root VHDX filename should carry name_suffix"
+  }
+
+  assert {
+    condition     = local.instances[0].hostname == "controlplane-1"
+    error_message = "Output hostname should stay unsuffixed"
+  }
+}
+
+# DHCP VMs wait after create so controlplanes is not empty on the first apply.
+run "dhcp_waits_for_guest_ipv4" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    talos_version = "1.12.6"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 1
+    error_message = "DHCP instances should wait for a guest IPv4"
+  }
+}
+
+run "static_ipv4_skips_guest_wait" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    talos_version = "1.12.6"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        ipv4           = "10.5.0.10"
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "Declared ipv4 should skip the guest IP wait"
+  }
+}
+
+run "guest_ipv4_timeout_zero_skips_wait" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    talos_version      = "1.12.6"
+    guest_ipv4_timeout = "0s"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "guest_ipv4_timeout 0s should skip the wait"
+  }
+}
+
+# Any spelling of a zero duration skips the wait, not just the literal "0s".
+run "guest_ipv4_timeout_compound_zero_skips_wait" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    talos_version      = "1.12.6"
+    guest_ipv4_timeout = "0h0m0s"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "A zero duration in any unit should skip the wait"
+  }
+}
+
+# Host-direct url-mode: runner_download false leaves the GET on the Hyper-V host.
+run "url_image_host_download" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    images = {
+      talos = {
+        destination_path = "C:\\hyperv\\images\\talos.vhdx"
+        url              = "https://factory.talos.dev/image/test/v1.12.6/hyperv-amd64.vhdx"
+        runner_download  = false
+      }
+    }
+  }
+
+  assert {
+    condition     = hyperv_image_file.images["talos"].url.runner_download == false
+    error_message = "url.runner_download false should reach the resource"
+  }
+}
+
 # DVD attachment via images-map key: dvd_iso_path resolves through the
 # images map's destination_path, mirroring the parent-image resolution rule.
 # boot_from_dvd flips the gen 2 boot_order to lead with the DVD slot.
@@ -270,7 +496,6 @@ run "dvd_iso_install_flow" {
     instances = [
       {
         name           = "controlplane"
-        role           = "controlplane"
         count          = 1
         image          = ""
         root_disk_size = 30
@@ -401,42 +626,44 @@ run "secure_boot_template_for_windows" {
   }
 }
 
-# CIDATA ISO attached as a second DVD alongside the OS ISO. Verifies that
-# both entries land with the expected slot identifiers (1 = OS, 2 = CIDATA)
-# and that the CIDATA path is NOT in boot_order (it's data, not bootable).
-run "cidata_iso_attached_as_second_dvd" {
+# CIDATA ISO built internally from machineconfigs: verifies both the OS ISO and
+# the auto-generated CIDATA ISO attach as two DVDs at slots 1 and 2.
+run "cidata_iso_built_from_machineconfigs" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
     images = {
       talos-iso = {
         destination_path = "C:/hyperv/iso/metal-amd64.iso"
       }
-      cp-cidata = {
-        destination_path = "C:/hyperv/iso/cp-cidata.iso"
-      }
     }
     instances = [
       {
-        name            = "controlplane"
-        role            = "controlplane"
-        count           = 1
-        image           = ""
-        dvd_iso_path    = "talos-iso"
-        cidata_iso_path = "cp-cidata"
-        boot_from_dvd   = false
-        generation      = 2
-        secure_boot     = false
-        cpu             = 2
-        memory          = 4
+        name          = "controlplane"
+        role          = "controlplane"
+        count         = 1
+        image         = ""
+        dvd_iso_path  = "talos-iso"
+        boot_from_dvd = false
+        generation    = 2
+        secure_boot   = false
+        cpu           = 2
+        memory        = 4
+        ipv4          = "10.5.0.10"
       },
     ]
   }
 
   assert {
     condition     = length(hyperv_vm.instances["controlplane"].dvd_drive) == 2
-    error_message = "Two DVDs expected when both dvd_iso_path and cidata_iso_path are set"
+    error_message = "Two DVDs expected: OS ISO at slot 1, CIDATA at slot 2"
   }
 
   assert {
@@ -451,45 +678,189 @@ run "cidata_iso_attached_as_second_dvd" {
 
   assert {
     condition     = length([for entry in hyperv_vm.instances["controlplane"].boot_order : entry if entry.controller_location == 2]) == 0
-    error_message = "CIDATA slot must not appear in boot_order — it's runtime-discovered data, not a boot source"
+    error_message = "CIDATA slot must not appear in boot_order"
   }
 }
 
-# CIDATA ISO without an OS ISO: the cidata_iso_path entry survives but takes
-# slot 2 (not slot 1) — slot mapping is positional intent, not packed indexing.
+# CIDATA without OS ISO: confirms the CIDATA ISO still lands at slot 2 when
+# no dvd_iso_path is set, keeping slot mapping intentional rather than packed.
 run "cidata_iso_without_os_iso" {
   command = plan
 
   variables {
-    context_id = "test"
-    images = {
-      seed = {
-        destination_path = "C:/hyperv/iso/seed.iso"
-      }
-    }
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
     instances = [
       {
-        name            = "preprovisioned"
-        count           = 1
-        image           = "" # bring-your-own VHDX would normally have a parent here; testing the orthogonal CIDATA path
-        cidata_iso_path = "seed"
-        generation      = 2
-        secure_boot     = false
-        cpu             = 2
-        memory          = 2
+        name        = "controlplane"
+        role        = "controlplane"
+        count       = 1
+        image       = ""
+        generation  = 2
+        secure_boot = false
+        cpu         = 2
+        memory      = 2
+        ipv4        = "10.5.0.10"
       },
     ]
   }
 
   assert {
-    condition     = length(hyperv_vm.instances["preprovisioned"].dvd_drive) == 1
-    error_message = "Single DVD expected when only cidata_iso_path is set"
+    condition     = length(hyperv_vm.instances["controlplane"].dvd_drive) == 1
+    error_message = "Single DVD (CIDATA) expected when no dvd_iso_path is set"
   }
 
   assert {
-    condition     = hyperv_vm.instances["preprovisioned"].dvd_drive[0].controller_location == 2
-    error_message = "CIDATA-only configuration still pins the CIDATA at slot 2; slot 1 stays empty rather than packing"
+    condition     = hyperv_vm.instances["controlplane"].dvd_drive[0].controller_location == 2
+    error_message = "CIDATA-only still pins at slot 2; slot 1 stays empty"
   }
+}
+
+# DHCP: CIDATA network-config requests dhcp4; the machineconfig still bakes
+# when cluster_endpoint is set, since the identity is known ahead of the lease.
+run "dhcp_with_endpoint_bakes_dhcp4" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://talos.plant.local:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_dhcp     = true
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+      },
+    ]
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
+    error_message = "DHCP CIDATA network-config should set dhcp4: true"
+  }
+
+  assert {
+    condition     = contains(keys(data.hyperv_iso_volume.cidata["controlplane"].files), "user-data")
+    error_message = "cluster_endpoint set should still bake user-data machineconfig"
+  }
+
+  assert {
+    condition     = length(data.talos_machine_configuration.controlplane) == 1
+    error_message = "One controlplane machineconfig expected when baking"
+  }
+}
+
+# Empty cluster_endpoint skips the machineconfig bake; CIDATA is network-only
+# until cluster/talos can apply the config once a DHCP lease exists.
+run "dhcp_without_endpoint_skips_machineconfig" {
+  command = plan
+
+  variables {
+    context_id      = "test"
+    talos_version   = "1.12.6"
+    destination_dir = "C:/hyperv/images"
+    network_dhcp    = true
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+      },
+    ]
+  }
+
+  assert {
+    condition     = talos_machine_secrets.this[0].talos_version == "v1.12.6"
+    error_message = "Cluster identity must exist even when the machineconfig is not baked"
+  }
+
+  assert {
+    condition     = length(data.talos_machine_configuration.controlplane) == 0
+    error_message = "Empty cluster_endpoint should skip machineconfig data sources"
+  }
+
+  assert {
+    condition     = !contains(keys(data.hyperv_iso_volume.cidata["controlplane"].files), "user-data")
+    error_message = "CIDATA should omit user-data when the machineconfig is not baked"
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
+    error_message = "DHCP CIDATA network-config should set dhcp4: true without a bake"
+  }
+}
+
+# An endpoint IP no control plane uses bakes into the control planes as the shared VIP
+run "controlplane_vip_baked" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.5:6443"
+    controlplane_vip = true
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "10.5.0.5"
+    error_message = "VIP should be the cluster_endpoint host"
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.controlplane["controlplane"].config_patches, local.vip_patch)
+    error_message = "Control-plane machineconfig should carry the VIP patch"
+  }
+
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].vip.ip == "10.5.0.5"
+    error_message = "VIP patch should set the interface vip"
+  }
+}
+
+# controlplane_vip with an endpoint that is a control-plane IP fails the plan
+run "controlplane_vip_rejects_node_ip" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    controlplane_vip = true
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+    ]
+  }
+
+  expect_failures = [data.talos_machine_configuration.controlplane]
 }
 
 # Overlap validation: extra_port_forwards must not reuse an external port

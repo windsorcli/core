@@ -19,16 +19,16 @@ composition. Links from there land here.
 | [cni](cni/) | Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux. |
 | [compute](compute/) | Node-lifecycle controllers for elastic clusters (EKS cluster-autoscaler). |
 | [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed. |
-| [database](database/) | CloudNativePG operator for in-cluster PostgreSQL. |
+| [database](database/) | CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL. |
 | [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
 | [dns](dns/) | external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS. |
-| [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external Gateway. |
+| [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways. |
 | [identity](identity/) | Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer. |
 | [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters. |
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |
 | [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |
 | [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME). |
 | [policy](policy/) | Kyverno admission controller and the cluster's baseline policies. |
-| [provisioning](provisioning/) | Crossplane, provider-aws-rds, and provider-azure-dbforpostgresql for application-requested cloud databases. |
+| [provisioning](provisioning/) | Crossplane, provider-aws-rds, provider-azure-dbforpostgresql, and provider-gcp-sql for application-requested cloud databases. |
 | [telemetry](telemetry/) | kube-prometheus-stack and FluentBit for cluster-level metrics and log collection. |
 <!-- END_INDEX -->

@@ -3,8 +3,6 @@ title: "ADR-0011: Crossplane — Azure Database for PostgreSQL Flexible Server"
 description: Adds database.postgres.driver — flexibleserver, installing Crossplane's provider-azure-dbforpostgresql so a Helm chart installed on top of core can request an Azure-managed Postgres database, the same posture ADR-0009 built for AWS. Extends the fast-follow ADR-0009 §5 named but left undecided.
 ---
 
-# ADR-0011: Crossplane — Azure Database for PostgreSQL Flexible Server
-
 ## Status
 
 Proposed. Extends [ADR-0009](0009-crossplane-cloud-databases.md), whose §5 named this

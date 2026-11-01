@@ -16,7 +16,7 @@ spec:
     spec:
       chart: kube-vip
       # renovate: datasource=helm depName=kube-vip package=kube-vip helmRepo=https://kube-vip.github.io/helm-charts
-      version: 0.11.1
+      version: 0.11.2
       sourceRef:
         kind: HelmRepository
         name: kube-vip
@@ -35,7 +35,7 @@ spec:
     image:
       repository: ghcr.io/kube-vip/kube-vip
       # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip
-      tag: v1.2.4@sha256:dde4c0669d9058c74c69c0bc2f0122e26900e1e4b913c03577cb6e4e28083079
+      tag: v1.3.1@sha256:1962f9daf226503f7e6b107f595cb28b7917fd2d0113957075e19a3e5a6c1e33
     env:
       svc_enable: "true"
       svc_election: "true"

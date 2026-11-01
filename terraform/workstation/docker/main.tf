@@ -21,7 +21,12 @@ terraform {
 # =============================================================================
 
 locals {
-  domain_name           = coalesce(var.domain_name, var.context)
+  domain_name = coalesce(var.domain_name, var.context)
+  # Zones beyond domain_name that the Corefile also forwards to the cluster DNS.
+  extra_domain_names = distinct([
+    for d in [var.private_domain_name, var.public_domain_name] : d
+    if d != null && d != "" && d != local.domain_name
+  ])
   git_repo_name         = basename(var.project_root)
   compose_project       = "workstation-windsor-${var.context}"
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
@@ -91,6 +96,7 @@ locals {
     dns_forward_target       = local.dns_forward_target
     use_localhost_networking = local.use_localhost_networking
     host_answer_port         = local.dns_host_answer_port
+    extra_domain_names       = local.extra_domain_names
   }) : ""
 }
 

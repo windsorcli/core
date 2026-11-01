@@ -18,10 +18,7 @@ terraform {
   }
 }
 
-# Tracks the underlying compute instance's identity. When the container/VM behind
-# var.node is replaced (e.g. compute/docker recreating a container for a cpus/memory
-# change), the node keeps the same IP but is a fresh, unbootstrapped Talos install;
-# referencing this in replace_triggered_by forces config re-apply and re-bootstrap.
+# Replaces the config apply when the compute instance behind var.node is replaced.
 resource "terraform_data" "instance_replace_trigger" {
   input = var.instance_id
 }
@@ -66,7 +63,7 @@ data "talos_machine_configuration" "this" {
 # Apply the machine configuration to the node. Skipped when the config is
 # delivered out-of-band (CIDATA seed on hyperv) — re-applying would
 # regenerate without the per-node network patch (lives in
-# cluster/talos/config) and wipe the static IP back to DHCP.
+# compute/hyperv) and wipe the static IP back to DHCP.
 resource "talos_machine_configuration_apply" "this" {
   count = var.skip_machine_config_apply ? 0 : 1
 
@@ -96,10 +93,6 @@ resource "talos_machine_bootstrap" "bootstrap" {
   node                 = var.node
   endpoint             = var.endpoint
   client_configuration = var.client_configuration
-
-  lifecycle {
-    replace_triggered_by = [terraform_data.instance_replace_trigger]
-  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

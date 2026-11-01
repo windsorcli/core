@@ -17,7 +17,7 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
+      # renovate: datasource=docker depName=ghcr.io/prometheus-community/charts/kube-prometheus-stack package=ghcr.io/prometheus-community/charts/kube-prometheus-stack
       version: 88.6.5
       sourceRef:
         kind: HelmRepository
@@ -45,24 +45,24 @@ spec:
       priorityClassName: windsorcli-platform-critical
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
-        tag: v0.93.1@sha256:e52bb28fd41c98dd407c7a8cba8bdcfe7eabd7447e250afaf1fe7bb816dedbff
+        tag: v0.94.1@sha256:7c88d4e7bae63bd8d0f8da986054337c23b4472fa8d3c6817f5bc4b8407a2d6a
       prometheusConfigReloader:
         image:
           # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-config-reloader package=quay.io/prometheus-operator/prometheus-config-reloader
-          tag: v0.93.1@sha256:428f088fe6fe07ab138bda92113664b04848a1dc408e4d3680a60ecdb55d1a65
+          tag: v0.94.1@sha256:06b52bd4dbe3ed6dd5905aadaf8b9987d9da4c31d37bb86deaadae68cee2d26b
       admissionWebhooks:
         patch:
           image:
             # renovate: datasource=docker depName=ghcr.io/jkroepke/kube-webhook-certgen package=ghcr.io/jkroepke/kube-webhook-certgen
-            tag: 1.8.8@sha256:cd85a621724cd9043a5b46a784578fa159437712f920166389fce830554e1c44
+            tag: 1.11.0@sha256:778d97dc3986355625e14392419b3364c487a7c807d4d86ddad1df369129b082
     prometheus:
       prometheusSpec:
         priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
-        version: v3.14.0
+        version: v3.15.1
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
-          tag: v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+          tag: v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
@@ -71,11 +71,39 @@ spec:
         serviceMonitorSelector: { }
         podMonitorNamespaceSelector: { }
         podMonitorSelector: { }
+    kubelet:
+      serviceMonitor:
+        # Chart default list, with container_cpu_cfs_throttled_seconds_total kept.
+        cAdvisorMetricRelabelings:
+          - sourceLabels: [__name__]
+            action: drop
+            regex: 'container_cpu_(load_average_10s|system_seconds_total|user_seconds_total)'
+          - sourceLabels: [__name__]
+            action: drop
+            regex: 'container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)'
+          - sourceLabels: [__name__]
+            action: drop
+            regex: 'container_memory_(mapped_file|swap)'
+          - sourceLabels: [__name__]
+            action: drop
+            regex: 'container_(file_descriptors|tasks_state|threads_max)'
+          - sourceLabels: [__name__, scope]
+            action: drop
+            regex: 'container_memory_failures_total;hierarchy'
+          - sourceLabels: [__name__, interface]
+            action: drop
+            regex: 'container_network_.*;(cali|cilium|cni|lxc|nodelocaldns|tunl).*'
+          - sourceLabels: [__name__]
+            action: drop
+            regex: 'container_spec.*'
+          - sourceLabels: [id, pod]
+            action: drop
+            regex: '.+;'
     alertmanager:
       alertmanagerSpec:
         priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/alertmanager package=prometheus/alertmanager
-        version: v0.34.1
+        version: v0.34.2
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/alertmanager package=quay.io/prometheus/alertmanager
           tag: v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a

@@ -1,9 +1,7 @@
 ---
-title: cluster/talos/extensions
+title: Talos Extensions
 description: Talos image build with system extensions.
 ---
-
-# cluster/talos/extensions
 
 Resolves a Talos installer image carrying the requested system extensions
 through the Talos Image Factory, returning a stable schematic ID and the
@@ -23,7 +21,7 @@ worker nodes when the image changes.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
 ## Modules

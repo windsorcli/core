@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -37,7 +36,7 @@ cases:
       flux:
         - name: pki
           install:
-            timeout: 10m
+            timeout: 20m
             interval: 5m
             components:
               - trust-manager
@@ -47,10 +46,8 @@ cases:
               components:
                 - private-issuer/ca
 
-  # Edge case: Non-dev mode excludes selfsigned issuer
-  # Non-dev metal falls back to the platform's private-issuer/selfsigned rather
-  # than dev's public-issuer/selfsigned.
-  - name: dev disabled falls back to the platform selfsigned issuer
+  # Non-dev metal still gets the cluster CA issuer.
+  - name: dev disabled keeps the cluster CA issuer
     values:
       platform: metal
       dev: false
@@ -63,7 +60,7 @@ cases:
         - name: pki
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # Regression: dev mode auto-enables observability; the dev-credentials patch (a plain
   # HelmRelease values patch) has no dependency on telemetry-install, so disabling

@@ -1,0 +1,6 @@
+- op: add
+  path: /spec/sources/-
+  value:
+    secret:
+      name: pki-trusted-cas
+      key: ca.crt

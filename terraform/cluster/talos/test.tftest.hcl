@@ -35,6 +35,14 @@ run "minimal_configuration" {
     condition     = length(module.controlplanes) == 0
     error_message = "No additional controlplanes should be created in minimal config"
   }
+  assert {
+    condition     = yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].name == "kubelet-csr-approver"
+    error_message = "kubelet-csr-approver inlineManifest should be enabled by default"
+  }
+  assert {
+    condition     = strcontains(yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].contents, "kind: Deployment")
+    error_message = "kubelet-csr-approver inlineManifest should carry the vendored manifest"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set
@@ -64,6 +72,7 @@ run "full_configuration" {
           extraArgs:
             - "--max-pods=110"
     EOT
+    enable_kubelet_csr_approver = false
     controlplanes = [
       {
         hostname = "cp1"
@@ -99,6 +108,10 @@ run "full_configuration" {
   assert {
     condition     = length(module.controlplanes) == 0
     error_message = "No additional controlplanes should be created in this config"
+  }
+  assert {
+    condition     = local.kubelet_csr_approver_patch == ""
+    error_message = "kubelet-csr-approver inlineManifest should be omitted when disabled"
   }
   assert {
     condition     = length(module.workers) == 1
@@ -179,6 +192,81 @@ run "multi_node_configuration" {
   }
 }
 
+# Verifies that an endpoint IP no control plane uses becomes the shared VIP on the given interface
+run "vip_inferred_from_endpoint" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.5:6443"
+    vip_interface = {
+      deviceSelector = { physical = true }
+      dhcp           = true
+    }
+    controlplanes = [
+      { endpoint = "10.0.0.10:50000", node = "10.0.0.10" },
+      { endpoint = "10.0.0.11:50000", node = "10.0.0.11" },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "10.0.0.5"
+    error_message = "VIP should be the cluster_endpoint host"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].vip.ip == "10.0.0.5"
+    error_message = "VIP patch should set the interface vip"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].deviceSelector.physical == true
+    error_message = "VIP patch should keep the interface deviceSelector"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].dhcp == true
+    error_message = "VIP patch should keep the interface dhcp setting"
+  }
+}
+
+# Verifies that vip_interface with an endpoint that is a control-plane address fails the plan
+run "vip_rejects_controlplane_ip" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.10:6443"
+    vip_interface    = { deviceSelector = { physical = true } }
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  expect_failures = [terraform_data.endpoint_check]
+}
+
+# Verifies that no VIP is configured without vip_interface
+run "vip_skipped_without_interface_or_ip" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.5:6443"
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  assert {
+    condition     = local.vip == ""
+    error_message = "No VIP should be configured without vip_interface"
+  }
+}
+
+# Verifies that vip_interface with a hostname endpoint fails the plan
+run "vip_rejects_hostname" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://api.example.com:6443"
+    vip_interface    = { deviceSelector = { physical = true } }
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  expect_failures = [terraform_data.endpoint_check]
+}
+
 # Verifies that no configuration files are generated when context_path is empty,
 # preventing unnecessary file creation in the root directory
 run "no_config_files" {
@@ -208,8 +296,7 @@ run "no_config_files" {
 
 }
 
-# Verifies instance_id flows through to the machine module so replace_triggered_by
-# can react when the underlying compute instance (e.g. a docker_container) is recreated.
+# Verifies instance_id flows through to each node's machine module.
 run "instance_id_propagates" {
   command = plan
 

@@ -1,11 +1,9 @@
 ---
-title: compute/docker
+title: Docker
 description: Talos containers on Docker.
 ---
 
-# compute/docker
-
-VM substrate for Talos clusters when the host runtime is Docker. Default
+Container substrate for Talos clusters when the host runtime is Docker. Default
 on macOS / Linux developer machines; works against Docker Desktop or
 Colima — anything exposing a local Docker socket. Provisions Talos
 control-plane and worker containers that the `cluster/talos` module then
@@ -17,15 +15,15 @@ brings up via the Talos API.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.5.0 |
+| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.6.0 |
 | <a name="requirement_external"></a> [external](#requirement\_external) | ~> 2.3 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.5.0 |
-| <a name="provider_external"></a> [external](#provider\_external) | 2.4.1 |
+| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.6.0 |
+| <a name="provider_external"></a> [external](#provider\_external) | 2.4.2 |
 
 ## Modules
 
@@ -35,17 +33,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/container) | resource |
-| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
-| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/network) | resource |
-| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/volume) | resource |
+| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/container) | resource |
+| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/image) | resource |
+| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/network) | resource |
+| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/volume) | resource |
 | [external_external.docker_host](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_cluster_nodes"></a> [cluster\_nodes](#input\_cluster\_nodes) | Declare controlplanes and workers by count and image. Module expands to N+M containers; shape (ports, volumes, env) is chosen by distribution. hostports: first controlplane gets controlplanes.hostports when no workers, else first worker gets workers.hostports. | <pre>object({<br/>    distribution = optional(string, "talos")<br/>    controlplanes = object({<br/>      count     = number<br/>      image     = string<br/>      cpu       = optional(number, 2)<br/>      memory    = optional(number, 2)        # GB<br/>      volumes   = optional(list(string), []) # source:dest; source = host path (/ or .) for bind mount, or volume name for named volume. Appended to distribution shape.<br/>      hostports = optional(list(string), []) # host:container/protocol. Applied to first controlplane when no workers (primary node).<br/>    })<br/>    workers = object({<br/>      count     = number<br/>      image     = string<br/>      cpu       = optional(number, 4)<br/>      memory    = optional(number, 4)        # GB<br/>      volumes   = optional(list(string), []) # source:dest; host path or named volume. Appended to distribution shape.<br/>      hostports = optional(list(string), []) # host:container/protocol. Applied to first worker when workers exist (primary node).<br/>    })<br/>  })</pre> | `null` | no |
+| <a name="input_cluster_nodes"></a> [cluster\_nodes](#input\_cluster\_nodes) | Declare controlplanes and workers by count and image. Module expands to N+M containers; shape (ports, volumes, env) is chosen by distribution. hostports: first controlplane gets controlplanes.hostports when no workers, else first worker gets workers.hostports. | <pre>object({<br/>    distribution = optional(string, "talos")<br/>    version      = optional(string) # Distribution version (e.g. "1.14.2"); unset uses the Talos < 1.14 volume layout.<br/>    controlplanes = object({<br/>      count     = number<br/>      image     = string<br/>      cpu       = optional(number, 2)<br/>      memory    = optional(number, 2)        # GB<br/>      volumes   = optional(list(string), []) # source:dest; source = host path (/ or .) for bind mount, or volume name for named volume. Appended to distribution shape.<br/>      hostports = optional(list(string), []) # host:container/protocol. Applied to first controlplane when no workers (primary node).<br/>    })<br/>    workers = object({<br/>      count     = number<br/>      image     = string<br/>      cpu       = optional(number, 4)<br/>      memory    = optional(number, 4)        # GB<br/>      volumes   = optional(list(string), []) # source:dest; host path or named volume. Appended to distribution shape.<br/>      hostports = optional(list(string), []) # host:container/protocol. Applied to first worker when workers exist (primary node).<br/>    })<br/>  })</pre> | `null` | no |
 | <a name="input_compose_project"></a> [compose\_project](#input\_compose\_project) | Docker Compose project name (e.g. terraform\_output(workstation, compose\_project)). When set, containers get label com.docker.compose.project so they appear in the same compose group. | `string` | `null` | no |
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |

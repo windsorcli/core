@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -29,6 +28,9 @@ cases:
   # Metal defaults to Cilium CNI → gateway driver is cilium → dns depends on cni for LBIPAM.
   - name: minimal config creates CoreDNS with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       network: *default-network
@@ -39,6 +41,10 @@ cases:
           dependsOn:
             - pki-resources
             - cni-install
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -47,7 +53,6 @@ cases:
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
-              - external-dns/providers/coredns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
   - name: full config creates CoreDNS on Docker Desktop
@@ -74,6 +79,10 @@ cases:
             - pki-resources
             - gateway-install
             - policy-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -81,7 +90,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
   # so dns depends on gateway-install (not cni) and gets coredns/gateway instead of coredns/loadbalancer.
@@ -109,6 +117,10 @@ cases:
             - pki-resources
             - gateway-install
             - policy-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -116,7 +128,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
     exclude:
       flux:
         - name: cni
@@ -130,6 +141,8 @@ cases:
         private:
           enabled: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -140,6 +153,10 @@ cases:
           dependsOn:
             - pki-resources
             - cni-install
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -148,7 +165,6 @@ cases:
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
-              - external-dns/providers/coredns
 
   # Edge: Envoy gateway path includes coredns/gateway for DNS routing through
   # the gateway, and external-dns/gateway-httproute so external-dns watches
@@ -161,6 +177,8 @@ cases:
         private:
           enabled: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -170,6 +188,11 @@ cases:
         - name: dns
           dependsOn:
             - pki-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+                - external-dns/sources/gateway-httproute
           install:
             components:
               - coredns
@@ -177,8 +200,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
-              - external-dns/sources/gateway-httproute
 
   # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-install (it doesn't exist).
   - name: private dns with gateway disabled does not depend on gateway-install
@@ -227,3 +248,56 @@ cases:
         private:
           enabled: true
     expectError: true
+
+  # Port 53 cannot sit on a node port outside a workstation context.
+  - name: private dns with a NodePort internal gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: example.local
+        private:
+          enabled: true
+      gateway:
+        enabled: true
+        driver: envoy
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  # A public domain adds the public zone to the in-cluster DNS.
+  - name: public domain adds the public zone to the private DNS add-on
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      platform: metal
+      dev: true
+      dns:
+        public_domain: public.example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns/public-zone
+            substitutions:
+              public_domain: public.example.com
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/coredns
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: public.example.com
+            - name: private
+              substitutions:
+                external_dns_name: external-dns-private

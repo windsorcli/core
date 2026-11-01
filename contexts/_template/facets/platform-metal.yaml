@@ -8,10 +8,6 @@ metadata:
 # against them. No compute terraform, no network creation.
 when: platform == 'metal'
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Requires
 # =============================================================================
@@ -52,7 +48,7 @@ terraform:
     path: cluster/talos
     parallelism: 1
     dependsOn:
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     inputs:
       cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
       cluster_name: talos

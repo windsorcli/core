@@ -122,7 +122,7 @@ variable "kubeconfig_path" {
 
 # Set true on platforms that deliver the machineconfig out-of-band (e.g. hyperv
 # CIDATA seed) — re-applying via the maintenance API would regenerate the
-# config without the per-node network patch held in cluster/talos/config and
+# config without the per-node network patch held in compute/hyperv and
 # wipe the static IP, leaving the node on DHCP.
 variable "skip_machine_config_apply" {
   description = "When true, skip talos_machine_configuration_apply (config already on the node via out-of-band delivery)."

@@ -5,15 +5,6 @@ metadata:
   namespace: system-observability
 spec:
   values:
-    # Client secret from the grafana-oidc-client Secret in this namespace, provisioned
-    # either declaratively (a supplied ${secret(...)}) or by the in-cluster IdP's
-    # generator. optional:false makes the pod wait for the Secret and start clean once
-    # it lands — no misconfigured boot, no restart needed.
-    envValueFrom:
-      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
-        secretKeyRef:
-          name: grafana-oidc-client
-          key: clientSecret
     grafana.ini:
       server:
         # External URL Grafana advertises; the OAuth redirect_uri is built from it.
@@ -31,5 +22,7 @@ spec:
         token_url: ${oidc_token_url}
         api_url: ${oidc_userinfo_url}
         use_pkce: true
+        # Sends client_id in the request body.
+        auth_style: InParams
         role_attribute_path: ${oidc_role_attribute_path}
         role_attribute_strict: false

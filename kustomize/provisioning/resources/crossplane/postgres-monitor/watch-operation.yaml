@@ -1,0 +1,67 @@
+---
+# Watches ClusterProviderConfig rather than the cloud server kinds: by the
+# time one exists, every driver difference is already resolved, except the
+# server kind/apiVersion its own Composition needs, read off its
+# annotations.
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: postgres-monitor
+spec:
+  watch:
+    apiVersion: postgresql.sql.m.crossplane.io/v1alpha1
+    kind: ClusterProviderConfig
+  concurrencyPolicy: Replace
+  successfulHistoryLimit: 1
+  failedHistoryLimit: 3
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+        - step: ensure-postgres-monitor
+          functionRef:
+            name: function-python
+          input:
+            apiVersion: python.fn.crossplane.io/v1beta1
+            kind: Script
+            script: |
+              from crossplane.function import request, response
+
+              POSTGRES_MONITOR_API = "database.windsorcli.dev/v1alpha1"
+
+
+              def build_postgres_monitor(server_name, server_api_version, server_kind, owner_refs):
+                  return {
+                      "apiVersion": POSTGRES_MONITOR_API,
+                      "kind": "PostgresMonitor",
+                      "metadata": {"name": server_name, "ownerReferences": owner_refs},
+                      "spec": {
+                          "serverName": server_name,
+                          "serverApiVersion": server_api_version,
+                          "serverKind": server_kind,
+                      },
+                  }
+
+
+              def operate(req, rsp):
+                  config = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  server_name = config["metadata"]["name"]
+                  annotations = config.get("metadata", {}).get("annotations") or {}
+                  server_api_version = annotations.get("database.windsorcli.dev/server-api-version", "")
+                  server_kind = annotations.get("database.windsorcli.dev/server-kind", "")
+                  if not server_api_version or not server_kind:
+                      response.set_output(rsp, {"waiting": f"ClusterProviderConfig/{server_name} has no server annotations yet"})
+                      return
+
+                  owner_refs = [{
+                      "apiVersion": config["apiVersion"],
+                      "kind": config["kind"],
+                      "name": server_name,
+                      "uid": config["metadata"]["uid"],
+                      "blockOwnerDeletion": False,
+                  }]
+
+                  rsp.desired.resources["postgres-monitor"].resource.update(
+                      build_postgres_monitor(server_name, server_api_version, server_kind, owner_refs)
+                  )
+                  response.set_output(rsp, {"postgresMonitor": server_name})

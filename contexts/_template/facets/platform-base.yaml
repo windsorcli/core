@@ -7,6 +7,33 @@ metadata:
 # Skip the facet when no platform is selected (the "none" scaffolding context).
 when: (platform ?? 'none') != 'none'
 
+requires:
+  - when: (pki.public_issuer ?? '') == 'acme'
+    paths:
+      - dns.public_domain
+    message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+  - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
+    paths:
+      - lb_effective.driver_supported
+    message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
+  - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
+    paths:
+      - lb_effective.driver_supported
+    message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
+  - when: cluster.vip == true
+    paths:
+      - cluster.endpoint
+    message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
+  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
+    paths:
+      - cluster_effective.unsupported
+    message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
+  - when: lb_effective.driver == 'metallb'
+    paths:
+      - network.loadbalancer_ips.start
+      - network.loadbalancer_ips.end
+    message: MetalLB assigns LoadBalancer addresses only from network.loadbalancer_ips.
+
 # =============================================================================
 # Config — effective values
 # =============================================================================
@@ -18,6 +45,17 @@ config:
   # Platform identity — fall back to 'none' for a non-null downstream value.
   - name: platform
     value: "${platform ?? 'none'}"
+
+  # Whether core provisions the state backend: cloud storage (managed) or the
+  # Kubernetes state namespace (kubernetes).
+  - name: backend_effective
+    value:
+      managed: >-
+        ${platform == 'aws' ? ((terraform.backend.type ?? 's3') == 's3' && (terraform.backend.s3.bucket ?? '') == '')
+        : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
+        : (platform == 'gcp' ? ((terraform.backend.type ?? 'gcs') == 'gcs' && (terraform.backend.gcs.bucket ?? '') == '')
+        : false))}
+      kubernetes: "${(terraform.backend.type ?? '') == 'kubernetes'}"
 
   # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
@@ -103,40 +141,57 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  # Load balancer. In-cluster LB needed only when the CNI lacks one (Cilium has
-  # built-in L2/BGP) and loadbalancer_driver is set. Cloud platforms use managed
-  # LBs and leave it unset → false.
+  # Service load balancer driver, defaulted from the CNI.
   - name: lb_effective
     value:
-      enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
-      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
+      driver: "${network.loadbalancer_driver ?? (cluster.cni.driver == 'cilium' ? 'cilium' : 'kube-vip')}"
       mode: loadbalancer
 
-  # Docker Desktop has no routable node network, so LoadBalancer Services are
-  # unreachable — force enabled=false and switch the gateway to NodePort.
+  # enabled: kube-vip or MetalLB runs, by default on platforms without a managed load balancer.
+  - name: lb_effective
+    value:
+      enabled: >-
+        ${(lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb') &&
+        ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
+        platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
+      driver_supported: "${lb_effective.driver == 'none' || (lb_effective.driver == 'cilium') == (cluster.cni.driver == 'cilium') ? 'yes' : ''}"
+
+  # Docker Desktop has no routable node network, so LoadBalancer Services are unreachable.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
-      mode: nodeport
 
-  # Explicit gateway.service_type wins over auto-detect. NodePort also forces
-  # enabled=false: a NodePort service never gets a LoadBalancer IP, so the
-  # lb-address patch would reconcile against an IP that never materializes.
+  # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
+  - name: gateway_exposure
+    value:
+      external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      external_node_port: ${gateway.external.node_port ?? 30444}
+      internal_node_port: ${gateway.internal.node_port ?? 30443}
+      external_http_node_port: 30081
+      internal_http_node_port: 30080
+
+  # nodeport: both gateways are NodePort.
+  - name: gateway_exposure
+    value:
+      nodeport: ${gateway_exposure.external == 'NodePort' && gateway_exposure.internal == 'NodePort'}
+
   - name: lb_effective
-    when: gateway.service_type == 'NodePort'
+    value:
+      mode: "${gateway_exposure.nodeport ? 'nodeport' : 'loadbalancer'}"
+
+  # Two NodePort gateways leave the in-cluster LB with no gateway address to serve.
+  - name: lb_effective
+    when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       enabled: false
-      mode: nodeport
-
-  - name: lb_effective
-    when: gateway.service_type == 'LoadBalancer'
-    value:
-      mode: loadbalancer
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
   # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
-  # metal/incus/docker/hyperv when lb_effective.enabled, azure never. Consumers
+  # metal/incus/docker/hyperv/proxmox when lb_effective.enabled, azure never. Consumers
   # dependsOn this so reverse-topo destroy keeps the controller alive to lift its
   # finalizers before its Kustomization is torn down. Keep in sync if a new
   # platform facet creates an lb-install.
@@ -144,17 +199,21 @@ config:
     value:
       controller_required: "${platform == 'aws' || platform == 'hetzner' || lb_effective.enabled == true}"
 
-  # DNS domains. domain: user-facing root. public_domain: publicly-routable
-  # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so
-  # configuring a domain doesn't silently activate ACME. private_domain:
-  # in-cluster records (CoreDNS). dev:true defaults domain/private_domain to
-  # 'test'; public_domain stays empty (no real public DNS).
+  # DNS domains. public_domain: publicly-routable zone (external-dns, ACME SAN),
+  # set only by dns.public_domain. private_domain: in-cluster records (CoreDNS),
+  # falling back to the deprecated dns.domain. dev:true defaults domain/private_domain to 'test'.
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
-      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
+      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
+
+  # dns_zone_effective.enabled: platforms provision the public zone, external-dns
+  # and the DNS-01 identity. dns.public_zone: false keeps public_domain as a hostname only.
+  - name: dns_zone_effective
+    value:
+      enabled: "${(dns.public_domain ?? '') != '' && (dns.public_zone ?? true) == true}"
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -190,16 +249,6 @@ config:
     when: (network.cidr_block ?? '') == ''
     value:
       cidr_block: '10.5.0.0/16'
-  - name: network
-    when: (network.loadbalancer_ips.start ?? '') == ''
-    value:
-      loadbalancer_ips:
-        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
-  - name: network
-    when: (network.loadbalancer_ips.end ?? '') == ''
-    value:
-      loadbalancer_ips:
-        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
   # Telemetry driver. metrics/logs: independent gates, both default on.
   # observability forces both on. logs.driver: 'fluentd' (default),
@@ -224,11 +273,12 @@ config:
         - prometheus/alerts/prometheus
         - prometheus/alerts/coredns
         - prometheus/alerts/cert-manager
+        - prometheus/alerts/x509
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
-        - "${(database.postgres.driver ?? 'cloudnativepg') == 'cloudnativepg' && database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
-        - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'azuredb') && database.postgres.enabled == true ? 'prometheus/alerts/postgres-exporter' : ''}"
+        - "${database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
+        - "${database.postgres.cloud.enabled == true && (database_effective.cloud_driver == 'rds' || database_effective.cloud_driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
 
   # No logs pipeline → nothing to aggregate.
   - name: telemetry
@@ -264,10 +314,10 @@ substitutions:
 # Every kustomization auto-depends on this layer.
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-  - cert-manager-1.21.2
+  - cert-manager-1.21.3
   # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.0' : ''}"
-  # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.2' : ''}"
+  # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
   - "${telemetry.logs.enabled ? 'fluent-operator-4.3.0' : ''}"
 
 # =============================================================================
@@ -288,15 +338,23 @@ terraform:
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
 
-  # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
-  # ahead of cluster/talos so the cert is available for the first machine
-  # config apply, not just a post-hoc reconfigure.
+  # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
   - name: pki
-    when: pki.enabled == true
     path: pki/ca
     inputs:
-      cert: ${pki.private_ca.cert ?? ''}
-      key: ${pki.private_ca.key ?? ''}
+      cert: ${pki.ca.cert ?? pki.private_ca.cert ?? ''}
+      key: ${pki.ca.key ?? pki.private_ca.key ?? ''}
+
+  # Kubernetes backend state namespace, after the cluster that holds it.
+  - name: backend
+    path: backend/kubernetes
+    when: backend_effective.kubernetes == true
+    dependsOn:
+      - "${cluster_provisioned ? 'cluster' : ''}"
+    inputs:
+      namespace: ${terraform.backend.kubernetes.namespace}
+      config_path: "${terraform.backend.kubernetes.config_path ?? ''}"
+      config_context: "${terraform.backend.kubernetes.config_context ?? ''}"
 
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)
@@ -320,24 +378,20 @@ flux:
       interval: 5m
     resources:
       - components:
+          - kyverno
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
         healthChecks:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            name: kyverno-resource-validating-webhook-cfg
-        healthCheckExprs:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            current: webhooks.size() > 0 && webhooks.all(w, has(w.clientConfig.caBundle) && size(w.clientConfig.caBundle) > 0 && has(w.rules) && size(w.rules) > 0)
-        timeout: 5m
+          - apiVersion: batch/v1
+            kind: Job
+            name: kyverno-webhook-probe
+            namespace: system-policy
+        timeout: 8m
         interval: 5m
         retryInterval: 1m
 
-  # In-cluster LB (kube-vip/metallb) whenever the CNI doesn't already provide one and
-  # a driver is set. docker-desktop has no routable node network for LoadBalancer
-  # Services, so it's excluded regardless of driver.
+  # kube-vip or MetalLB, excluded on docker-desktop, which has no routable node network.
   - name: lb
     when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
     install:
@@ -345,15 +399,28 @@ flux:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
+        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
       substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
     resources:
       - components:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          - >-
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal == true &&
+            gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
+            'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
+          - >-
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && (dns.public_domain ?? '') != '' &&
+            gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
+            'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/external-gateway' : ''}
         substitutions:
-          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+          loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
+          gateway_internal_ip: "${gateway_effective.internal_ip ?? ''}"
+          gateway_external_ip: "${gateway_effective.external_ip ?? ''}"
+        timeout: 5m
+        interval: 5m
 
   # csi-install before telemetry-install: Prometheus's PVC needs a live storage
   # driver, both to bind on install and to release its finalizer on destroy.
@@ -365,6 +432,7 @@ flux:
       components:
         - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
         - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+        - "${telemetry.metrics.enabled ? 'x509-exporter' : ''}"
         - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
         - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
       timeout: 30m
@@ -418,12 +486,6 @@ flux:
 
   # Depends on telemetry-install so cert-manager's ServiceMonitor has a
   # working Prometheus target from the moment it's created.
-  #
-  # resources ships ClusterIssuer `private`, the cluster's internal trust anchor:
-  # the etcd certificates name it directly and the gateway certificate resolves
-  # to it whenever there's no public issuer. It exists on every cluster so no
-  # consumer has to test for it. addon-private-ca supplies the CA-backed variant
-  # under the same name when pki.enabled, so this one stands down.
   - name: pki
     dependsOn:
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
@@ -436,7 +498,11 @@ flux:
       interval: 5m
     resources:
       - components:
-          - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
+          # Cloud platforms add their own public issuer.
+          - >-
+            ${(dns.public_domain ?? '') != '' &&
+            !(platform in ['aws', 'azure', 'gcp', 'hetzner']) ?
+            'public-issuer/selfsigned' : ''}
         timeout: 5m
         interval: 5m
 
@@ -475,12 +541,13 @@ flux:
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
     dependsOn:
-      - "${gateway.enabled == true ? 'gateway-resources' : ''}"
+      - "${gateway.enabled == true && gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
     resources:
       - components:
           - webhook
-          - "${gateway.enabled == true ? 'webhook/gateway' : ''}"
-          - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+          # The webhook route binds to the internal gateway.
+          - "${gateway.enabled == true && gateway_effective.internal == true ? 'webhook/gateway' : ''}"
+          - "${gateway.enabled == true && gateway_effective.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
         timeout: 5m
@@ -495,14 +562,35 @@ flux:
   # there), not gateway-install.
   - name: gitops
     path: gitops
-    when: gateway.enabled == true && (gitops.web_ui ?? false) == true
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.internal == true
     dependsOn:
-      - gateway-resources
+      - gateway-resources-internal
     resources:
       - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          external_domain: ${gateway_effective.external_domain}
+          private_domain: ${dns.private_domain}
         timeout: 5m
         interval: 5m
+
+# =============================================================================
+# Messages — post-run notes printed on bootstrap
+# =============================================================================
+messages:
+  # Only the cloud platforms provision a dns-zone to delegate.
+  - when: >-
+      dns_zone_effective.enabled == true &&
+      platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: |-
+      Public DNS zone created for ${dns.public_domain}. Delegate it at your
+      domain registrar by adding these as NS records:
+
+        ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
+
+  - when: >-
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned' &&
+      platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: Certificate issuance won't succeed until delegation propagates.

@@ -6,10 +6,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -39,15 +38,6 @@ cases:
           install:
             components:
               - kyverno
-            healthChecks:
-              - apiVersion: helm.toolkit.fluxcd.io/v2
-                kind: HelmRelease
-                name: kyverno
-                namespace: system-policy
-              - apiVersion: apps/v1
-                kind: Deployment
-                name: kyverno-admission-controller
-                namespace: system-policy
             timeout: 30m
             interval: 5m
           resources:
@@ -55,13 +45,20 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              healthChecks:
+                - apiVersion: batch/v1
+                  kind: Job
+                  name: kyverno-webhook-probe
+                  namespace: system-policy
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - fluentbit
               - metrics-server
             timeout: 30m
@@ -74,6 +71,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -96,7 +94,7 @@ cases:
             interval: 5m
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
               timeout: 5m
               interval: 5m
         - name: observability
@@ -111,15 +109,17 @@ cases:
                 - fluentd/prometheus
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
+        - cert-manager-1.21.3
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.0
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - prometheus-operator-0.94.2
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -142,6 +142,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -200,6 +201,8 @@ cases:
       dns:
         domain: elk.example.com
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -226,6 +229,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/alerts/envoy
               timeout: 10m
@@ -239,11 +243,11 @@ cases:
               - kibana
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - kibana/gateway
               substitutions:
-                external_domain: elk.example.com
+                private_domain: elk.example.com
 
   # Edge case: None driver disables log aggregation
   - name: none driver disables log aggregation
@@ -267,6 +271,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -295,10 +300,18 @@ cases:
       flux:
         - name: policy
           resources:
-            - components: []
-              timeout: 5m
+            - components:
+                - kyverno
+              timeout: 8m
               interval: 5m
               retryInterval: 1m
+    exclude:
+      flux:
+        - name: policy
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
@@ -441,15 +454,15 @@ cases:
               - cert-manager
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
+        - cert-manager-1.21.3
     exclude:
       flux:
         - name: telemetry
         - name: observability
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.0
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - prometheus-operator-0.94.2
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
@@ -471,6 +484,7 @@ cases:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - metrics-server
           resources:
             - components:
@@ -480,6 +494,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
         - name: pki
           dependsOn:
@@ -576,6 +591,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/notifications/slack
                 - fluentbit
@@ -693,6 +709,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
 
@@ -741,13 +758,13 @@ cases:
                 - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - cert-manager-1.21.3
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
     exclude:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.0
+        - prometheus-operator-0.94.2
 
   # Both telemetry pipelines off means telemetry-install itself doesn't compose. Observability
   # has no dependency on it (a plain ordering nicety that bought nothing — external-dns-style
@@ -756,6 +773,8 @@ cases:
   # its HelmRelease-level dependsOn on kube-prometheus-stack are only real when metrics is on.
   - name: observability with both telemetry pipelines disabled still composes
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -782,6 +801,8 @@ cases:
   # opt-out is respected (no prometheus in telemetry's own components).
   - name: observability with only metrics disabled still composes
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -808,6 +829,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -854,8 +877,8 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  # rds driver adds prometheus/alerts/postgres-exporter instead,
-  # gated on driver alone, not observability.enabled.
+  # A cloud driver adds prometheus/alerts/postgres-exporter instead,
+  # gated on cloud.driver alone, not observability.enabled.
   - name: rds database enabled adds the postgres-exporter alert component
     values:
       platform: aws
@@ -865,8 +888,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: telemetry
@@ -887,8 +911,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          cloud:
+            enabled: true
+            driver: azuredb
     expect:
       flux:
         - name: telemetry
@@ -972,3 +997,183 @@ cases:
       flux:
         - name: telemetry
           dependsOn: []
+
+  # Regression (core#2804).
+  - name: dns.public_domain prints a registrar delegation message with the zone's name servers
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        name_servers:
+          - ns-1.awsdns-01.com
+          - ns-2.awsdns-02.org
+    expect:
+      messages:
+        - text: |-
+            Public DNS zone created for example.com. Delegate it at your
+            domain registrar by adding these as NS records:
+
+              ns-1.awsdns-01.com, ns-2.awsdns-02.org
+        - text: Certificate issuance won't succeed until delegation propagates.
+
+  - name: selfsigned public_issuer prints the delegation message without the certificate note
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        name_servers:
+          - ns-1.awsdns-01.com
+          - ns-2.awsdns-02.org
+    expect:
+      messages:
+        - text: |-
+            Public DNS zone created for example.com. Delegate it at your
+            domain registrar by adding these as NS records:
+
+              ns-1.awsdns-01.com, ns-2.awsdns-02.org
+    exclude:
+      messages:
+        - text: Certificate issuance won't succeed until delegation propagates.
+
+  # No message without a public domain to delegate.
+  - name: no delegation message without dns.public_domain
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      messages:
+        - text: Public DNS zone created
+
+  # acme issues certificates for dns.public_domain, so it fails without one.
+  - name: public_issuer acme without a public domain fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        public_issuer: acme
+    expectError: true
+
+  - name: kubernetes backend creates the default state namespace after the cluster
+    applySchemaDefaults: true
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+          inputs:
+            namespace: system-terraform
+
+  - name: kubernetes backend passes the namespace and cluster access through
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+
+  - name: kubernetes backend applies alone against an existing cluster
+    applySchemaDefaults: true
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        enabled: false
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            config_path: /tmp/state-kubeconfig
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: system-terraform
+            config_path: /tmp/state-kubeconfig
+    exclude:
+      terraform:
+        - name: cluster
+
+  - name: kubernetes backend on aws creates the state namespace after eks
+    applySchemaDefaults: true
+    values:
+      platform: aws
+      aws:
+        region: us-east-1
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+
+  - name: other backend types skip the state namespace
+    applySchemaDefaults: true
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: s3
+          s3:
+            bucket: existing-state
+    exclude:
+      terraform:
+        - name: backend

@@ -13,7 +13,19 @@ variable "context" {
 }
 
 variable "domain_name" {
-  description = "Domain name used for DNS zone and hostnames in the Corefile (e.g. dns.domain_name, git.domain_name). Defaults to context when not set."
+  description = "Workstation domain: the DNS zone for the workstation containers and their hostnames in the Corefile (dns.<name>, git.<name>, registry hosts). Defaults to context when not set."
+  type        = string
+  default     = null
+}
+
+variable "private_domain_name" {
+  description = "Private domain the local Corefile also resolves when it differs from domain_name, forwarded to the same dns_forward_target. Unset or equal to domain_name adds no zone."
+  type        = string
+  default     = null
+}
+
+variable "public_domain_name" {
+  description = "Public domain the local Corefile also resolves when it differs from domain_name, forwarded to the same dns_forward_target. Lets a local cluster rehearse both the external and internal gateway (for example public.test beside private.test). Unset or equal to domain_name adds no zone."
   type        = string
   default     = null
 }

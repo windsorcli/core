@@ -6,10 +6,6 @@ metadata:
 
 when: platform == 'gcp'
 
-# Remote state lives in the GCS bucket the `backend` component provisions;
-# `backend` itself uses local state, downstream components point at the bucket.
-backend: backend
-
 # =============================================================================
 # Requires
 # =============================================================================
@@ -17,14 +13,11 @@ requires:
   - paths:
       - gcp.project_id
     message: The GCP provider needs a project ID for every API call.
-  - when: (dns.public_domain ?? '') != ''
+  - when: >-
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
-  - when: gateway.access == 'private'
-    paths:
-      - gcp_private_gateway_supported
-    message: GCP has no private DNS zone or private-gateway wiring yet. Use gateway.access public, or a different platform.
 
 # =============================================================================
 # Config — platform-specific overrides
@@ -38,15 +31,14 @@ config:
     value:
       metrics_server_enabled: false
 
-  # issuer_component selects the public ClusterIssuer variant (last match
-  # wins): selfsigned floor → ACME (clouddns) once a public domain is set.
-  # GCP has no private-zone wiring yet, unlike AWS/Azure, so there's no
-  # private-mode override here.
+  # issuer_component selects the public ClusterIssuer variant (last match wins):
+  # selfsigned floor, then ACME (clouddns) once a public domain is set and pki.public_issuer is not selfsigned.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
-    when: (dns.public_domain ?? '') != ''
+    when: >-
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     value:
       issuer_component: public-issuer/acme/clouddns
 
@@ -64,23 +56,25 @@ terraform:
   # contexts in one project.
   - name: backend
     path: backend/gcs
+    when: backend_effective.managed == true
 
   # VPC at the requested CIDR; GKE attaches to the private subnet.
   - name: network
     path: network/gcp-vpc
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       region: ${gcp.region ?? 'us-central1'}
       cidr_block: ${network.cidr_block}
+      domain_name: ${dns.private_domain ?? ''}
 
-  # Public Cloud DNS zone when dns.public_domain is set. Own stack so its
+  # Public Cloud DNS zone when dns_zone_effective is enabled. Own stack so its
   # lifecycle (and NS delegation) is independent of the cluster's.
   - name: dns-zone
     path: dns/zone/gcp-dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       project_id: ${gcp.project_id}
       domain_name: ${dns.public_domain}
@@ -90,7 +84,9 @@ terraform:
   # writes to just the dns-zone. external-dns Workload Identity is
   # default-on but only granted a zone once one is provisioned. Portable
   # user pools alongside the inline system pool; defaults to one general
-  # pool. Declaring cluster.pools replaces this.
+  # pool, including its ephemeral-derived auto_repair. Declaring
+  # cluster.pools replaces this wholesale, auto_repair included — a chart
+  # that sets its own pools also owns each pool's auto_repair value.
   - name: cluster
     path: cluster/gcp-gke
     dependsOn:
@@ -108,20 +104,28 @@ terraform:
       # topology: ha doubles the always-on system pool so a leader-election
       # standby survives a single node loss; no quorum is needed here. All
       # zones in node_locations stay schedulable regardless (total_*_node_count).
+      # auto_repair off for ephemeral: avoids it racing the pool's own deletion.
       system_node_pool:
         node_count: "${topology == 'ha' ? 2 : 1}"
-      create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
-      cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
-      external_dns_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+        auto_repair: "${!(ephemeral ?? false)}"
+      create_cert_manager_identity: "${dns_zone_effective.enabled == true}"
+      cert_manager_dns_zone_names: "${dns_zone_effective.enabled == true && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+      # external-dns's roles/dns.admin grant is scoped per zone name, so both
+      # the public dns-zone and the private VPC-linked zone are listed when
+      # each is actually provisioned — a context can run both at once.
+      external_dns_dns_zone_names: >-
+        ${concat(
+          dns_zone_effective.enabled == true && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : [],
+          (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_name') ?? '') != '' ? [terraform_output('network', 'private_zone_name')] : [])}
       pools: >-
-        ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
+        ${cluster.pools ?? {"general": {"class": "general", "count": 1, "auto_repair": !(ephemeral ?? false)}}}
 
   # Dependency-edge injector: when ACME is on, cluster must wait for
   # dns-zone so terraform_output('dns-zone', 'zone_name') resolves before
   # the IAM member list is rendered (otherwise the guard evaluates false —
   # no zone access).
   - name: cluster
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     dependsOn:
       - dns-zone
 
@@ -145,7 +149,7 @@ flux:
 
   # Workload Identity for the cert-manager pod, gated on ACME.
   - name: pki
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     install:
       components:
         - cert-manager/gcp-workload-identity
@@ -164,24 +168,59 @@ flux:
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_dns_zone_project: "${gcp.project_id}"
 
-  # DNS — external-dns + Cloud DNS record automation. external-dns writes
-  # A/CNAME records from annotated Ingress/HTTPRoute resources into the
-  # dns-zone stack's zone. Workload Identity is wired by the cluster module.
-  # No private-mode wiring yet — GCP has no VPC-linked private zone, unlike
-  # AWS/Azure.
+  # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute into Cloud DNS, one instance per zone.
+  # Workload Identity comes from the cluster module. Cloud DNS serves both zone kinds the same way, so no zone-ID filter.
   - name: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true || (dns.private_domain ?? '') != ''"
     install:
       components:
         - external-dns
-        - external-dns/providers/google
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
-      substitutions:
-        external_domain: "${dns.public_domain}"
-        google_project_id: "${gcp.project_id}"
-        external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
-        # Context id in TXT records so multiple external-dns instances in a
-        # zone don't clobber each other.
-        txt_owner_id: "${id}"
+    resources:
+      - name: account
+        components:
+          - service-account
+          - service-account/providers/google
+        substitutions:
+          external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
+        timeout: 5m
+        interval: 5m
+      - name: public
+        when: dns_zone_effective.enabled == true
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/google
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          google_project_id: "${gcp.project_id}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        when: (dns.private_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/google
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: "${dns.private_domain ?? ''}"
+          google_project_id: "${gcp.project_id}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+
+  # Merges into option-gateway's internal variant for the internal load balancer.
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
+    resources:
+      - name: internal
+        components:
+          - envoy/loadbalancer/gcp

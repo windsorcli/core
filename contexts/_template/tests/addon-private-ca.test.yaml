@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -28,6 +27,9 @@ cases:
   # Minimal: dev mode enables private-ca addon. Intended: addon pki install tier (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
   - name: minimal config creates private CA with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       network: *default-network
@@ -36,7 +38,7 @@ cases:
       flux:
         - name: pki
           install:
-            timeout: 10m
+            timeout: 20m
             interval: 5m
             components:
               - trust-manager
@@ -58,7 +60,7 @@ cases:
       flux:
         - name: pki
           install:
-            timeout: 10m
+            timeout: 20m
             interval: 5m
             components:
               - trust-manager
@@ -119,13 +121,65 @@ cases:
       network: *default-network
       cluster: *default-cluster
       pki:
-        enabled: true
+        ca:
+          cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
+    expectError: true
+
+  - name: key without cert fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        ca:
+          key: "-----BEGIN PRIVATE KEY-----\nFAKE\n-----END PRIVATE KEY-----"
+    expectError: true
+
+  # pki.private_ca is the deprecated fallback for pki.ca.
+  - name: deprecated private_ca cert without key fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
         private_ca:
           cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
     expectError: true
 
-  # Edge case: pki disabled
-  - name: excludes private CA when pki disabled
+  - name: pki.ca passes the BYO CA to the pki terraform step
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        ca:
+          cert: CERT
+          key: KEY
+    expect:
+      terraform:
+        - name: pki
+          inputs:
+            cert: CERT
+            key: KEY
+
+  - name: deprecated private_ca passes the BYO CA to the pki terraform step
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        private_ca:
+          cert: CERT
+          key: KEY
+    expect:
+      terraform:
+        - name: pki
+          inputs:
+            cert: CERT
+            key: KEY
+
+  # pki.enabled is deprecated and ignored.
+  - name: pki disabled still creates the cluster CA
     values:
       platform: metal
       gateway:
@@ -134,8 +188,56 @@ cases:
       cluster: *default-cluster
       pki:
         enabled: false
-    exclude:
+    expect:
+      terraform:
+        - name: pki
       kustomize:
         - name: pki-resources
           components:
             - private-issuer/ca
+
+  - name: trusted_cas adds the roots to the trust bundle
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        trusted_cas:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTA
+            -----END CERTIFICATE-----
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTB
+            -----END CERTIFICATE-----
+    expect:
+      flux:
+        - name: pki
+          secrets:
+            pki-trusted-cas:
+              namespaces: [system-pki-trust]
+              data:
+                ca.crt: |-
+                  -----BEGIN CERTIFICATE-----
+                  ROOTA
+                  -----END CERTIFICATE-----
+                  -----BEGIN CERTIFICATE-----
+                  ROOTB
+                  -----END CERTIFICATE-----
+      kustomize:
+        - name: pki-resources
+          components:
+            - private-issuer/ca
+            - private-issuer/ca/trusted-cas
+
+  - name: no trusted_cas leaves the trust bundle at the cluster CA
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: pki-resources
+          components:
+            - private-issuer/ca/trusted-cas

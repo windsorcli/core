@@ -8,7 +8,7 @@ metadata:
 spec:
   realm:
     users:
-      # Admin, in platform-admins. Not named "admin": consumers reserve that
+      # Admin, in the admin group. Not named "admin": consumers reserve that
       # username for their own local admin and refuse to onboard it via OIDC.
       - username: dev-admin
         enabled: true
@@ -21,7 +21,7 @@ spec:
             value: ${dev_admin_password}
             temporary: false
         groups:
-          - /platform-admins
+          - /${keycloak_admin_group}
       # Read-only, no group.
       - username: dev-viewer
         enabled: true

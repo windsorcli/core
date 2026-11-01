@@ -6,17 +6,12 @@ on:
     types: [created]
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
-  id-token: write
 
 # The review step only READS the diff and WRITES two files:
 #   /tmp/summary-block.md      — sticky summary body (required)
 #   /tmp/review-comments.json  — inline findings, JSON array (optional)
-# A deterministic "Publish review" step then does every GitHub write via
-# .github/scripts/publish-review.sh. Publishing lives outside the model's
-# tool sandbox, so it can never be permission-denied mid-run and the summary
-# is guaranteed to post even if the review step errors or hits its turn cap.
+# Model jobs hold a read-only token. The publish and resolve-threads-apply
+# jobs run no model and do every GitHub write from main's scripts.
 jobs:
   review:
     name: Full Review
@@ -24,17 +19,22 @@ jobs:
     timeout-minutes: 30
     if: >-
       github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.action != 'synchronize' &&
       github.event.pull_request.user.type != 'Bot' &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
       !github.event.pull_request.draft
+    outputs:
+      pr_number: ${{ github.event.pull_request.number }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
-      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
+      - uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1.0.265
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -42,6 +42,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review this pull request and produce two output files. Do NOT post
             anything to GitHub yourself — a later CI step publishes what you
@@ -106,21 +107,16 @@ jobs:
             --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Write"
             --disallowedTools WebSearch,WebFetch
-      - name: Publish review
+      - name: Upload review output
         if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          # The publish script is CI infrastructure that lives on main, not in the
-          # PR's own tree — a PR branch opened or last pushed before this script was
-          # added won't have it. Always run main's copy regardless of what commit
-          # the checkout step left in the working directory.
-          git fetch --depth=1 origin main
-          git show origin/main:.github/scripts/publish-review.sh > /tmp/publish-review.sh
-          bash /tmp/publish-review.sh
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: review-output
+          path: |
+            /tmp/summary-block.md
+            /tmp/review-comments.json
+          if-no-files-found: ignore
+          retention-days: 1
 
   review-on-comment:
     name: Full Review (on-demand)
@@ -128,30 +124,56 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
+      pull-requests: read
+      actions: read
+    needs: resolve-threads-apply
     if: >-
+      !cancelled() &&
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/review')
+      contains(github.event.comment.body, '/review') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    outputs:
+      pr_number: ${{ github.event.issue.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
     steps:
+      # Reviews only a head commit pushed before the /review comment.
       - name: Get PR details
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTED_AT: ${{ github.event.comment.created_at }}
         run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-          echo "head_sha=$(echo "$PR_JSON" | jq -r .head.sha)" >> "$GITHUB_OUTPUT"
+          PR_JSON=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r .head.sha)
+          PUSHED_AT=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request" \
+            --jq '[.workflow_runs[].created_at] | min // empty')
+          if [ -z "$PUSHED_AT" ] || [[ "$PUSHED_AT" > "$COMMENTED_AT" ]]; then
+            echo "::error::Head $HEAD_SHA has no push recorded before the /review comment. Comment /review again to review it."
+            exit 1
+          fi
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "base_ref=$(echo "$PR_JSON" | jq -r .base.ref)" >> "$GITHUB_OUTPUT"
-          echo "head_ref=$(echo "$PR_JSON" | jq -r .head.ref)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.pr.outputs.head_ref }}
+          # refs/pull/N/head exists in the base repo for fork PRs too; the
+          # head branch name only exists in the fork.
+          ref: refs/pull/${{ github.event.issue.number }}/head
           fetch-depth: 0
+          persist-credentials: false
+      - name: Verify checked-out head
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved after the /review comment. Comment /review again to review it."
+            exit 1
+          fi
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ steps.pr.outputs.base_ref }}
-      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
+      - uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1.0.265
         env:
           PR_NUMBER: ${{ github.event.issue.number }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
@@ -159,6 +181,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review this pull request and produce two output files. Do NOT post
             anything to GitHub yourself — a later CI step publishes what you
@@ -223,39 +246,63 @@ jobs:
             --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Write"
             --disallowedTools WebSearch,WebFetch
-      - name: Publish review
+      - name: Upload review output
         if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
-        run: |
-          # The publish script is CI infrastructure that lives on main, not in the
-          # PR's own tree — a PR branch opened or last pushed before this script was
-          # added won't have it. Always run main's copy regardless of what commit
-          # the checkout step left in the working directory.
-          git fetch --depth=1 origin main
-          git show origin/main:.github/scripts/publish-review.sh > /tmp/publish-review.sh
-          bash /tmp/publish-review.sh
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: review-output
+          path: |
+            /tmp/summary-block.md
+            /tmp/review-comments.json
+          if-no-files-found: ignore
+          retention-days: 1
 
   resolve-threads:
     name: Resolve Threads
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.action == 'synchronize' &&
       github.event.pull_request.user.type != 'Bot' &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
-      !github.event.pull_request.draft
+      !github.event.pull_request.draft) ||
+      (github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/review') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      count: ${{ steps.check.outputs.count }}
     steps:
+      # Resolves only against a head commit pushed before the /review comment.
+      - name: Pin PR head
+        id: pr
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTED_AT: ${{ github.event.comment.created_at }}
+        run: |
+          HEAD_SHA=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)
+          PUSHED_AT=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request" \
+            --jq '[.workflow_runs[].created_at] | min // empty')
+          if [ -z "$PUSHED_AT" ] || [[ "$PUSHED_AT" > "$COMMENTED_AT" ]]; then
+            echo "::error::Head $HEAD_SHA has no push recorded before the /review comment. Comment /review again to review it."
+            exit 1
+          fi
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
       - name: Check for unresolved bot threads
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           OWNER="${GH_REPO%/*}"
           REPO="${GH_REPO#*/}"
@@ -282,25 +329,32 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.check.outputs.count != '0'
         with:
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
           fetch-depth: 1
-      - name: Stage the resolver from main
-        if: steps.check.outputs.count != '0'
+          persist-credentials: false
+      - name: Verify checked-out head
+        if: steps.check.outputs.count != '0' && github.event_name == 'issue_comment'
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          git fetch --depth=1 origin main
-          git show origin/main:.github/scripts/resolve-threads.sh > /tmp/resolve-threads.sh
-      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved after the /review comment. Comment /review again to review it."
+            exit 1
+          fi
+      - uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1.0.265
         if: steps.check.outputs.count != '0'
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           GH_REPO: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           show_full_output: true
           prompt: |
             Your only job is to identify which existing review threads on
-            this PR have been addressed, then hand them to the resolver
-            script. Do NOT call any GitHub write API yourself. Do NOT post
-            new findings or update the PR summary.
+            this PR have been addressed. A later CI step resolves them. Do
+            NOT call any GitHub write API yourself. Do NOT post new findings
+            or update the PR summary.
 
             1. List unresolved review threads:
 
@@ -316,7 +370,7 @@ jobs:
                       }
                     }
                   }
-                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number }}"
+                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number || github.event.issue.number }}"
 
             2. For each unresolved thread authored by the bot (login ending
                in `[bot]`, `github-actions`, or `claude`):
@@ -331,16 +385,80 @@ jobs:
                /tmp/resolve-thread-ids.txt. Write an empty file if none
                qualify.
 
-            4. Run the resolver, which performs the mutations:
-
-              bash /tmp/resolve-threads.sh
-
-               Report its output verbatim. If it exits non-zero, say so.
-
             That is all. Do not run any `gh api graphql` mutation yourself.
             Do not post comments. Do not modify the PR description. Be fast.
           claude_args: |
             --model claude-sonnet-4-6
             --max-turns 15
-            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh api:*),Bash(cat:*),Bash(jq:*),Bash(bash /tmp/resolve-threads.sh),Write"
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh api graphql:*),Bash(jq:*),Write"
             --disallowedTools WebSearch,WebFetch
+      - name: Upload thread ids
+        if: always() && steps.check.outputs.count != '0'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolve-thread-ids
+          path: /tmp/resolve-thread-ids.txt
+          if-no-files-found: ignore
+          retention-days: 1
+
+  resolve-threads-apply:
+    name: Resolve Threads (apply)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: resolve-threads
+    if: >-
+      !cancelled() &&
+      needs.resolve-threads.result == 'success' &&
+      needs.resolve-threads.outputs.count != '0'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: resolve-thread-ids
+          path: /tmp
+      - name: Resolve threads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: bash .github/scripts/resolve-threads.sh
+
+  publish:
+    name: Publish Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [review, review-on-comment]
+    if: >-
+      !cancelled() &&
+      (needs.review.outputs.head_sha || needs.review-on-comment.outputs.head_sha) != ''
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: review-output
+          path: /tmp
+      - name: Reject output containing credentials
+        run: bash .github/scripts/scrub-review.sh
+      - name: Publish review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.review.outputs.pr_number || needs.review-on-comment.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ needs.review.outputs.head_sha || needs.review-on-comment.outputs.head_sha }}
+        run: bash .github/scripts/publish-review.sh

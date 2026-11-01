@@ -1,9 +1,7 @@
 ---
-title: database/gcp-cloudsql
+title: GCP Cloud SQL
 description: Private service connection, KMS key, and admin credentials for Cloud SQL.
 ---
-
-# database/gcp-cloudsql
 
 Shared per-context infrastructure for Cloud SQL, not the database instance
 itself — mirrors `database/aws-rds` and `database/azure-postgres`: a
@@ -21,15 +19,15 @@ so this module provisions its own copy rather than waiting on one.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
-| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.2.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
+| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.7.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
-| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.2.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.8.0 |
+| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.7.0 |
 
 ## Modules
 
@@ -39,12 +37,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.2.0/docs/resources/google_project_service_identity) | resource |
-| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_global_address) | resource |
-| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_key_ring) | resource |
-| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_networking_connection) | resource |
+| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.7.0/docs/resources/google_project_service_identity) | resource |
+| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/compute_global_address) | resource |
+| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_key_ring) | resource |
+| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/service_networking_connection) | resource |
 
 ## Inputs
 
@@ -55,6 +53,7 @@ No modules.
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated KMS key ring and key for Cloud SQL storage encryption. False falls back to Cloud SQL's platform-managed encryption. | `bool` | `true` | no |
 | <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network Cloud SQL peers with for private IP connectivity. Pipe network/gcp-vpc's network\_id output. | `string` | `null` | no |
 | <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
+| <a name="input_private_service_address"></a> [private\_service\_address](#input\_private\_service\_address) | Starting address of the /16 CIDR reserved for Cloud SQL's private service connection. Must not overlap any other range in the VPC. | `string` | `"172.28.0.0"` | no |
 | <a name="input_project_id"></a> [project\_id](#input\_project\_id) | GCP project ID Cloud SQL is created in | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the KMS key ring | `string` | `"us-central1"` | no |
 

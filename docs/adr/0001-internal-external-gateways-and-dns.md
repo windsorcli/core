@@ -3,8 +3,6 @@ title: "ADR-0001: Split external and internal gateways, DNS, and endpoints"
 description: Replace the single gateway and the global gateway.access flip with two optional gateways (external and internal), each provisioned from its domain and carrying its own load balancer, certificate issuer, and DNS zone, so utility services bind to the internal endpoint and applications choose their gateway per route.
 ---
 
-# ADR-0001: Split external and internal gateways, DNS, and endpoints
-
 ## Status
 
 Proposed (2026-06-25). A prior attempt landed milestones 1-3 on

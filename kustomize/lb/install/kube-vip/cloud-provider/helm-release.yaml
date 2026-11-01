@@ -1,0 +1,54 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-vip-cloud-provider
+  namespace: system-lb
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: kube-vip-cloud-provider
+      # renovate: datasource=helm depName=kube-vip-cloud-provider package=kube-vip-cloud-provider helmRepo=https://kube-vip.github.io/helm-charts
+      version: 0.2.10
+      sourceRef:
+        kind: HelmRepository
+        name: kube-vip
+  values:
+    image:
+      repository: kubevip/kube-vip-cloud-provider
+      # renovate: datasource=docker depName=kubevip/kube-vip-cloud-provider package=kubevip/kube-vip-cloud-provider
+      tag: v0.0.13@sha256:b8b6a5180e678b410e2c5dba86b87fa8099ada16e2f067d83f04e749f8ea54ab
+    cm:
+      data:
+        range-global: ${loadbalancer_ip_range}
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 10
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+          - weight: 10
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/master
+                  operator: Exists
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
+    priorityClassName: windsorcli-platform-critical

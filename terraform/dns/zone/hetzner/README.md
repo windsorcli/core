@@ -1,9 +1,7 @@
 ---
-title: dns/zone/hetzner
+title: Hetzner
 description: Creates a primary Hetzner DNS zone via the official hcloud provider.
 ---
-
-# dns/zone/hetzner
 
 Creates a primary Hetzner DNS zone via the official hcloud provider. When
 `parent_zone_name` names a zone in the same Hetzner account, it also creates the
@@ -19,13 +17,13 @@ Cloud API.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.68.0 |
+| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.70.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.68.0 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.70.0 |
 
 ## Modules
 
@@ -35,8 +33,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [hcloud_zone.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/zone) | resource |
-| [hcloud_zone_rrset.delegation](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/zone_rrset) | resource |
+| [hcloud_zone.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.70.0/docs/resources/zone) | resource |
+| [hcloud_zone_rrset.delegation](https://registry.terraform.io/providers/hetznercloud/hcloud/1.70.0/docs/resources/zone_rrset) | resource |
 
 ## Inputs
 
@@ -53,7 +51,7 @@ No modules.
 
 | Name | Description |
 |------|-------------|
-| <a name="output_nameservers"></a> [nameservers](#output\_nameservers) | Authoritative Hetzner nameservers assigned to the zone. Delegate these at the parent (automated when parent\_zone\_name is set). |
+| <a name="output_name_servers"></a> [name\_servers](#output\_name\_servers) | Authoritative name servers for the zone. Configure these as NS records at your domain registrar so public DNS queries resolve through this zone (automated when parent\_zone\_name is set). |
 | <a name="output_zone_id"></a> [zone\_id](#output\_zone\_id) | Id of the created Hetzner DNS zone. |
 | <a name="output_zone_name"></a> [zone\_name](#output\_zone\_name) | Name of the created zone. |
 <!-- END_TF_DOCS -->

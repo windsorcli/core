@@ -94,3 +94,9 @@ variable "enable_flow_logs" {
   type        = bool
   default     = true
 }
+
+variable "domain_name" {
+  description = "The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. Changing this value on an existing zone destroys it, and every record in it, before creating the replacement."
+  type        = string
+  default     = null
+}

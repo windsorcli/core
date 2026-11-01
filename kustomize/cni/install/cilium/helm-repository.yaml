@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://helm.cilium.io
+  type: oci
+  url: oci://quay.io/cilium/charts

@@ -50,12 +50,16 @@ flux:
     install:
       components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
       substitutions:
-        k8s_service_host: 10.5.0.10
-        loadbalancer_start_ip: 10.5.1.10
-        loadbalancer_end_ip: 10.5.1.30
+        k8s_service_host: localhost
+        k8s_service_port: "7445"
         cluster_name: local
         operator_replicas: "2"
       timeout: 15m
+    resources:
+      - components: [cilium/l2, cilium/l2/pool]
+        substitutions:
+          loadbalancer_start_ip: 10.5.1.10
+          loadbalancer_end_ip: 10.5.1.30
 ```
 
 ### Talos with Cilium as the gateway driver
@@ -115,28 +119,59 @@ Removing this add-on does not restore kube-proxy.
 Hubble TLS certificates rotate via an in-cluster CronJob, so
 cert-manager is not required for Hubble.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
 | Name | Required when | Effect |
 |---|---|---|
-| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. On Talos resolves to a fixed offset from the cluster CIDR; on EKS parsed from the cluster Terraform output. User-facing knob is `cluster.endpoint`. |
+| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. `localhost` on Talos, where KubePrism serves the API on every node; on EKS parsed from the cluster Terraform output. |
+| `k8s_service_port` | optional | API server port for `k8s_service_host`. `7445` (KubePrism) on Talos; defaults to `6443`. |
 | `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (top-level `id` in `values.yaml`). |
 | `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 otherwise. Set from `topology`. |
-| `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos) | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
-| `loadbalancer_end_ip` | `cilium/l2` is enabled (Talos) | End of the LBIPAM IP pool. |
+| `loadbalancer_start_ip` | `cilium/l2/pool` is enabled | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
+| `loadbalancer_end_ip` | `cilium/l2/pool` is enabled | End of the LBIPAM IP pool. |
 
 ## Components
 
-| Component | Enable when | Effect |
+### `cilium`
+
+_Enabled when always._
+
+Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values.
+
+### `cilium/talos`
+
+_Enabled when platform is Talos._
+
+Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot).
+
+### `cilium/gateway`
+
+_Enabled when `gateway.driver: cilium`._
+
+Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile.
+
+### `cilium/prometheus`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Enables Prometheus on the operator, agent, and `cilium-envoy` and creates a ServiceMonitor for each.
+
+### `cilium/hubble`
+
+_Enabled when always._
+
+Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade).
+
+### `cilium/l2`
+
+_Enabled when platform is Talos._
+
+Present in both tiers under the same name. The install tier enables `l2announcements` on the HelmRelease. The resources tier (`cni-resources`) creates `CiliumL2AnnouncementPolicy/default` announcing on all interfaces, after the chart has installed its CRD. Replaces kube-vip and MetalLB on Talos.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `cilium` | always | Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values. |
-| `cilium/talos` | platform is Talos | Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot). |
-| `cilium/gateway` | `gateway.driver: cilium` | Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
-| `cilium/prometheus` | `telemetry.metrics.enabled: true` | Enables Prometheus on the operator and agent and creates a ServiceMonitor for each. |
-| `cilium/hubble` | always | Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade). |
-| `cilium/l2` | platform is Talos | Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos. |
+| `pool` | `network.loadbalancer_ips` is set | `CiliumLoadBalancerIPPool/default` with the configured range, for Services that do not pin an IP. Each gateway's address lives in its own pool from the gateway add-on. |
 
 ## Dependencies
 
@@ -145,7 +180,6 @@ cert-manager is not required for Hubble.
 | `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing MutatingPolicy depends on. |
 | `telemetry-install` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

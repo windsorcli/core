@@ -144,6 +144,28 @@ cases:
             system_node_pool:
               node_count: 2
 
+  # Ephemeral contexts disable node auto-repair: it can race a node pool's
+  # own deletion and stall teardown on short-lived clusters that recreate
+  # routinely (CI, integration testing).
+  - name: ephemeral context disables node pool auto-repair
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      ephemeral: true
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            system_node_pool:
+              auto_repair: "false"
+            pools:
+              general:
+                auto_repair: "false"
+
   # cluster.driver defaults to gke for platform == 'gcp' (platform-base.yaml).
   - name: cluster.driver defaults to gke
     values:
@@ -177,6 +199,7 @@ cases:
               general:
                 class: general
                 count: 1
+                auto_repair: "true"
 
   - name: cluster.pools wires through to gcp-gke module
     values:
@@ -313,12 +336,21 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: example.com
-              google_project_id: windsor-test
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+            - name: public
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Gateway disabled: the dns Kustomization still ships (public_domain alone
   # is enough to want Cloud DNS record management for ingress hostnames),
@@ -347,11 +379,20 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-            substitutions:
-              external_domain: example.com
-              google_project_id: windsor-test
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+            - name: public
+              components:
+                - external-dns/providers/google
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid burning
   # Let's Encrypt prod rate limits during iteration. database.postgres
@@ -423,8 +464,8 @@ cases:
         public_domain: example.com
     expectError: true
 
-  # Requires: GCP has no private DNS zone or private-gateway wiring yet.
-  - name: gateway.access private fails composition on GCP
+  # Public only: no internal gateway variant and no internal-LB component.
+  - name: gateway with envoy on GCP does not add the internal LB component without a private domain
     values:
       platform: gcp
       gcp:
@@ -432,14 +473,38 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/gcp
+
+  # The internal gateway merges envoy/loadbalancer/gcp for the internal load balancer.
+  - name: internal gateway flips the GKE LB to internal
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
       dns:
         private_domain: internal.example.com
-    expectError: true
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/gcp
 
-  # Same guard, without a private domain set — access: private alone is
-  # unsupported on GCP regardless of dns.private_domain.
-  - name: gateway.access private without a private domain also fails composition on GCP
+  # Private domain: external-dns serves the private zone, and the internal gateway uses the private issuer.
+  - name: private domain targets external-dns at the private Cloud DNS zone
     values:
       platform: gcp
       gcp:
@@ -447,5 +512,155 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+            - name: private
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/ca
+
+  # Both domains: one external-dns instance per zone.
+  - name: both domains run one external-dns instance per zone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      email: ops@example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+            - name: public
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+            - name: private
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+
+  - name: existing gcs bucket skips the managed backend component
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      terraform:
+        backend:
+          type: gcs
+          gcs:
+            bucket: my-existing-state
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on gcp skips ACME and the email requirement
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        zone_name: dns-windsor-test
+      cluster:
+        cert_manager_service_account_email: cert-manager@windsor-test.iam.gserviceaccount.com
+        external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+
+  # dns.public_zone: false keeps the public domain as a hostname with no zone,
+  # external-dns or DNS secret.
+  - name: public_zone false on gcp skips the zone and external-dns
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: selfsigned
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+      flux:
+        - name: dns
+
+  - name: public_zone false with acme on gcp fails composition
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: acme
     expectError: true

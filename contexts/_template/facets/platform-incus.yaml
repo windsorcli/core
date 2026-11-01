@@ -9,10 +9,6 @@ metadata:
 # facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================
@@ -20,16 +16,13 @@ config:
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
-  # be met here. Controlplane sits at CIDR offset 10 for a stable k8s_service_host,
-  # unless an explicit cluster.endpoint says otherwise (bridged networks often put
-  # the controlplane at a DHCP-reserved address instead).
+  # be met here.
   - name: talos_common
     value:
       storage_driver: "${cluster.storage.driver ?? 'openebs'}"
       longhorn_default_disk:
         - name: longhorn
           size: 30
-      k8s_service_host: "${(cluster.endpoint ?? '') != '' ? split(split(cluster.endpoint, '://')[1], ':')[0] : cidrhost(network.cidr_block, 10)}"
 
   # Derivable only from compute output; empty string otherwise, so the caller
   # falls back to an explicit cluster.endpoint.
@@ -97,7 +90,7 @@ terraform:
             memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
-            user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
+            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (values(cluster.controlplanes.nodes)[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
             environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
@@ -124,10 +117,12 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      # Incus guests take their addresses from static DHCP leases.
+      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}

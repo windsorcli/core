@@ -1,20 +1,19 @@
 ---
-title: LB add-on
+title: LB
 description: LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters.
+stack_name: LB
 ---
-
-# LB
 
 The cluster's LoadBalancer-Service provider, gated on
 `lb_effective.enabled` and selected by `lb_effective.driver`. Three
 drivers ship.
 
-`aws-lb-controller` is used on EKS to provision real AWS NLB / ALB
-resources outside the cluster. The controller is here, and the AWS-side
-LB lives in the customer's VPC.
+On EKS, `aws-lb-controller` provisions real AWS NLB and ALB resources.
+The controller runs in the cluster; the load balancer it creates lives
+in the customer's VPC.
 
-`metallb` is a speaker DaemonSet that ARP- or BGP-advertises IPs from
-a configured pool. Used on docker / incus / metal clusters.
+`metallb` is a speaker DaemonSet that ARP- or BGP-advertises IPs from a
+configured pool. It runs on docker, incus, and metal clusters.
 
 `kube-vip` is a VIP-style provider for Talos clusters that uses ARP
 for L2 advertisement.
@@ -27,8 +26,7 @@ controller Helm release for whichever driver is active
 advertisement / address-pool config that configures it (compiled
 name: `lb-install` / `lb-resources`), and implicitly depends on
 `install`. All three drivers ship a non-empty `install`, so `resources`
-can always assume the controller ran first — no per-driver dependency
-gymnastics.
+can always assume the controller ran first.
 
 The namespace runs at PSA `privileged` because MetalLB's speaker
 needs host networking, and aws-lb-controller shares the namespace
@@ -71,11 +69,9 @@ flux:
         aws_region: us-east-1
 ```
 
-The controller runs in the cluster and provisions real AWS-side load
-balancers in the customer's VPC. There's no `resources` block because
-AWS LB Controller handles address management through the cloud API.
-`lb_effective.controller_required` is true for this driver, so
-gateway-install depends on lb-install.
+There's no `resources` block because AWS LB Controller handles address
+management through the cloud API. `lb_effective.controller_required` is
+true for this driver, so gateway-install depends on lb-install.
 
 ### MetalLB (docker / incus / metal)
 
@@ -104,14 +100,16 @@ flux:
     install:
       components: [metallb]
     resources:
-      - components: [metallb/arp]
+      - components: [metallb/arp, metallb/arp/internal-gateway]
         substitutions:
-          loadbalancer_ip_range: 10.5.1.10-10.5.1.30
+          loadbalancer_ip_range: 10.5.1.20-10.5.1.30
+          gateway_internal_ip: 10.5.1.10
 ```
 
-The speaker DaemonSet ARP- or BGP-advertises IPs from the configured
-pool on the cluster's L2 subnet. ARP advertisement is the default;
-the pool range comes from `network.loadbalancer_ips.{start,end}`.
+The speaker DaemonSet ARP-advertises IPs from the configured pools on
+the cluster's L2 subnet. The range comes from
+`network.loadbalancer_ips.{start,end}`, and each gateway gets its own
+pool holding `gateway.<name>.ip`.
 
 ### Talos (kube-vip)
 
@@ -138,16 +136,13 @@ flux:
     dependsOn: [policy-resources]
     install:
       components: [kube-vip, kube-vip/arp]
-      substitutions:
-        loadbalancer_ip_range: 10.5.1.10-10.5.1.30
 ```
 
 kube-vip's advertisement mode (`kube-vip/arp`) patches its own
 HelmRelease rather than shipping as a separate CR, so it builds in
 `install` alongside the HelmRelease; `resources` is empty for this
-driver. Advertises a VIP over ARP.
+driver.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -156,23 +151,54 @@ driver. Advertises a VIP over ARP.
 | `cluster_name` | `aws-lb-controller` is enabled | AWS-side cluster name (LBC tag). Sourced from `terraform_output('cluster', 'cluster_name')`. No fallback — LBC tags every AWS resource it owns with this and filters reconciliation by it, so a generic default would let a second cluster in the same account race the tags. |
 | `vpc_id` | `aws-lb-controller` is enabled | VPC ID the LBC operates against. Sourced from `terraform_output('network', 'vpc_id')`. |
 | `aws_region` | `aws-lb-controller` is enabled | AWS region for LBC API calls. Sourced from top-level `aws.region`. |
-| `loadbalancer_ip_range` | `metallb/*` or `kube-vip` component is enabled | IP range the driver advertises (CIDR-style `start-end`). Read by MetalLB's `IPAddressPool` (in `resources`) and by kube-vip's cloud-provider HelmRelease directly (in `install`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`. |
+| `loadbalancer_ip_range` | `metallb/*` or `kube-vip/cloud-provider` component is enabled | IP range the driver advertises (CIDR-style `start-end`). Read by MetalLB's `IPAddressPool` (in `resources`) and by the kube-vip cloud-provider HelmRelease directly (in `install`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`. |
+| `gateway_internal_ip` | `metallb/arp/internal-gateway` is enabled | Address of the internal gateway's pool. Sourced from `gateway.internal.ip`. |
+| `gateway_external_ip` | `metallb/arp/external-gateway` is enabled | Address of the external gateway's pool. Sourced from `gateway.external.ip`. |
 
 ## Components — `lb-install`
 
-| Component | Enable when | Effect |
+### `aws-lb-controller`
+
+_Enabled when platform is AWS._
+
+Helm release of the AWS Load Balancer Controller in `system-lb`. Watches `Service type=LoadBalancer` (NLB) and `Ingress` (ALB) resources and provisions AWS-side LBs against the cluster's VPC. Talks to AWS via the IAM role + Pod Identity the cluster Terraform module provisioned. The chart's `crds/` directory is install-only (Helm never upgrades it); the CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section so they stay current.
+
+### `metallb`
+
+_Enabled when `lb_effective.driver == 'metallb'`._
+
+Helm release of MetalLB in `system-lb`. Installs the controller and speaker DaemonSet. The address pool and advertisement mode come from `lb-resources` (`metallb-arp` or `metallb-layer2`).
+
+### `kube-vip`
+
+_Enabled when `lb_effective.driver == 'kube-vip'`, the default with the flannel CNI on metal, vsphere, hyperv, incus, and proxmox._
+
+Helm release of kube-vip in `system-lb`. Announces the addresses of LoadBalancer Services; pairs with `kube-vip/arp` for L2 advertisement.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `aws-lb-controller` | platform is AWS | Helm release of the AWS Load Balancer Controller in `system-lb`. Watches `Service type=LoadBalancer` (NLB) and `Ingress` (ALB) resources and provisions AWS-side LBs against the cluster's VPC. Talks to AWS via the IAM role + Pod Identity the cluster Terraform module provisioned. The chart's `crds/` directory is install-only (Helm never upgrades it); the CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section so they stay current. |
-| `metallb` | `lb_effective.driver == 'metallb'` | Helm release of MetalLB in `system-lb`. Installs the controller and speaker DaemonSet. The address pool and advertisement mode come from `lb-resources` (`metallb/arp` or `metallb/layer2`). |
-| `kube-vip` | `lb_effective.driver == 'kube-vip'` (Talos clusters) | Helm release of the kube-vip cloud-provider in `system-lb`. Provides VIP-based LoadBalancer Services for Talos clusters where MetalLB is not used; pairs with `kube-vip/arp` for L2 advertisement. |
-| `kube-vip/arp` | kube-vip driver AND `network.loadbalancer_mode == 'arp'` (default) | Patches the kube-vip cloud-provider HelmRelease to enable ARP-based VIP advertisement (Layer 2). |
+| `arp` | kube-vip driver AND `network.loadbalancer_mode == 'arp'` (default) | Patches the kube-vip HelmRelease to enable ARP-based VIP advertisement (Layer 2). |
+| `single-node` | kube-vip driver AND `topology == 'single-node'` | Turns off kube-vip's Service leader election. |
+| `cloud-provider` | kube-vip driver AND `network.loadbalancer_ips` is set | Helm release of the kube-vip cloud-provider, which assigns addresses from `${loadbalancer_ip_range}` to Services that do not pin one. |
 
 ## Components — `lb-resources`
 
-| Component | Enable when | Effect |
+### `metallb-arp`
+
+_Enabled when metallb driver AND `network.loadbalancer_mode == 'arp'` (default)._
+
+MetalLB `IPAddressPool` (range = `${loadbalancer_ip_range}`) plus an `L2Advertisement` selecting it. Use this for flat L2 networks where speakers can ARP-respond on the cluster subnet.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `metallb/arp` | metallb driver AND `network.loadbalancer_mode == 'arp'` (default) | MetalLB `IPAddressPool` (range = `${loadbalancer_ip_range}`) plus an `L2Advertisement` selecting it. Use this for flat L2 networks where speakers can ARP-respond on the cluster subnet. |
-| `metallb/layer2` | metallb driver AND `network.loadbalancer_mode == 'layer2'` | Deprecated alias for `metallb/arp` (same L2Advertisement mechanism). Removed in v0.8.0. |
+| `internal-gateway` | metallb driver AND the internal gateway is a LoadBalancer with `gateway.internal.ip` | `IPAddressPool/gateway-internal` holding only that address, with `autoAssign: false`, plus an `L2Advertisement` selecting it. |
+| `external-gateway` | metallb driver AND the external gateway is a LoadBalancer with `gateway.external.ip` | `IPAddressPool/gateway-external`, the same for the external gateway. |
+
+### `metallb-layer2`
+
+_Enabled when metallb driver AND `network.loadbalancer_mode == 'layer2'`._
+
+Deprecated alias for `metallb-arp` (same L2Advertisement mechanism). Removed in v0.8.0.
 
 ## Dependencies
 
@@ -180,7 +206,6 @@ driver. Advertises a VIP over ARP.
 |---|---|---|
 | `policy-resources` | `policies.enabled: true` | lb-install depends on Kyverno's baseline policies being active before LB controller pods (which run privileged in `system-lb`) are admitted. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

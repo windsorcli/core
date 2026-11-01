@@ -6,7 +6,7 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
   }
 
   assert {
@@ -25,8 +25,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = helm_release.cilium.repository == "https://helm.cilium.io"
-    error_message = "Repository should be the official Cilium Helm repo"
+    condition     = helm_release.cilium.repository == "oci://quay.io/cilium/charts"
+    error_message = "Repository should be the official Cilium OCI chart registry"
   }
 
   assert {
@@ -56,12 +56,12 @@ run "minimal_configuration" {
 
   assert {
     condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "10.5.0.10"
-    error_message = "k8sServiceHost should be parsed from cluster_endpoint"
+    error_message = "k8sServiceHost should reflect the k8s_service_host input"
   }
 
   assert {
     condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 6443
-    error_message = "k8sServicePort should be parsed from cluster_endpoint"
+    error_message = "k8sServicePort should default to 6443"
   }
 
   assert {
@@ -96,7 +96,7 @@ run "privileged_false_sets_explicit_capabilities" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     privileged       = false
   }
 
@@ -122,7 +122,7 @@ run "cgroup_auto_mount_false_configures_host_mount" {
   command = plan
 
   variables {
-    cluster_endpoint  = "https://10.5.0.10:6443"
+    k8s_service_host  = "10.5.0.10"
     cgroup_auto_mount = false
   }
 
@@ -167,7 +167,7 @@ run "ipam_mode_eni" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     ipam_mode        = "eni"
   }
 
@@ -177,22 +177,23 @@ run "ipam_mode_eni" {
   }
 }
 
-# Verifies cluster_endpoint parsing handles non-default ports and hostnames.
-run "cluster_endpoint_parsing" {
+# Verifies a hostname and non-default port pass through to the release values.
+run "k8s_service_host_and_port" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://api.cluster.example.com:8443"
+    k8s_service_host = "localhost"
+    k8s_service_port = 7445
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "api.cluster.example.com"
-    error_message = "Hostname should be parsed from cluster_endpoint"
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "localhost"
+    error_message = "k8sServiceHost should reflect the k8s_service_host input"
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 8443
-    error_message = "Port should be parsed from cluster_endpoint"
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 7445
+    error_message = "k8sServicePort should reflect the k8s_service_port input"
   }
 }
 
@@ -203,7 +204,7 @@ run "custom_cilium_version" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     cilium_version   = "1.17.2"
   }
 
@@ -219,7 +220,7 @@ run "operator_replicas_one_passes_through" {
   command = plan
 
   variables {
-    cluster_endpoint  = "https://10.5.0.10:6443"
+    k8s_service_host  = "10.5.0.10"
     operator_replicas = 1
   }
 
@@ -229,22 +230,89 @@ run "operator_replicas_one_passes_through" {
   }
 }
 
-# Verifies input validation rejects malformed cilium_version, non-https
-# cluster_endpoint, unsupported ipam_mode, and out-of-range operator_replicas.
+# Verifies the chart repository and image registry inputs reach the release, and
+# that the defaults point at upstream quay.io.
+run "default_image_registry" {
+  command = plan
+
+  variables {
+    k8s_service_host = "10.5.0.10"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).image.repository == "quay.io/cilium/cilium"
+    error_message = "Agent image should default to quay.io/cilium/cilium"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).operator.image.repository == "quay.io/cilium/operator"
+    error_message = "Operator image should default to quay.io/cilium/operator"
+  }
+}
+
+run "custom_chart_repository_and_image_registry" {
+  command = plan
+
+  variables {
+    k8s_service_host = "10.5.0.10"
+    chart_repository = "oci://registry.example.com/charts"
+    image_registry   = "registry.example.com:5000/mirror/cilium"
+  }
+
+  assert {
+    condition     = helm_release.cilium.repository == "oci://registry.example.com/charts"
+    error_message = "Repository should reflect the chart_repository input"
+  }
+
+  assert {
+    condition     = helm_release.cilium.chart == "cilium"
+    error_message = "Chart name should stay 'cilium' with a custom repository"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).image.repository == "registry.example.com:5000/mirror/cilium/cilium"
+    error_message = "Agent image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).operator.image.repository == "registry.example.com:5000/mirror/cilium/operator"
+    error_message = "Operator image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).envoy.image.repository == "registry.example.com:5000/mirror/cilium/cilium-envoy"
+    error_message = "Envoy image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).certgen.image.repository == "registry.example.com:5000/mirror/cilium/certgen"
+    error_message = "certgen image should be read from image_registry"
+  }
+}
+
+# Verifies input validation rejects malformed cilium_version, a URL as
+# k8s_service_host, an out-of-range k8s_service_port, unsupported ipam_mode,
+# and out-of-range operator_replicas.
 run "invalid_inputs_fail_validation" {
   command = plan
 
   variables {
-    cilium_version    = "1.16"            # missing patch
-    cluster_endpoint  = "http://insecure" # not https
-    ipam_mode         = "custom"          # not in allowed list
-    operator_replicas = 99                # out of range
+    cilium_version    = "1.16"             # missing patch
+    k8s_service_host  = "https://api:6443" # URL, not a host
+    k8s_service_port  = 0                  # out of range
+    ipam_mode         = "custom"           # not in allowed list
+    operator_replicas = 99                 # out of range
+    chart_repository  = "quay.io/cilium"   # no scheme
+    image_registry    = "https://quay.io/" # scheme and trailing slash
   }
 
   expect_failures = [
     var.cilium_version,
-    var.cluster_endpoint,
+    var.k8s_service_host,
+    var.k8s_service_port,
     var.ipam_mode,
     var.operator_replicas,
+    var.chart_repository,
+    var.image_registry,
   ]
 }

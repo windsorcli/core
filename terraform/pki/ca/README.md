@@ -1,17 +1,15 @@
 ---
-title: pki/ca
+title: CA
 description: Root CA generation (or BYO passthrough) for the private-CA add-on and Talos apiserver OIDC trust.
 ---
-
-# pki/ca
 
 Produces the root CA cert/key pair the `private-ca` PKI add-on and Talos's
 `--oidc-ca-file` machine patch both consume. Supplying `cert`/`key` brings
 your own CA and passes it straight through; leaving both empty generates a
 new self-signed key/cert pair with the `tls` provider. Either way the
-module's two outputs (`cert`, `key`) are the seam — downstream consumers
-(the Talos machine config patch, the `private-ca-cert` Secret rendered by
-the `pki` facet) don't need to know which path produced them.
+module always outputs `cert` and `key`, so the Talos machine config patch
+and the `private-ca-cert` Secret the `pki` facet renders read the same two
+outputs regardless of which path produced them.
 
 Runs before `cluster/talos` so the CA is available for the apiserver's
 OIDC trust flag at first bootstrap, rather than requiring a second apply
@@ -29,13 +27,13 @@ upstream.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_tls"></a> [tls](#requirement\_tls) | 4.3.0 |
+| <a name="requirement_tls"></a> [tls](#requirement\_tls) | 4.4.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.3.0 |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.4.1 |
 
 ## Modules
 
@@ -45,8 +43,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [tls_private_key.ca](https://registry.terraform.io/providers/hashicorp/tls/4.3.0/docs/resources/private_key) | resource |
-| [tls_self_signed_cert.ca](https://registry.terraform.io/providers/hashicorp/tls/4.3.0/docs/resources/self_signed_cert) | resource |
+| [tls_private_key.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.1/docs/resources/private_key) | resource |
+| [tls_self_signed_cert.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.1/docs/resources/self_signed_cert) | resource |
 
 ## Inputs
 

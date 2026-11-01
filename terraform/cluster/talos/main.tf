@@ -17,8 +17,8 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 # Cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption secret).
 # Generated locally when no upstream secrets are supplied — the default for
-# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, cluster/talos/config
-# generates and exports them ahead of compute; they flow back here via
+# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, compute/hyperv
+# generates and exports them; they flow back here via
 # var.machine_secrets / var.client_configuration and the count-gated resource
 # below stays at zero. local.machine_secrets / local.client_configuration pick
 # whichever source is active.
@@ -57,6 +57,10 @@ resource "terraform_data" "endpoint_check" {
       condition     = local.cluster_endpoint != "" && can(regex("^https://", local.cluster_endpoint))
       error_message = "cluster_endpoint could not be derived: set cluster.endpoint or ensure compute is applied so controlplanes have endpoints."
     }
+    precondition {
+      condition     = var.vip_interface == null || local.vip != ""
+      error_message = "vip_interface needs a cluster_endpoint host that is an IPv4 address no control plane uses."
+    }
   }
   input = local.cluster_endpoint
 }
@@ -66,11 +70,10 @@ resource "terraform_data" "endpoint_check" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # machine_secrets / client_configuration come from EITHER the upstream
-  # cluster/talos/config module (when var.machine_secrets is set) OR the
-  # locally-generated talos_machine_secrets resource (default). Every
-  # downstream reference uses these locals — never the resource attributes
-  # directly.
+  # machine_secrets / client_configuration come from EITHER an upstream
+  # compute module (when var.machine_secrets is set) OR the locally-generated
+  # talos_machine_secrets resource (default). Every downstream reference uses
+  # these locals — never the resource attributes directly.
   machine_secrets      = var.machine_secrets != null ? var.machine_secrets : talos_machine_secrets.this[0].machine_secrets
   client_configuration = var.client_configuration != null ? var.client_configuration : talos_machine_secrets.this[0].client_configuration
 
@@ -81,10 +84,17 @@ locals {
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
-  # When upstream secrets are supplied the per-node machineconfig was already
-  # delivered out-of-band (hyperv CIDATA). Re-applying here would regenerate
-  # without the per-node network patch and wipe the static IP back to DHCP.
-  skip_machine_config_apply = var.machine_secrets != null
+  # Shared control-plane VIP: the cluster_endpoint host when vip_interface is set and no control plane uses it.
+  cluster_endpoint_host = try(regex("^https://([^:/]+)", local.cluster_endpoint)[0], "")
+  controlplane_hosts    = flatten([for cp in var.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
+  vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
+  vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
+
+  kubelet_csr_approver_patch = var.enable_kubelet_csr_approver ? yamlencode({ cluster = { inlineManifests = [{ name = "kubelet-csr-approver", contents = file("${path.module}/manifests/kubelet-csr-approver.yaml") }] } }) : ""
+
+  # Callers that deliver the machineconfig out of band (hyperv CIDATA) skip the
+  # apply, which would otherwise wipe the per-node static IP back to DHCP.
+  skip_machine_config_apply = var.skip_machine_config_apply != null ? var.skip_machine_config_apply : var.machine_secrets != null
 
   # extraMounts from raw volume strings (path or host:dest; path = part after ":" if present).
   # yamlencode() produces quoted keys (Terraform/Go); common_config_patches from blueprint is unquoted YAML. Both valid.
@@ -150,6 +160,8 @@ module "controlplane_bootstrap" {
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.vip_patch,
+    local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
   ], local.controlplane_block_docs[0])) : p if p != "null"]
@@ -181,6 +193,8 @@ module "controlplanes" {
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.vip_patch,
+    local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
   ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]

@@ -180,7 +180,7 @@ Pod Identity).
    V2, matching the AKS precedent, confirmed against a real GKE cluster.
 3. **Done.** `platform-gcp.yaml` wiring backend → network → cluster →
    gitops, gated `platform == 'gcp'`. Verified end-to-end with a real
-   `windsor apply --wait`: every kustomization (gateway, observability, pki,
+   `windsor apply`: every kustomization (gateway, observability, pki,
    policy, telemetry) reconciled Ready on a live GKE cluster, not just the
    bare cluster this phase originally targeted.
 4. **Done.** `dns/zone/gcp-dns`, the `clouddns` ACME solver, the `google`

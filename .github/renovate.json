@@ -11,7 +11,6 @@
       "matchManagers": [
         "github-actions"
       ],
-      "versioning": "github-tags",
       "pinDigests": true,
       "enabled": true,
       "automerge": true,
@@ -28,6 +27,17 @@
       "description": "Keep Terraform on the 1.12 line for OpenTofu compatibility (matches required_version \"~> 1.12\"); allow 1.12.x patches, block 1.13+",
       "matchPackageNames": ["hashicorp/terraform"],
       "allowedVersions": "<1.13"
+    },
+    {
+      "description": "Keep the container-mode Talos pin on the 1.13 line; 1.14 hides Docker's /etc/hostname and /etc/resolv.conf behind its /etc overlay",
+      "matchDepNames": ["talos-container"],
+      "allowedVersions": "<1.14"
+    },
+    {
+      "description": "Provider 0.12.0 generates Talos 1.14 documents that conflict with the v1alpha1 patches in core",
+      "matchDatasources": ["terraform-provider"],
+      "matchPackageNames": ["siderolabs/talos"],
+      "allowedVersions": "<0.12"
     },
     {
       "matchDatasources": ["terraform-provider"],
@@ -86,14 +96,14 @@
     {
       "matchPackageNames": ["windsorcli/k8s-versions"],
       "matchDepNames": ["aks-kubernetes"],
-      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
-      "versioning": "semver"
+      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+)$",
+      "versioning": "loose"
     },
     {
       "matchPackageNames": ["windsorcli/k8s-versions"],
       "matchDepNames": ["eks-kubernetes"],
-      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
-      "versioning": "semver"
+      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+)$",
+      "versioning": "loose"
     },
     {
       "description": "Pin Docker image digests in Helm release values",
@@ -253,6 +263,7 @@
     }
   ],
   "platformAutomerge": true,
+  "rebaseWhen": "conflicted",
   "addLabels": [
     "dependencies"
   ],

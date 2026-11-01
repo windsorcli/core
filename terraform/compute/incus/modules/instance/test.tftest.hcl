@@ -29,6 +29,22 @@ run "minimal_configuration" {
   }
 }
 
+# mac_address is provider-computed, unknown until apply under the mock provider.
+run "mac_address_output" {
+  command = apply
+
+  variables {
+    name         = "test-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+  }
+
+  assert {
+    condition     = output.mac_address != null && output.mac_address != ""
+    error_message = "mac_address should surface the provider-assigned value"
+  }
+}
+
 # Tests a full configuration with all optional variables explicitly set.
 # Validates that user-supplied values override defaults for type, limits, devices, and config.
 run "full_configuration" {

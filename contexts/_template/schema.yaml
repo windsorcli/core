@@ -173,6 +173,7 @@ properties:
       - docker
       - hyperv
       - vsphere
+      - proxmox
     default: none
     description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage).
 
@@ -342,14 +343,19 @@ properties:
   # Hyper-V provider configuration (only consumed when platform == 'hyperv').
   # Connection details (host, credentials, transport) are env-var driven by the
   # provider itself (HYPERV_HOST, HYPERV_USERNAME, etc.); this block carries
-  # only the two host-side pointers the facet can't derive — which NIC the
-  # virtual switch should bind to, and where on disk to put VHDs/images. The
-  # CIDR the cluster lives on (LAN-bridged or NAT-internal) is the
-  # platform-agnostic `network.cidr_block`.
+  # only host-side pointers the facet cannot derive. The CIDR the cluster
+  # lives on (LAN-bridged or NAT-internal) is network.cidr_block.
   hyperv:
     type: object
     additionalProperties: false
     properties:
+      switch_name:
+        type: string
+        description: >
+          Existing Hyper-V virtual switch to attach VMs to. When set, Windsor
+          does not create a switch (create_network=false). Use this when the
+          host NIC is already bound to an External switch. Ignored when
+          gateway.service_type is NodePort, which still creates a NAT switch.
       net_adapter:
         type: array
         items:
@@ -358,7 +364,15 @@ properties:
           Host NIC(s) the virtual switch binds to. When set, windsor creates
           an External switch (L2-bridged, MetalLB/Cilium L2 reachable on the
           bench LAN). Unset uses Internal (host-only); flipped to NAT
-          automatically when gateway.service_type=NodePort.
+          automatically when gateway.service_type=NodePort. Ignored when
+          switch_name is set.
+      force_management_os_migration:
+        type: boolean
+        default: false
+        description: >
+          Lets windsor destroy an External switch that shares the host NIC. The
+          host IP migrates back to the NIC and the host connection can drop.
+          Takes effect once applied, so set it before the destroy.
       base_dir:
         type: string
         pattern: '^[A-Za-z]:[\\/].*$'
@@ -420,6 +434,62 @@ properties:
           only for single-host datacenters.
     description: VMware vSphere infrastructure configuration
 
+  # Proxmox VE configuration, read only when platform == 'proxmox'.
+  proxmox:
+    type: object
+    additionalProperties: false
+    properties:
+      node:
+        type: string
+        description: Proxmox VE node that hosts the Talos VMs (e.g. "pve"). Required.
+      datastore:
+        type: string
+        default: local-lvm
+        description: Datastore for VM disks, EFI disks, and cloud-init drives.
+      image_datastore:
+        type: string
+        default: local
+        description: Datastore that receives the Talos disk image. It must allow the import content type (Proxmox VE 8.4 or later).
+      bridge:
+        type: string
+        default: vmbr0
+        description: Linux bridge the VM NICs attach to. network.cidr_block describes the LAN behind it.
+      vlan_id:
+        type: integer
+        minimum: 1
+        maximum: 4094
+        description: VLAN tag for the VM NICs. Unset leaves them untagged.
+      arch:
+        type: string
+        enum:
+          - amd64
+          - arm64
+        default: amd64
+        description: Node architecture. arm64 selects the nocloud-arm64 image, the virt machine, OVMF firmware, and the host CPU type.
+      cpu_type:
+        type: string
+        description: QEMU CPU type. Unset selects x86-64-v2-AES on amd64 and host on arm64. Talos needs x86-64-v2 or newer on amd64.
+      bios:
+        type: string
+        enum:
+          - seabios
+          - ovmf
+        default: seabios
+        description: Firmware for amd64 VMs. ovmf adds an EFI disk. arm64 VMs always use ovmf.
+      pool:
+        type: string
+        pattern: "^[A-Za-z0-9_-]+$"
+        description: Existing resource pool the VMs join. Unset leaves them outside any pool.
+      vm_id_start:
+        type: integer
+        minimum: 100
+        maximum: 999999000
+        description: >-
+          First VM ID of a free range. Control plane N takes vm_id_start + N - 1
+          and worker N takes vm_id_start + 9 + N. Unset lets Proxmox pick the
+          next free ID.
+    description: Proxmox VE infrastructure configuration
+
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
   # Useful for provider-side credentials read from env (e.g. HYPERV_*).
@@ -466,6 +536,11 @@ properties:
             description: S3 backend configuration (https://developer.hashicorp.com/terraform/language/backend/s3)
           kubernetes:
             type: object
+            properties:
+              namespace:
+                type: string
+                default: system-terraform
+                description: Namespace that holds the state Secrets
             additionalProperties: true
             description: Kubernetes backend configuration (https://developer.hashicorp.com/terraform/language/backend/kubernetes)
           azurerm:
@@ -503,6 +578,13 @@ properties:
             type: boolean
             default: false
             description: Enable Istio bookinfo demo application
+        additionalProperties: false
+      database:
+        type: object
+        properties:
+          instance_type:
+            type: string
+            description: Demo database instance size. Format is driver-dependent (an RDS instance class, an Azure Flexible Server SKU, a Cloud SQL tier).
         additionalProperties: false
     additionalProperties: false
 
@@ -644,7 +726,7 @@ properties:
             description: Force or disable Grafana SSO; inferred on when identity is enabled
           client_secret:
             type: string
-            description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
+            description: Client secret for an external oidc provider (supports ${secret(...)}). Unset registers Grafana as a public PKCE client.
           role_attribute_path:
             type: string
             description: Grafana role mapping as a JMESPath over token claims
@@ -752,18 +834,20 @@ properties:
           Cluster network CIDR. Windsor either creates this network
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
-          hyperv with net_adapter). Override when the default conflicts
-          with existing routes on the host.
+          vSphere, Proxmox, hyperv with net_adapter). Override when the default
+          conflicts with existing routes on the host. On gcp, 172.16.0.0/12
+          is reserved for the cluster's pod and Service ranges, the control
+          plane, and Cloud SQL's private service range.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
         description: >
           IPv4 default-route gateway for the cluster network. Required for
           platforms that deliver static network config to the guest (Hyper-V
-          via CIDATA; future libvirt/proxmox). Defaults to cidrhost(cidr_block, 1)
-          — correct for the common case where the gateway is the first usable
-          host in the subnet, set explicitly when it isn't (e.g. /22 LANs where
-          the router doesn't sit at .0.1).
+          CIDATA, vSphere guestinfo, Proxmox cloud-init). Defaults to
+          cidrhost(cidr_block, 1).
+          Set explicitly when the router is not the first usable host (for
+          example a /22 plant LAN shared by more than one cluster).
       nameservers:
         type: array
         items:
@@ -773,6 +857,14 @@ properties:
           - "1.1.1.1"
           - "8.8.8.8"
         description: DNS resolvers seeded into guest network config. Same delivery path as gateway (CIDATA on hyperv, etc.).
+      dhcp:
+        type: boolean
+        default: false
+        description: >
+          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP and
+          compute reports the leased addresses. More than one control plane
+          requires cluster.endpoint, which MUST sit outside the DHCP scope;
+          control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
       ntp_servers:
         type: array
         items:
@@ -786,18 +878,21 @@ properties:
         properties:
           start:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255).
+            description: Start of the address range for LoadBalancer Services that do not pin an IP (IPv4 dotted-quad). The range MUST NOT include a gateway.<name>.ip.
           end:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
+            description: End of the address range for LoadBalancer Services that do not pin an IP (IPv4 dotted-quad).
         additionalProperties: false
       loadbalancer_driver:
         type: string
         enum:
+          - cilium
           - metallb
           - kube-vip
           - none
-        description: In-cluster load balancer driver. none disables lb-install where it would otherwise default on.
+        description: >
+          Load balancer for LoadBalancer Services. Defaults to cilium with the Cilium CNI and kube-vip
+          otherwise, on by default on metal, vsphere, hyperv, incus, and proxmox. none turns it off.
       loadbalancer_mode:
         type: string
         enum:
@@ -824,7 +919,13 @@ properties:
       endpoint:
         type: string
         pattern: '^https://[A-Za-z0-9.\-]+(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/.*)?$'
-        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer. Pattern enforces https scheme and an optional port in the 1-65535 TCP range; rejects URLs with whitespace, IPv6 brackets, or wrong scheme.
+        description: Kubernetes API endpoint (https://host:port), IPv4 only. A control-plane node IP, a Talos VIP with cluster.vip, or an address an external load balancer serves.
+      vip:
+        type: boolean
+        default: false
+        description: >
+          Configure the host in cluster.endpoint as the Talos shared VIP on every control plane, on Incus, Proxmox,
+          vSphere, and Hyper-V. The host MUST be an IPv4 address no control plane uses, on the control planes' layer-2 segment.
       api_allowed_cidrs:
         type: array
         items:
@@ -844,12 +945,13 @@ properties:
             description: Number of control plane nodes
           nodes:
             <<: *nodesSchema
-            default:
-              controlplane-1:
-                endpoint: 10.5.0.1
-                node: 10.5.0.1
-                hostname: controlplane-1
-            description: Named control plane node configurations
+            description: >
+              Named control plane node configurations. On Hyper-V, vSphere, and
+              Proxmox, node/endpoint IPv4 is the guest NIC address unless
+              network.dhcp is true; network.cidr_block and network.gateway stay the shared LAN.
+              Hyper-V names guests by pool position (controlplane, or
+              controlplane-N when count > 1) and ignores hostname, which keys
+              the VM, its disk and its seed ISO.
           schedulable:
             type: boolean
             description: Allow scheduling workloads on control plane nodes. Unset lets the platform facet default it (true for a workerless single control plane).
@@ -864,7 +966,11 @@ properties:
             description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
             <<: *nodesSchema
-            description: Named worker node configurations
+            description: >
+              Named worker node configurations. On Hyper-V, vSphere, and Proxmox,
+              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
+              true. On Hyper-V, hostname is ignored the same way it is for
+              control planes.
           volumes:
             type: array
             items:
@@ -973,6 +1079,9 @@ properties:
             $ref: '#/$defs/posixPath'
             default: "/var/mnt/local"
             description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
+          quota:
+            type: boolean
+            description: Enforce each PVC's requested size on openebs directory-based volumes with XFS project quotas. Defaults to true except on the docker platform. local_base_path must be on an XFS filesystem. Talos only.
           driver:
             type: string
             enum:
@@ -1036,19 +1145,24 @@ properties:
     properties:
       domain:
         $ref: '#/$defs/dnsHostname'
-        description: Base domain; used as fallback when public_domain or private_domain are not set. Lowercase DNS labels separated by dots (RFC 1123); no scheme, port, or trailing dot.
+        deprecated: true
+        description: Deprecated. Use dns.private_domain. Fallback for private_domain when that is unset; never sets public_domain.
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >
-          Publicly-routable DNS zone for the deployment. On AWS, setting
-          this provisions a public Route53 hosted zone in the same
-          account, the cert-manager IAM role + Pod Identity binding for
-          DNS-01 challenges, and an ACME ClusterIssuer that issues real
-          Let's Encrypt certificates for the gateway. The operator must
-          delegate this domain at their registrar to the name servers
-          the dns-zone module outputs. Leave unset for selfsigned-only
-          (just-works) mode. Lowercase DNS labels separated by dots; no
-          scheme, port, or trailing dot.
+          Publicly-routable DNS zone for the deployment. Provisions a
+          public DNS zone on the active platform (Route53, Azure DNS,
+          Cloud DNS, or Hetzner DNS), the cert-manager identity binding
+          for DNS-01 challenges, and an ACME ClusterIssuer that issues
+          real Let's Encrypt certificates for the gateway. The operator
+          must delegate this domain at their registrar to the name
+          servers the dns-zone module outputs. Leave unset for
+          selfsigned-only (just-works) mode. Lowercase DNS labels
+          separated by dots; no scheme, port, or trailing dot.
+      public_zone:
+        type: boolean
+        default: true
+        description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
@@ -1067,9 +1181,17 @@ properties:
     properties:
       enabled:
         type: boolean
-        description: Enable private certificate authority with trust-manager
-      private_ca:
+        deprecated: true
+        description: Deprecated and ignored. The cluster CA and trust-manager are always installed.
+      public_issuer:
+        type: string
+        enum:
+          - acme
+          - selfsigned
+        description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set and dns.public_zone is not false on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain and dns.public_zone.
+      ca:
         type: object
+        description: Cluster CA that signs workload certificates and backs the trust bundle.
         properties:
           cert:
             type: string
@@ -1079,6 +1201,25 @@ properties:
             type: string
             sensitive: true
             description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+        additionalProperties: false
+      trusted_cas:
+        type: array
+        items:
+          type: string
+        description: PEM-encoded root certificates added to the cluster trust bundle and the API server's OIDC CA file.
+      private_ca:
+        type: object
+        deprecated: true
+        description: Deprecated. Use pki.ca. Fallback for pki.ca when that is unset.
+        properties:
+          cert:
+            type: string
+            sensitive: true
+            description: Deprecated. Use pki.ca.cert.
+          key:
+            type: string
+            sensitive: true
+            description: Deprecated. Use pki.ca.key.
         additionalProperties: false
     additionalProperties: false
 
@@ -1138,16 +1279,49 @@ properties:
         description: Gateway driver
       service_type:
         type: string
+        deprecated: true
         enum:
           - LoadBalancer
           - NodePort
-        description: Kubernetes Service type used to expose the gateway. When unset, defaults to LoadBalancer except on docker-desktop, which is forced to NodePort. Set to NodePort to expose the gateway on any driver without a cluster LB (e.g. single-node Talos VMs).
-      access:
-        type: string
-        enum:
-          - public
-          - private
-        description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
+        description: Deprecated. Use gateway.external.service_type and gateway.internal.service_type. Sets both gateways' Service type when they leave it unset.
+      external:
+        type: object
+        description: Exposure of the external gateway.
+        properties:
+          service_type:
+            type: string
+            enum:
+              - LoadBalancer
+              - NodePort
+            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+          ip:
+            $ref: '#/$defs/ipv4'
+            description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+          node_port:
+            type: integer
+            minimum: 30000
+            maximum: 32767
+            description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+        additionalProperties: false
+      internal:
+        type: object
+        description: Exposure of the internal gateway.
+        properties:
+          service_type:
+            type: string
+            enum:
+              - LoadBalancer
+              - NodePort
+            description: Kubernetes Service type for the internal gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+          ip:
+            $ref: '#/$defs/ipv4'
+            description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+          node_port:
+            type: integer
+            minimum: 30000
+            maximum: 32767
+            description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+        additionalProperties: false
       publish_ports:
         type: object
         propertyNames:
@@ -1307,6 +1481,10 @@ properties:
         type: string
         default: SSO
         description: Login button label consumers show (e.g. "Sign in with <name>")
+      admin_group:
+        type: string
+        default: platform-admins
+        description: Group whose members are administrators in every SSO consumer (Grafana Admin, cluster-admin in dev). The hosted Keycloak creates it.
       oidc:
         type: object
         description: External OIDC provider settings (driver oidc)
@@ -1349,9 +1527,6 @@ properties:
                 type: string
                 description: Admin password for the Keycloak console and, in dev, the SSO admin user (supports ${secret(...)} refs); unset means a dev default, or the operator's temporary admin elsewhere
             additionalProperties: false
-          grafana_client_secret:
-            type: string
-            description: Grafana's pinned OIDC client secret (supports ${secret(...)} refs). Unset means a dev default.
         additionalProperties: false
     additionalProperties: false
 
@@ -1363,26 +1538,32 @@ properties:
         properties:
           enabled:
             type: boolean
-            description: Enable PostgreSQL database service
-          driver:
-            type: string
-            enum:
-              - cloudnativepg
-              - rds
-              - azuredb
-              - cloudsql
-            default: cloudnativepg
-            description: PostgreSQL database driver
-          encryption:
+            description: Enable the in-cluster CloudNativePG Postgres service
+          cloud:
             type: object
             properties:
-              managed:
+              enabled:
                 type: boolean
                 default: false
-                description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
-              key_id:
+                description: Also expose a cloud-managed Postgres instance for application charts to request
+              driver:
                 type: string
-                description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
+                enum:
+                  - rds
+                  - azuredb
+                  - cloudsql
+                description: Cloud Postgres driver. Defaults from platform when cloud.enabled.
+              encryption:
+                type: object
+                properties:
+                  managed:
+                    type: boolean
+                    default: false
+                    description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
+                  key_id:
+                    type: string
+                    description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
+                additionalProperties: false
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1410,6 +1591,26 @@ additionalProperties: false
 # time instead of at terraform/cluster apply time.
 #
 allOf:
+  # ACME DNS-01 validates through the managed public zone.
+  - if:
+      properties:
+        pki:
+          type: object
+          properties:
+            public_issuer:
+              const: acme
+          required:
+            - public_issuer
+      required:
+        - pki
+    then:
+      properties:
+        dns:
+          type: object
+          properties:
+            public_zone:
+              const: true
+
   # An external identity provider (driver: oidc) hosts nothing, so it must be
   # told where to authenticate — the issuer URL is the only usable contract.
   - if:
@@ -1578,34 +1779,14 @@ allOf:
             driver:
               const: talos
 
-  # database.postgres.driver: rds installs Crossplane's provider-aws-rds,
-  # wired to AWS credentials by the aws-eks Terraform module's Pod Identity
-  # association — AWS-only.
+  # platform: aws restricts database.postgres.cloud.driver to rds.
   - if:
-      properties:
-        database:
-          type: object
-          properties:
-            postgres:
-              type: object
-              properties:
-                driver:
-                  const: rds
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
       properties:
         platform:
           const: aws
-
-  # database.postgres.driver: azuredb installs Crossplane's
-  # provider-azure-dbforpostgresql, wired to Azure credentials by the
-  # azure-aks Terraform module's Workload Identity federation — Azure-only.
-  - if:
+      required:
+        - platform
+    then:
       properties:
         database:
           type: object
@@ -1613,25 +1794,20 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  const: azuredb
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: rds
+
+  # platform: azure restricts database.postgres.cloud.driver to azuredb.
+  - if:
       properties:
         platform:
           const: azure
       required:
         - platform
-
-  # database.postgres.driver: cloudsql installs Crossplane's
-  # provider-gcp-sql, wired to GCP credentials by the gcp-gke Terraform
-  # module's Workload Identity Federation — GCP-only.
-  - if:
+    then:
       properties:
         database:
           type: object
@@ -1639,17 +1815,54 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  const: cloudsql
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: azuredb
+
+  # platform: gcp restricts database.postgres.cloud.driver to cloudsql.
+  - if:
       properties:
         platform:
           const: gcp
       required:
         - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: cloudsql
+
+  # Any other platform cannot serve a cloud-managed Postgres.
+  - if:
+      properties:
+        platform:
+          not:
+            enum:
+              - aws
+              - azure
+              - gcp
+      required:
+        - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    enabled:
+                      const: false

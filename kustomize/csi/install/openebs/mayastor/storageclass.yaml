@@ -10,6 +10,8 @@ metadata:
         value: hostpath
       - name: BasePath
         value: ${local_volume_path:-/var/mnt/openebs/local}
+      - name: XFSQuota
+        enabled: "${local_volume_quota:-false}"
 provisioner: openebs.io/local
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer

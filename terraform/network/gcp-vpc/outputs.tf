@@ -36,3 +36,13 @@ output "available_zones" {
   description = "Zones downstream node placement chooses from, capped to var.zone_count"
   value       = local.zone_names
 }
+
+output "private_zone_id" {
+  description = "ID of the VPC-linked private DNS zone created from var.domain_name. Null when no domain_name was supplied."
+  value       = try(google_dns_managed_zone.private[0].id, null)
+}
+
+output "private_zone_name" {
+  description = "Name of the VPC-linked private DNS zone. Null when no domain_name was supplied."
+  value       = try(google_dns_managed_zone.private[0].name, null)
+}

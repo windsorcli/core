@@ -9,8 +9,8 @@ x-defaults:
   network: &default-network
     cidr_block: 10.20.0.0/24
     loadbalancer_ips:
-      start: "10.20.0.100"
-      end: "10.20.0.110"
+      start: "10.20.0.110"
+      end: "10.20.0.120"
 
   cluster: &default-cluster
     driver: talos
@@ -53,6 +53,9 @@ cases:
             net_adapter_names: []
             network_cidr: 10.20.0.0/24
             vhd_dir: "C:/hyperv/vhds"
+            images:
+              talos:
+                runner_download: true
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -66,14 +69,75 @@ cases:
             - cluster
           destroy: false
 
+  - name: cluster.vip bakes the VIP into the control planes
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://10.5.0.5:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            controlplane_vip: true
+
+  - name: cluster.vip in NodePort mode fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
+  - name: cluster.vip with both per-gateway NodePort fails composition
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+        internal:
+          service_type: NodePort
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
   # An unset cidr_block must still compose. The schema default does not reach
   # facet expressions, so every read carries its own fallback; a site that
   # misses one fails composition with "cidrhost() ... got <nil>". Assert the
-  # bootstrap-critical derivations alongside network_cidr: cluster_endpoint and
-  # k8s_service_host both come from cidrhost(cidr, 10), so a regressed fallback
-  # at either site would crash or resolve wrong here. cilium is set so
-  # k8s_service_host surfaces as a cni substitution (hyperv defaults to flannel,
-  # which composes no cni system); the cidr fallbacks are CNI-independent.
+  # bootstrap-critical cluster_endpoint alongside network_cidr, since it comes
+  # from cidrhost(cidr, 10).
   - name: unset cidr_block composes from the per-usage default
     values:
       platform: hyperv
@@ -82,25 +146,258 @@ cases:
       network:
         nameservers: ['1.1.1.1']
       cluster:
-        <<: *default-cluster
-        cni:
-          driver: cilium
-    terraformOutputs: *default-terraform-outputs
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
     expect:
       terraform:
         - name: compute
           path: compute/hyperv
           inputs:
             network_cidr: 10.5.0.0/16
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
             cluster_endpoint: https://10.5.0.10:6443
-      flux:
-        - name: cni
-          install:
-            substitutions:
-              k8s_service_host: "10.5.0.10"
+            controlplane_vip: false
+
+  # Gateway NodePorts are in the baseline for each gateway that exists.
+  - name: NodePort with a private domain forwards the internal gateway ports
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30443": 30443
+              "40000": 50000
+
+  - name: NodePort with public and private domains forwards both gateways
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30443": 30443
+              "30081": 30081
+              "30444": 30444
+              "40000": 50000
+
+  - name: per-gateway NodePort forwards the configured node ports
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+          node_port: 30600
+        internal:
+          service_type: NodePort
+          node_port: 30500
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30500": 30500
+              "30081": 30081
+              "30600": 30600
+              "40000": 50000
+
+  - name: NodePort with the gateway disabled forwards no gateway ports
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+        service_type: NodePort
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "40000": 50000
+
+  - name: LoadBalancer gateway forwards no ports
+    values:
+      platform: hyperv
+      gateway:
+        internal:
+          ip: "10.20.0.100"
+        external:
+          ip: "10.20.0.101"
+        enabled: true
+        service_type: LoadBalancer
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network:
+        cidr_block: 10.20.0.0/24
+        loadbalancer_driver: metallb
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.20.0.110"
+          end: "10.20.0.120"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards: {}
+
+  # hyperv.force_management_os_migration reaches the compute module.
+  - name: force_management_os_migration is passed to compute
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        net_adapter:
+          - "Ethernet 3"
+        force_management_os_migration: true
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            switch_type: External
+            force_management_os_migration: true
+
+  - name: force_management_os_migration defaults to false
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        net_adapter:
+          - "Ethernet 3"
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            force_management_os_migration: false
 
   # External switch when net_adapter is set (the L2-routable path that lets
   # MetalLB / Cilium L2 announcements reach the bench's LAN).
@@ -123,6 +420,54 @@ cases:
             switch_type: External
             net_adapter_names:
               - "Ethernet 3"
+            create_network: true
+
+  # Existing switch: VMs attach, Windsor does not create a second External.
+  - name: switch_name attaches to an existing switch
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        switch_name: lab-external
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            network_name: lab-external
+            create_network: false
+
+  # id namespaces Hyper-V host objects so two contexts can share one host.
+  # Both steps take the prefix from the same derived value, so the seed path
+  # compute mounts always matches the one cluster-config writes.
+  - name: id namespaces vm names and cidata seeds
+    values:
+      id: ctx1
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        hyperv_effective:
+          name_suffix: "-ctx1"
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            name_suffix: "-ctx1"
+            destination_dir: "C:/hyperv/images"
+            images:
+              talos:
+                destination_path: "C:/hyperv/images/talos-1.14.2-metal-amd64-ctx1.iso"
+            instances:
+              - name: controlplane
 
   # base_dir flows to both vhd_dir and images_dir on the compute step.
   # Forward slashes accepted by Hyper-V even when written that way.
@@ -155,8 +500,8 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         cni:
@@ -181,13 +526,12 @@ cases:
             - components:
                 - metallb/arp
               substitutions:
-                loadbalancer_ip_range: 10.20.0.100-10.20.0.110
+                loadbalancer_ip_range: 10.20.0.110-10.20.0.120
 
   # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
   # one Talos API forward (40000 → cp-1), no workers in the lists, no
   # extra entries in the per-port target_overrides map. 30292 (Flux webhook)
-  # is in the baseline because gitops.mode defaults to "push"; 30053 is NOT
-  # because private-dns is off and dev=false.
+  # is in the baseline because gitops.mode defaults to "push".
   - name: NodePort single-VM lands cp on bench 40000
     values:
       platform: hyperv
@@ -212,18 +556,14 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.20.0.10
-                address: 10.20.0.10/24
-            workers: []
         - name: compute
           path: compute/hyperv
           inputs:
             switch_type: NAT
+            controlplane_vip: false
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
             port_forwards:
               "6443": 6443
               "30292": 30292
@@ -243,9 +583,8 @@ cases:
   # NodePort multi-VM: 1 cp + 1 worker. Each VM gets a distinct bench-side
   # Talos API forward (40000 → cp-1, 40100 → worker-1) routed via per-port
   # target_overrides to its NAT-internal IP. The compute instance list is
-  # flat (one entry per VM, count=1 each) so cidata_iso_path can be unique
-  # per VM. cluster-config controlplanes / workers carry the NAT IPs as
-  # `node` and CIDR'd `address` fields for the per-VM static-network patch.
+  # flat (one entry per VM, count=1 each) so each instance's NAT-internal
+  # ipv4 feeds its own CIDATA seed.
   - name: NodePort multi-VM derives per-node IPs forwards and instances
     values:
       platform: hyperv
@@ -275,21 +614,15 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.20.0.10
-                address: 10.20.0.10/24
-            workers:
-              - hostname: worker-1
-                node: 10.20.0.20
-                address: 10.20.0.20/24
         - name: compute
           path: compute/hyperv
           inputs:
             switch_type: NAT
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
+              - name: worker-1
+                ipv4: 10.20.0.20
             port_forwards:
               "6443": 6443
               "30292": 30292
@@ -325,8 +658,8 @@ cases:
       network:
         cidr_block: "10.99.0.0/24"
         loadbalancer_ips:
-          start: "10.99.0.100"
-          end: "10.99.0.110"
+          start: "10.99.0.110"
+          end: "10.99.0.120"
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443
@@ -340,23 +673,16 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.99.0.10
-                address: 10.99.0.10/24
-            workers:
-              - hostname: worker-1
-                node: 10.99.0.20
-                address: 10.99.0.20/24
-            network:
-              cidr_block: 10.99.0.0/24
-              gateway: 10.99.0.1
         - name: compute
           path: compute/hyperv
           inputs:
+            instances:
+              - name: controlplane-1
+                ipv4: 10.99.0.10
+              - name: worker-1
+                ipv4: 10.99.0.20
+            network_cidr: 10.99.0.0/24
+            network_gateway: 10.99.0.1
             nat_internal_address_prefix: 10.99.0.0/24
             nat_host_address: 10.99.0.1
             port_forward_target_ip: 10.99.0.10
@@ -364,11 +690,7 @@ cases:
               "40000": 10.99.0.10
               "40100": 10.99.0.20
 
-  # NodePort + private DNS: 30053 (DNS) appears in tcp_forwards and
-  # 30053 also in udp_forwards (DNS needs both protocols). 30292 still in
-  # because gitops.mode defaults to push. Mirrors the gating on the
-  # envoy/nodeport/dns kustomize component in option-gateway.
-  - name: NodePort with private DNS adds 30053 forwards
+  - name: NodePort with private DNS fails composition
     values:
       platform: hyperv
       dns:
@@ -390,31 +712,36 @@ cases:
               node: 192.168.3.77
         workers:
           count: 0
+    expectError: true
+
+  - name: dev mode on NodePort leaves private DNS off
+    values:
+      platform: hyperv
+      dev: true
+      dns:
+        private_domain: test
+      gateway:
+        service_type: NodePort
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
     terraformOutputs:
       compute:
         controlplanes: []
         workers: []
-    expect:
-      terraform:
-        - name: compute
-          path: compute/hyperv
-          inputs:
-            port_forwards:
-              "6443": 6443
-              "30053": 30053
-              "30292": 30292
-              "40000": 50000
-            udp_port_forwards:
-              "30053": 30053
+    exclude:
       flux:
-        - name: gateway
-          install:
-            components:
-              - envoy
-              - envoy/nodeport
-              - envoy/nodeport/dns
-              - envoy/nodeport/flux-webhook
-              - envoy/prometheus
+        - name: dns
 
   # NodePort + gitops.mode=pull: 30292 (Flux webhook) drops out of the
   # baseline forwards and the envoy/nodeport/flux-webhook component drops
@@ -479,14 +806,13 @@ cases:
         - path: compute/incus
         - path: compute/docker
 
-  # dns.private_domain fallback ladder (surfaced via the gateway cert SAN):
-  # an explicit private_domain is kept (never self-overwritten), dns.domain
-  # is the next fallback, and '<id>.local' is the floor so the cert is valid
-  # with no DNS configured at all.
+  # An explicit private_domain is kept, dns.domain is the fallback, and no domain means no gateway.
   - name: explicit dns.private_domain is kept for the gateway cert SAN
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -498,13 +824,16 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: hv.example
+            - name: internal
+              substitutions:
+                gateway_domain: hv.example
 
   - name: dns.private_domain falls back to dns.domain
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -516,13 +845,17 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: example.com
+            - name: internal
+              substitutions:
+                gateway_domain: example.com
 
-  - name: dns.private_domain defaults to id.local with no DNS configured
+  # Hyper-V keeps its own private_domain floor ('<id>.local'), since its clusters are always local.
+  - name: no domain configured still provisions the internal gateway via id.local floor
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       network: *default-network
@@ -532,8 +865,9 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: windsor.local
+            - name: internal
+              substitutions:
+                gateway_domain: windsor.local
 
   # Requires: NodePort mode parses the bench IP from cluster.endpoint; without
   # it bench_ip is empty and the per-node port forwards become unreachable.
@@ -545,3 +879,443 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expectError: true
+
+  # NodePort NAT forwards need known guest IPs, so dhcp does not apply.
+  - name: NodePort ignores network.dhcp and keeps static NAT IPs
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.20.0.110"
+          end: "10.20.0.120"
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      config:
+        hyperv_effective:
+          dhcp: false
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            network_dhcp: false
+            network_nameservers:
+              - 1.1.1.1
+              - 8.8.8.8
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
+
+  # Guest IPv4 from cluster.*.nodes; cidr_block and gateway stay the shared LAN.
+  - name: declared node IPs override cidrhost offsets on a shared LAN
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        gateway: 10.41.3.1
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              hostname: controlplane-1
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.41.0.40:50000
+              node: 10.41.0.40
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.30:50000
+            node: 10.41.0.30
+            hostname: controlplane
+        workers:
+          - endpoint: 10.41.0.40:50000
+            node: 10.41.0.40
+            hostname: worker
+    expect:
+      config:
+        hyperv_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: 10.41.0.30
+        hyperv_workers:
+          nodes:
+            - name: worker
+              ipv4: 10.41.0.40
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            cluster_endpoint: https://10.41.0.30:6443
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.30
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: 10.41.0.40
+
+  # Omitted nodes map uses cidrhost offsets (.10 / .20).
+  - name: cidrhost offsets when nodes are omitted
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_ips:
+          start: "10.10.0.110"
+          end: "10.10.0.120"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:50000
+            node: 10.10.0.10
+            hostname: controlplane
+        workers:
+          - endpoint: 10.10.0.20:50000
+            node: 10.10.0.20
+            hostname: worker
+    expect:
+      config:
+        hyperv_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: 10.10.0.10
+        hyperv_workers:
+          nodes:
+            - name: worker
+              ipv4: 10.10.0.20
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: 10.10.0.10
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: 10.10.0.20
+
+  # DHCP guests omit static ipv4; cluster.endpoint is the API URL.
+  - name: dhcp guests omit static ipv4 and use cluster.endpoint
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        endpoint: https://talos.plant.local:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers:
+          - endpoint: 10.41.0.81:50000
+            node: 10.41.0.81
+            hostname: worker
+    expect:
+      config:
+        hyperv_effective:
+          dhcp: true
+        hyperv_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: null
+        hyperv_workers:
+          nodes:
+            - name: worker
+              ipv4: null
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            cluster_endpoint: https://talos.plant.local:6443
+            network_dhcp: true
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: null
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://talos.plant.local:6443
+            skip_machine_config_apply: true
+
+  # DHCP ignores declared node IPs for guest addressing.
+  - name: dhcp ignores declared node IPs
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        endpoint: https://10.41.3.50:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              hostname: controlplane-1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers: []
+    expect:
+      config:
+        hyperv_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: null
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+
+  # DHCP without cluster.endpoint: cluster-config leaves cluster_endpoint empty
+  # so CIDATA is network-only; cluster derives https://<first-cp>:6443 from
+  # compute's controlplanes output after integration services report the lease.
+  - name: dhcp without cluster.endpoint derives API URL from compute output
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers: []
+    expect:
+      config:
+        cluster_endpoint_fallback:
+          endpoint: https://10.41.0.80:6443
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            network_dhcp: true
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.41.0.80:6443
+            skip_machine_config_apply: false
+
+  - name: dhcp with several control planes requires cluster.endpoint
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+    expectError: true
+
+  - name: dhcp with several control planes and cluster.endpoint composes
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        endpoint: https://10.41.0.5:6443
+        controlplanes:
+          count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.41.0.5:6443
+
+  # Without id, host object names stay bare so an upgrade doesn't rename VMs.
+  - name: no id leaves host object names unsuffixed
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        hyperv_effective:
+          name_suffix: ""
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            images:
+              talos:
+                destination_path: "C:/hyperv/images/talos-1.14.2-metal-amd64.iso"
+            instances:
+              - name: controlplane
+
+  # NodePort owns the NAT switch its port forwards attach to, so an existing
+  # switch_name does not suppress creation.
+  - name: NodePort creates its NAT switch even with switch_name set
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network: *default-network
+      hyperv:
+        switch_name: lab-external
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            create_network: true
+            switch_type: NAT
+
+  # The machineconfig installs from the factory image so the schematic's
+  # hyperv-guest-agent survives the first reboot.
+  - name: install image pins the hyperv schematic
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        talos_common:
+          common_patch:
+            machine:
+              install:
+                image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.2"
+
+  # Cilium reaches the API through KubePrism, so DHCP guests need no fixed endpoint.
+  - name: dhcp with cilium and no endpoint composes
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        cni:
+          driver: cilium
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: localhost
+              k8s_service_port: "7445"

@@ -3,8 +3,6 @@ title: "ADR-0012: System node pool parity across AWS, Azure, and GCP"
 description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates, and none makes it highly available under topology: ha. Closes these gaps by making AWS's system pool module-level like GCP's, tolerating/preferring only the control-glue half of the platform-critical list onto system capacity, and wiring topology: ha to a 2-node system pool with raised replicas on the components individually confirmed to support it safely."
 ---
 
-# ADR-0012: System node pool parity across AWS, Azure, and GCP
-
 ## Status
 
 Proposed. Decisions 1 and 3 merged in

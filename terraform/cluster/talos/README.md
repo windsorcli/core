@@ -1,9 +1,7 @@
 ---
-title: cluster/talos
+title: Talos
 description: Self-hosted Kubernetes control plane via the Talos API.
 ---
-
-# cluster/talos
 
 Self-hosted Kubernetes control plane via the Talos API. Provisioning is
 fully Terraform-driven through the Talos provider — no operator-side
@@ -61,10 +59,13 @@ extensions baked in.
 | <a name="input_controlplane_disks"></a> [controlplane\_disks](#input\_controlplane\_disks) | Pool-level disks; used when a controlplane node has no disks key. Per-node disks override. | `list(any)` | `[]` | no |
 | <a name="input_controlplane_volumes"></a> [controlplane\_volumes](#input\_controlplane\_volumes) | Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present). | `list(string)` | `[]` | no |
 | <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | A list of machine configuration details for control planes. | <pre>list(object({<br/>    endpoint = string<br/>    node     = string<br/>    disks    = optional(list(any), [])<br/>    disk_selector = optional(object({<br/>      busPath  = optional(string)<br/>      modalias = optional(string)<br/>      model    = optional(string)<br/>      name     = optional(string)<br/>      serial   = optional(string)<br/>      size     = optional(string)<br/>      type     = optional(string)<br/>      uuid     = optional(string)<br/>      wwid     = optional(string)<br/>    }))<br/>    wipe_disk         = optional(bool, true)<br/>    extra_kernel_args = optional(list(string), [])<br/>    config_patches    = optional(string, "")<br/>    instance_id       = optional(string)<br/>  }))</pre> | `[]` | no |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | The kubernetes version to deploy. | `string` | `"1.36.4"` | no |
+| <a name="input_enable_kubelet_csr_approver"></a> [enable\_kubelet\_csr\_approver](#input\_enable\_kubelet\_csr\_approver) | Apply the vendored kubelet-csr-approver manifest to control planes as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag. | `bool` | `true` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | The kubernetes version to deploy. | `string` | `"1.37.2"` | no |
 | <a name="input_machine_secrets"></a> [machine\_secrets](#input\_machine\_secrets) | Pre-generated Talos machine\_secrets (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos generates its own. Must be supplied together with client\_configuration. | `any` | `null` | no |
+| <a name="input_skip_machine_config_apply"></a> [skip\_machine\_config\_apply](#input\_skip\_machine\_config\_apply) | Skip talos\_machine\_configuration\_apply because the machineconfig reached the nodes out of band (hyperv CIDATA). Null (default) infers it from machine\_secrets being supplied. | `bool` | `null` | no |
 | <a name="input_talos_node_image"></a> [talos\_node\_image](#input\_talos\_node\_image) | Literal Talos node image reference used to pin the image for mirror hydration. Kept in sync with talos\_version by Renovate. | `string` | `"ghcr.io/siderolabs/talos:v1.12.6"` | no |
-| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1). | `string` | `"1.13.9"` | no |
+| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1). | `string` | `"1.14.2"` | no |
+| <a name="input_vip_interface"></a> [vip\_interface](#input\_vip\_interface) | Talos machine.network.interfaces entry, without vip, that carries the control-plane VIP. When set, the cluster\_endpoint host becomes the shared VIP and MUST be an IPv4 address no control plane uses. | `any` | `null` | no |
 | <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | A YAML string of worker config patches to apply. Can be an empty string or valid YAML. | `string` | `""` | no |
 | <a name="input_worker_disks"></a> [worker\_disks](#input\_worker\_disks) | Pool-level disks; used when a worker node has no disks key. Per-node disks override. | `list(any)` | `[]` | no |
 | <a name="input_worker_volumes"></a> [worker\_volumes](#input\_worker\_volumes) | Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present). | `list(string)` | `[]` | no |
