@@ -558,11 +558,11 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
-              version: "1.13.11"
+              version: "1.13.12"
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.11
+                image: ghcr.io/siderolabs/talos:v1.13.12
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.11"
+            talos_version: "1.13.12"
             kubernetes_version: "1.36.5"
