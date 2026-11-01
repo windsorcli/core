@@ -273,6 +273,7 @@ config:
         - prometheus/alerts/prometheus
         - prometheus/alerts/coredns
         - prometheus/alerts/cert-manager
+        - prometheus/alerts/x509
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
@@ -431,6 +432,7 @@ flux:
       components:
         - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
         - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+        - "${telemetry.metrics.enabled ? 'x509-exporter' : ''}"
         - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
         - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
       timeout: 30m
