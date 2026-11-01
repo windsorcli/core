@@ -124,12 +124,13 @@ answer.
 
 ## Backlog (pruned or considered, no ADR carried)
 
-From the prior cycle's pruning. Bring-your-own network and DNS zone has
-since been promoted out of this list and is carried as
-[ADR-0018](0018-bring-your-own-network.md); the `cli`-side blocker
-recorded against it here does not apply, because component identity is
-the facet `name:` and two same-named components with mutually exclusive
-`when:` select the module today.
+From the prior cycle's pruning. Bring-your-own network has since been
+promoted out of this list and is carried as
+[ADR-0018](0018-bring-your-own-network.md), which outlines the public
+DNS zone only as an undesigned milestone 3. The `cli`-side blocker
+recorded against this item does not apply, because component identity
+is the facet `name:` and two same-named components with mutually
+exclusive `when:` select the module today.
 
 - **Tunnel as an independent subsystem** (Cloudflare Tunnel first, ngrok/Tailscale Funnel/Inlets later) — a top-level schema concept and its own namespace, fronting the external gateway once ADR-0001's split lands. Zero code.
 - **Cloudflare auth via static in-cluster Secret** — the only viable auth model until ADR-0005's `external`/vault-compatible driver covers it too. Depends on the tunnel work above.
