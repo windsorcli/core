@@ -1284,3 +1284,39 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expectError: true
+
+  - name: supplied external certificate replaces the cert-manager Certificate
+    values:
+      gateway:
+        external:
+          ip: "10.5.1.11"
+          tls:
+            cert: CERT
+            key: KEY
+        internal:
+          ip: "10.5.1.10"
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_tls_secret: external-supplied-tls
+            - name: internal
+              components:
+                - certificate
+              substitutions:
+                gateway_tls_secret: internal-web-tls
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
