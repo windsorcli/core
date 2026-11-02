@@ -27,13 +27,13 @@ variable "create_network" {
 }
 
 variable "switch_type" {
-  description = "Hyper-V switch type. External binds to a host NIC, Internal exposes the host plus VMs, Private is VM-VM only, NAT pairs an Internal switch with a NetNat instance for outbound NAT and inbound port forwarding"
+  description = "Hyper-V network type. External binds to a host NIC, Internal exposes the host plus VMs, Private is VM-VM only, ICS creates a host NAT network that leases guest addresses from network_cidr by DHCP"
   type        = string
   default     = "Internal"
 
   validation {
-    condition     = contains(["External", "Internal", "Private", "NAT"], var.switch_type)
-    error_message = "switch_type must be one of: External, Internal, Private, NAT"
+    condition     = contains(["External", "Internal", "Private", "ICS"], var.switch_type)
+    error_message = "switch_type must be one of: External, Internal, Private, ICS"
   }
 }
 
@@ -44,7 +44,7 @@ variable "net_adapter_names" {
 }
 
 variable "allow_management_os" {
-  description = "Whether the host OS can use the bound NIC alongside VMs. Applies to External and Internal switches; rejected on Private and NAT"
+  description = "Whether the host OS can use the bound NIC alongside VMs. Applies to External switches only"
   type        = bool
   default     = true
 }
@@ -55,26 +55,8 @@ variable "force_management_os_migration" {
   default     = false
 }
 
-variable "nat_name" {
-  description = "Name of the NetNat instance paired with the switch. Required when switch_type=NAT; rejected otherwise"
-  type        = string
-  default     = null
-}
-
-variable "nat_internal_address_prefix" {
-  description = "CIDR the NetNat instance routes for, e.g. 192.168.200.0/24. Required when switch_type=NAT; rejected otherwise"
-  type        = string
-  default     = null
-}
-
-variable "nat_host_address" {
-  description = "IPv4 address assigned to the host vNIC, used as the gateway for VMs on the NAT subnet. Must lie inside nat_internal_address_prefix. Defaults to cidrhost(prefix, 1) at the provider layer when null"
-  type        = string
-  default     = null
-}
-
 variable "port_forwards" {
-  description = "Map of bench-side TCP listen port to internal (in-VM) port. Requires switch_type=NAT. Merged with extra_port_forwards (extra_port_forwards wins on collision)"
+  description = "Map of host TCP listen port to in-VM port. Each entry forwards to the IPv4 address its target instance reports. Merged with extra_port_forwards"
   type        = map(number)
   default     = {}
 }
@@ -90,49 +72,32 @@ variable "extra_port_forwards" {
   }
 }
 
-variable "udp_port_forwards" {
-  description = "UDP equivalent of port_forwards. A host port can be doubled up across protocols (e.g. DNS on tcp+udp 53)"
-  type        = map(number)
-  default     = {}
-}
-
-variable "extra_udp_port_forwards" {
-  description = "Operator-supplied UDP additions; merge semantics match extra_port_forwards. Overlap with udp_port_forwards is a validation error"
-  type        = map(number)
-  default     = {}
-
-  validation {
-    condition     = length(setintersection(keys(var.extra_udp_port_forwards), keys(var.udp_port_forwards))) == 0
-    error_message = "extra_udp_port_forwards must not reuse external ports already in udp_port_forwards. Conflicting keys: ${join(", ", setintersection(keys(var.extra_udp_port_forwards), keys(var.udp_port_forwards)))}"
-  }
-}
-
-variable "port_forward_target_ip" {
-  description = "Internal IPv4 address the port forwards target by default. Required when any *_port_forwards input is non-empty. Typically the controlplane VM's IP on the NAT subnet. Per-port overrides go through port_forward_target_overrides"
+variable "port_forward_target" {
+  description = "Instance name the port forwards target by default. Defaults to the first control plane by name. Per-port overrides go through port_forward_target_overrides"
   type        = string
   default     = null
 }
 
 variable "port_forward_target_overrides" {
-  description = "Per-external-port target IPv4 override, keyed by external_port (the same key used in port_forwards / udp_port_forwards). When a port appears here, its rule lands at this IP instead of var.port_forward_target_ip; ports not listed fall through to the default. Use to point per-node Talos API forwards (bench:50000+i) at distinct VM IPs without overriding the gateway / NodePort baseline"
+  description = "Per-listen-port target instance name, keyed by the same listen port as port_forwards. Ports not listed target port_forward_target"
   type        = map(string)
   default     = {}
 }
 
-variable "port_forward_external_ip" {
-  description = "Bench-side listen IPv4 the forwards bind to. Defaults to 0.0.0.0 (any host NIC)"
+variable "port_forward_listen_address" {
+  description = "Host IPv4 address the port forwards listen on. Defaults to 0.0.0.0 (every host address)"
   type        = string
   default     = "0.0.0.0"
 }
 
 variable "port_forward_name_prefix" {
-  description = "Prefix for derived firewall rule DisplayNames. Final name is <prefix>-<protocol>-<external_port>"
+  description = "Prefix for derived firewall rule DisplayNames. Final name is <prefix>-pp-<listen_port>"
   type        = string
   default     = "windsor-pf"
 }
 
 variable "port_forward_firewall_enabled" {
-  description = "Whether to manage paired NetFirewallRule entries alongside each static mapping"
+  description = "Whether to manage an inbound NetFirewallRule for each port forward"
   type        = bool
   default     = true
 }
@@ -144,7 +109,7 @@ variable "network_description" {
 }
 
 variable "network_cidr" {
-  description = "CIDR block of the network the switch participates in. Informational only; Hyper-V does not run DHCP. Used for sequential IP assignment when instances declare an IPv4 base"
+  description = "CIDR block of the guest network. With switch_type ICS it is the DHCP address prefix of the ICS network; otherwise it sets the static address prefix length"
   type        = string
   default     = null
 }
@@ -168,7 +133,7 @@ variable "name_suffix" {
 }
 
 variable "guest_ipv4_timeout" {
-  description = "How long compute waits after creating a DHCP VM before reading guest IPs. A zero duration skips the wait. Instances with a declared ipv4 never wait."
+  description = "How long creating a DHCP VM waits for the guest to report an IPv4 address. A zero duration skips the wait. Instances with a declared ipv4 never wait."
   type        = string
   default     = "5m"
 

@@ -62,20 +62,23 @@ plain `docker` is the Linux engine path.
 flowchart LR
   prov[terraform-provider-hyperv]
 
-  subgraph hv[Hyper-V NAT switch]
+  pp[port proxy<br/>host:6443 → cp:6443]
+
+  subgraph hv[Hyper-V ICS network]
     cp[talos-controlplane-1<br/>VM]
     w[talos-worker-1<br/>VM]
-    netnat[NetNat<br/>host:6443 → cp:6443]
   end
 
   prov --> cp
   prov --> w
-  prov --> netnat
-  netnat -.forwards.-> cp
+  prov --> pp
+  pp -.forwards.-> cp
 ```
 
 ```yaml
 platform: hyperv
+gateway:
+  service_type: NodePort
 cluster:
   driver: talos
   endpoint: https://192.168.3.77:6443
@@ -90,10 +93,12 @@ cluster:
 
 The module provisions Talos VMs on a Windows host running Hyper-V
 (Pro, Enterprise, or Server). It reaches the host over SSH using the
-credentials in the context's `environment:` block. The VMs live on a
-NAT switch (private to the host) and a Windows NetNat rule forwards
-the host's port 6443 to the control plane VM, so `cluster.endpoint`
-can reach the apiserver from outside the host.
+credentials in the context's `environment:` block. With both gateways
+on `NodePort`, the VMs live on an ICS network that is private to the
+host. Each VM leases its address from `network.cidr_block` by DHCP. A
+port proxy on the host forwards port 6443 to the address the control
+plane VM reports, so `cluster.endpoint` reaches the apiserver from
+outside the host.
 
 ### Proxmox VE
 

@@ -355,7 +355,7 @@ properties:
           Existing Hyper-V virtual switch to attach VMs to. When set, Windsor
           does not create a switch (create_network=false). Use this when the
           host NIC is already bound to an External switch. Ignored when
-          gateway.service_type is NodePort, which still creates a NAT switch.
+          gateway.service_type is NodePort, which still creates an ICS network.
       net_adapter:
         type: array
         items:
@@ -832,8 +832,8 @@ properties:
         default: "10.5.0.0/16"
         description: >
           Cluster network CIDR. Windsor either creates this network
-          (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
-          NetNat) or attaches to an existing one at this address (metal,
+          (cloud VPCs, incus bridges, docker bridges, the hyperv NodePort
+          ICS network) or attaches to an existing one at this address (metal,
           vSphere, Proxmox, hyperv with net_adapter). Override when the default
           conflicts with existing routes on the host. On gcp, 172.16.0.0/12
           is reserved for the cluster's pod and Service ranges, the control
@@ -864,7 +864,7 @@ properties:
           When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP and
           compute reports the leased addresses. More than one control plane
           requires cluster.endpoint, which MUST sit outside the DHCP scope;
-          control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
+          control planes SHOULD hold DHCP reservations. Hyper-V NodePort guests always use DHCP.
       ntp_servers:
         type: array
         items:

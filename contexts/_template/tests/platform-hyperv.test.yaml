@@ -528,10 +528,8 @@ cases:
               substitutions:
                 loadbalancer_ip_range: 10.20.0.110-10.20.0.120
 
-  # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
-  # one Talos API forward (40000 → cp-1), no workers in the lists, no
-  # extra entries in the per-port target_overrides map. 30292 (Flux webhook)
-  # is in the baseline because gitops.mode defaults to "push".
+  # NodePort single-VM: the cp leases its address on the ICS network, and the
+  # cluster step reaches it through bench 40000 at the address compute reports.
   - name: NodePort single-VM lands cp on bench 40000
     values:
       platform: hyperv
@@ -543,49 +541,46 @@ cases:
         endpoint: https://192.168.3.77:6443
         controlplanes:
           count: 1
-          nodes:
-            controlplane-1:
-              hostname: controlplane-1
-              endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
         workers:
           count: 0
     terraformOutputs:
       compute:
-        controlplanes: []
+        controlplanes:
+          - endpoint: 10.20.0.57:50000
+            node: 10.20.0.57
+            hostname: controlplane-1
         workers: []
     expect:
       terraform:
         - name: compute
           path: compute/hyperv
           inputs:
-            switch_type: NAT
+            switch_type: ICS
             controlplane_vip: false
+            network_dhcp: true
             instances:
               - name: controlplane-1
-                ipv4: 10.20.0.10
+                ipv4: null
             port_forwards:
               "6443": 6443
               "30292": 30292
               "40000": 50000
-            port_forward_target_ip: 10.20.0.10
+            port_forward_target: controlplane-1
             port_forward_target_overrides:
-              "40000": 10.20.0.10
+              "40000": controlplane-1
+            port_forward_listen_address: 192.168.3.77
         - name: cluster
           path: cluster/talos
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 10.20.0.10
+                node: 10.20.0.57
                 endpoint: 192.168.3.77:40000
             workers: []
 
-  # NodePort multi-VM: 1 cp + 1 worker. Each VM gets a distinct bench-side
-  # Talos API forward (40000 → cp-1, 40100 → worker-1) routed via per-port
-  # target_overrides to its NAT-internal IP. The compute instance list is
-  # flat (one entry per VM, count=1 each) so each instance's NAT-internal
-  # ipv4 feeds its own CIDATA seed.
-  - name: NodePort multi-VM derives per-node IPs forwards and instances
+  # NodePort multi-VM: each VM gets a distinct bench Talos API forward
+  # (40000 → cp-1, 40100 → worker-1) that targets it by instance name.
+  - name: NodePort multi-VM derives per-node forwards and instances
     values:
       platform: hyperv
       gateway:
@@ -596,61 +591,51 @@ cases:
         endpoint: https://192.168.3.77:6443
         controlplanes:
           count: 1
-          nodes:
-            controlplane-1:
-              hostname: controlplane-1
-              endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
         workers:
           count: 1
-          nodes:
-            worker-1:
-              hostname: worker-1
-              endpoint: 192.168.3.77:40100
-              node: 192.168.3.77
     terraformOutputs:
       compute:
-        controlplanes: []
-        workers: []
+        controlplanes:
+          - endpoint: 10.20.0.57:50000
+            node: 10.20.0.57
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.20.0.142:50000
+            node: 10.20.0.142
+            hostname: worker-1
     expect:
       terraform:
         - name: compute
           path: compute/hyperv
           inputs:
-            switch_type: NAT
+            switch_type: ICS
             instances:
               - name: controlplane-1
-                ipv4: 10.20.0.10
+                ipv4: null
               - name: worker-1
-                ipv4: 10.20.0.20
+                ipv4: null
             port_forwards:
               "6443": 6443
               "30292": 30292
               "40000": 50000
               "40100": 50000
-            port_forward_target_ip: 10.20.0.10
             port_forward_target_overrides:
-              "40000": 10.20.0.10
-              "40100": 10.20.0.20
+              "40000": controlplane-1
+              "40100": worker-1
         - name: cluster
           path: cluster/talos
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 10.20.0.10
+                node: 10.20.0.57
                 endpoint: 192.168.3.77:40000
             workers:
               - hostname: worker-1
-                node: 10.20.0.20
+                node: 10.20.0.142
                 endpoint: 192.168.3.77:40100
 
-  # Custom network.cidr_block: when the operator pins a non-default cluster
-  # network (collision with another routed range on the bench), every derived
-  # NAT field — internal prefix, host vNIC IP, per-node IPs, address CIDRs,
-  # port-forward target_overrides — relocates to the new subnet. Same
-  # network.cidr_block field describes the bench LAN on LAN-bridged paths;
-  # NodePort just interprets it as the NetNat-routed subnet.
-  - name: NodePort with custom network cidr_block relocates the entire NAT subnet
+  # network.cidr_block is the ICS network's DHCP prefix in NodePort mode.
+  - name: NodePort with custom network cidr_block sets the ICS prefix
     values:
       platform: hyperv
       gateway:
@@ -676,19 +661,9 @@ cases:
         - name: compute
           path: compute/hyperv
           inputs:
-            instances:
-              - name: controlplane-1
-                ipv4: 10.99.0.10
-              - name: worker-1
-                ipv4: 10.99.0.20
+            switch_type: ICS
             network_cidr: 10.99.0.0/24
-            network_gateway: 10.99.0.1
-            nat_internal_address_prefix: 10.99.0.0/24
-            nat_host_address: 10.99.0.1
-            port_forward_target_ip: 10.99.0.10
-            port_forward_target_overrides:
-              "40000": 10.99.0.10
-              "40100": 10.99.0.20
+            network_dhcp: true
 
   - name: NodePort with private DNS fails composition
     values:
@@ -880,15 +855,15 @@ cases:
       cluster: *default-cluster
     expectError: true
 
-  # NodePort NAT forwards need known guest IPs, so dhcp does not apply.
-  - name: NodePort ignores network.dhcp and keeps static NAT IPs
+  # NodePort guests lease by DHCP whatever network.dhcp says.
+  - name: NodePort leases guest addresses whatever network.dhcp says
     values:
       platform: hyperv
       gateway:
         service_type: NodePort
       network:
         cidr_block: 10.20.0.0/24
-        dhcp: true
+        dhcp: false
         loadbalancer_ips:
           start: "10.20.0.110"
           end: "10.20.0.120"
@@ -906,18 +881,21 @@ cases:
     expect:
       config:
         hyperv_effective:
-          dhcp: false
+          dhcp: true
+          bake_machineconfig: true
       terraform:
         - name: compute
           path: compute/hyperv
           inputs:
-            network_dhcp: false
-            network_nameservers:
-              - 1.1.1.1
-              - 8.8.8.8
+            cluster_endpoint: https://192.168.3.77:6443
+            network_dhcp: true
             instances:
               - name: controlplane-1
-                ipv4: 10.20.0.10
+                ipv4: null
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            skip_machine_config_apply: true
 
   # Guest IPv4 from cluster.*.nodes; cidr_block and gateway stay the shared LAN.
   - name: declared node IPs override cidrhost offsets on a shared LAN
@@ -1243,7 +1221,7 @@ cases:
 
   # NodePort owns the NAT switch its port forwards attach to, so an existing
   # switch_name does not suppress creation.
-  - name: NodePort creates its NAT switch even with switch_name set
+  - name: NodePort creates its ICS network even with switch_name set
     values:
       platform: hyperv
       gateway:
@@ -1268,7 +1246,7 @@ cases:
           path: compute/hyperv
           inputs:
             create_network: true
-            switch_type: NAT
+            switch_type: ICS
 
   # The machineconfig installs from the factory image so the schematic's
   # hyperv-guest-agent survives the first reboot.

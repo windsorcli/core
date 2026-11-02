@@ -98,7 +98,7 @@ network:
 ```
 
 No terraform module runs here. The compute driver creates the
-host-local network (Hyper-V NetNat, Incus bridge, Docker bridge).
+host-local network (Hyper-V ICS network, Incus bridge, Docker bridge).
 `cidr_block` is still authoritative though, since node IPs, the
 cluster API endpoint, and the load balancer IP pool all derive from
 it.

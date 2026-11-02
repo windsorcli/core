@@ -19,10 +19,6 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.11.0"
     }
-    time = {
-      source  = "hashicorp/time"
-      version = "~> 0.13"
-    }
   }
 }
 
@@ -37,10 +33,9 @@ locals {
 
 # The hyperv_virtual_switch creates a Hyper-V virtual switch the VMs attach to.
 # Supports External (bound to a host NIC, optionally NIC-teamed), Internal
-# (host-VM only), Private (VM-VM only), and NAT (Internal + NetNat for
-# outbound NAT and inbound port forwarding).
+# (host-VM only), and Private (VM-VM only).
 resource "hyperv_virtual_switch" "main" {
-  count = var.create_network ? 1 : 0
+  count = var.create_network && var.switch_type != "ICS" ? 1 : 0
 
   name                          = local.network_name
   switch_type                   = var.switch_type
@@ -48,60 +43,27 @@ resource "hyperv_virtual_switch" "main" {
   net_adapter_names             = var.switch_type == "External" ? var.net_adapter_names : null
   allow_management_os           = var.switch_type == "External" ? var.allow_management_os : null
   force_management_os_migration = var.switch_type == "External" ? var.force_management_os_migration : null
-  nat_name                      = var.switch_type == "NAT" ? var.nat_name : null
-  nat_internal_address_prefix   = var.switch_type == "NAT" ? var.nat_internal_address_prefix : null
-  nat_host_address              = var.switch_type == "NAT" ? var.nat_host_address : null
 }
 
-# =============================================================================
-# Port Forwards (NAT only)
-# =============================================================================
-#
-# bench:<external_port> -> nat -> port_forward_target_ip:<internal_port>.
-# Each entry creates the kernel-level NetNatStaticMapping plus an inbound
-# NetFirewallRule (unless port_forward_firewall_enabled = false). port_forwards
-# carries the always-on baseline composed by the platform facet (k8s/Talos
-# APIs, gateway NodePorts); extra_port_forwards layers operator-supplied
-# overrides (e.g. publishing :80 on the bench's LAN IP) on top.
+# The hyperv_ics_network creates a Host Compute Network of type ICS.
+# Guests on it lease an address from network_cidr and reach out through host NAT.
+resource "hyperv_ics_network" "main" {
+  count = var.create_network && var.switch_type == "ICS" ? 1 : 0
+
+  name           = local.network_name
+  address_prefix = var.network_cidr
+
+  lifecycle {
+    precondition {
+      condition     = var.network_cidr != null
+      error_message = "switch_type ICS requires network_cidr."
+    }
+  }
+}
+
 locals {
-  effective_tcp_port_forwards = merge(var.port_forwards, var.extra_port_forwards)
-  effective_udp_port_forwards = merge(var.udp_port_forwards, var.extra_udp_port_forwards)
-}
-
-resource "hyperv_nat_static_mapping" "tcp" {
-  for_each   = local.effective_tcp_port_forwards
-  depends_on = [hyperv_virtual_switch.main]
-
-  nat_name      = var.nat_name
-  protocol      = "tcp"
-  external_ip   = var.port_forward_external_ip
-  external_port = tonumber(each.key)
-  internal_ip   = lookup(var.port_forward_target_overrides, each.key, var.port_forward_target_ip)
-  internal_port = each.value
-
-  firewall_rule = {
-    enabled = var.port_forward_firewall_enabled
-    name    = "${var.port_forward_name_prefix}-tcp-${each.key}"
-    profile = "Any"
-  }
-}
-
-resource "hyperv_nat_static_mapping" "udp" {
-  for_each   = local.effective_udp_port_forwards
-  depends_on = [hyperv_virtual_switch.main]
-
-  nat_name      = var.nat_name
-  protocol      = "udp"
-  external_ip   = var.port_forward_external_ip
-  external_port = tonumber(each.key)
-  internal_ip   = lookup(var.port_forward_target_overrides, each.key, var.port_forward_target_ip)
-  internal_port = each.value
-
-  firewall_rule = {
-    enabled = var.port_forward_firewall_enabled
-    name    = "${var.port_forward_name_prefix}-udp-${each.key}"
-    profile = "Any"
-  }
+  vm_switch_name  = length(hyperv_ics_network.main) > 0 ? hyperv_ics_network.main[0].switch_name : local.network_name
+  vm_isolation_id = length(hyperv_ics_network.main) > 0 ? hyperv_ics_network.main[0].isolation_id : null
 }
 
 # =============================================================================
@@ -451,6 +413,16 @@ resource "hyperv_vhd" "instance_root" {
 # Compute Resources
 # =============================================================================
 
+locals {
+  # A duration with no non-zero digit is zero, whatever unit it is written in.
+  guest_ipv4_wait = length(regexall("[1-9]", var.guest_ipv4_timeout)) > 0
+
+  wait_for_guest_ipv4 = {
+    for k, v in local.instances_by_name : k => v
+    if v.ipv4 == null && v.desired_state == "Running" && local.guest_ipv4_wait
+  }
+}
+
 # The hyperv_vm creates the VM with inline NIC, hard-disk, DVD, and boot_order
 # blocks. Power state is driven by state.desired; Hyper-V hard-powers-off on
 # destroy. The two-apply install/eject pattern (boot from ISO once, install,
@@ -480,10 +452,11 @@ resource "hyperv_vm" "instances" {
 
   network_adapter = [
     {
-      name        = "primary"
-      switch_name = each.value.switch_name != null ? each.value.switch_name : local.network_name
-      mac_address = each.value.mac_address
-      vlan_id     = each.value.vlan_id
+      name         = "primary"
+      switch_name  = each.value.switch_name != null ? each.value.switch_name : local.vm_switch_name
+      isolation_id = each.value.switch_name != null ? null : local.vm_isolation_id
+      mac_address  = each.value.mac_address
+      vlan_id      = each.value.vlan_id
     },
   ]
 
@@ -536,6 +509,8 @@ resource "hyperv_vm" "instances" {
     shutdown_mode = each.value.shutdown_mode
   }
 
+  wait_for_guest_ip_timeout = contains(keys(local.wait_for_guest_ipv4), each.key) ? var.guest_ipv4_timeout : null
+
   # hyperv_vhd carries the implicit HDD dependency via hard_disk_drive[].path.
   # The switch and any DVD-ISO image are referenced through config-known
   # paths (not resource-instance refs), so add explicit deps to ensure they
@@ -544,35 +519,39 @@ resource "hyperv_vm" "instances" {
 }
 
 # =============================================================================
-# Guest IP Wait
+# Port Forwards
 # =============================================================================
 
 locals {
-  # A duration with no non-zero digit is zero, whatever unit it is written in.
-  guest_ipv4_wait = length(regexall("[1-9]", var.guest_ipv4_timeout)) > 0
+  effective_tcp_port_forwards = merge(var.port_forwards, var.extra_port_forwards)
 
-  wait_for_guest_ipv4 = {
-    for k, v in local.instances_by_name : k => v
-    if v.ipv4 == null && v.desired_state == "Running" && local.guest_ipv4_wait
+  port_forward_default_target = var.port_forward_target != null ? var.port_forward_target : try(sort(keys(local.controlplane_nodes))[0], null)
+
+  port_forward_targets = {
+    for k, v in local.effective_tcp_port_forwards : k => lookup(var.port_forward_target_overrides, k, local.port_forward_default_target)
   }
 }
 
-# Create-only pause so the following IP read is not the empty create-time snapshot.
-resource "time_sleep" "guest_ipv4" {
-  for_each = local.wait_for_guest_ipv4
+# The hyperv_port_proxy forwards a host TCP port to the address a guest reports.
+# A changed DHCP lease moves connect_address on the next apply.
+resource "hyperv_port_proxy" "tcp" {
+  for_each = local.effective_tcp_port_forwards
 
-  create_duration = var.guest_ipv4_timeout
-  triggers = {
-    vm_id = hyperv_vm.instances[each.key].id
+  listen_address  = var.port_forward_listen_address
+  listen_port     = tonumber(each.key)
+  connect_address = try(local.instance_ips[local.port_forward_targets[each.key]], null)
+  connect_port    = each.value
+
+  firewall_rule = {
+    enabled = var.port_forward_firewall_enabled
+    name    = "${var.port_forward_name_prefix}-pp-${each.key}"
+    profile = "Any"
   }
 
-  depends_on = [hyperv_vm.instances]
-}
-
-# Live KVP addresses after the wait. The empty substr defers the read until apply.
-data "hyperv_vm_state" "guest" {
-  for_each = local.wait_for_guest_ipv4
-
-  name       = "${hyperv_vm.instances[each.key].name}${substr(time_sleep.guest_ipv4[each.key].id, 0, 0)}"
-  depends_on = [time_sleep.guest_ipv4]
+  lifecycle {
+    precondition {
+      condition     = try(local.instance_ips[local.port_forward_targets[each.key]], null) != null
+      error_message = "Port forward ${each.key} needs a target instance that reports an IPv4 address."
+    }
+  }
 }

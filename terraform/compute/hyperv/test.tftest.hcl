@@ -14,11 +14,13 @@ mock_provider "hyperv" {
   }
   mock_resource "hyperv_vhd" {}
   mock_resource "hyperv_vm" {}
-  mock_data "hyperv_vm_state" {}
-}
-
-mock_provider "time" {
-  mock_resource "time_sleep" {}
+  mock_resource "hyperv_ics_network" {
+    defaults = {
+      switch_name  = "windsor-shared"
+      isolation_id = 7
+    }
+  }
+  mock_resource "hyperv_port_proxy" {}
 }
 
 mock_provider "talos" {
@@ -364,7 +366,7 @@ run "name_suffix_namespaces_host_objects" {
   }
 }
 
-# DHCP VMs wait after create so controlplanes is not empty on the first apply.
+# DHCP VMs wait on create so controlplanes is not empty on the first apply.
 run "dhcp_waits_for_guest_ipv4" {
   command = plan
 
@@ -382,7 +384,7 @@ run "dhcp_waits_for_guest_ipv4" {
   }
 
   assert {
-    condition     = length(time_sleep.guest_ipv4) == 1
+    condition     = hyperv_vm.instances["controlplane"].wait_for_guest_ip_timeout == "5m"
     error_message = "DHCP instances should wait for a guest IPv4"
   }
 }
@@ -405,7 +407,7 @@ run "static_ipv4_skips_guest_wait" {
   }
 
   assert {
-    condition     = length(time_sleep.guest_ipv4) == 0
+    condition     = hyperv_vm.instances["controlplane"].wait_for_guest_ip_timeout == null
     error_message = "Declared ipv4 should skip the guest IP wait"
   }
 }
@@ -428,7 +430,7 @@ run "guest_ipv4_timeout_zero_skips_wait" {
   }
 
   assert {
-    condition     = length(time_sleep.guest_ipv4) == 0
+    condition     = hyperv_vm.instances["controlplane"].wait_for_guest_ip_timeout == null
     error_message = "guest_ipv4_timeout 0s should skip the wait"
   }
 }
@@ -452,7 +454,7 @@ run "guest_ipv4_timeout_compound_zero_skips_wait" {
   }
 
   assert {
-    condition     = length(time_sleep.guest_ipv4) == 0
+    condition     = hyperv_vm.instances["controlplane"].wait_for_guest_ip_timeout == null
     error_message = "A zero duration in any unit should skip the wait"
   }
 }
@@ -863,12 +865,7 @@ run "controlplane_vip_rejects_node_ip" {
   expect_failures = [data.talos_machine_configuration.controlplane]
 }
 
-# Overlap validation: extra_port_forwards must not reuse an external port
-# already in port_forwards. The platform-hyperv facet builds port_forwards
-# (k8s/Talos APIs, gateway NodePorts) and layers operator-supplied
-# extra_port_forwards (gateway.publish_ports) on top; without this gate, an
-# operator picking an in-use bench port would silently override the baseline
-# (e.g. clobber the worker-1 Talos API forward).
+# extra_port_forwards must not reuse a listen port already in port_forwards.
 run "extra_port_forwards_collision_rejected" {
   command = plan
 
@@ -912,4 +909,164 @@ run "generation_one" {
     condition     = hyperv_vm.instances["legacy"].generation == 1
     error_message = "Gen 1 VM should report generation=1"
   }
+}
+
+# ICS replaces the virtual switch and attaches each VM to the shared ICS switch with its isolation ID.
+run "ics_network_attaches_vms" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    switch_type   = "ICS"
+    network_cidr  = "10.5.0.0/16"
+    network_dhcp  = true
+    talos_version = "1.12.6"
+    instances = [
+      {
+        name  = "controlplane-1"
+        role  = "controlplane"
+        count = 1
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(hyperv_virtual_switch.main) == 0
+    error_message = "ICS should not create a virtual switch"
+  }
+
+  assert {
+    condition     = hyperv_ics_network.main[0].name == "windsor-test" && hyperv_ics_network.main[0].address_prefix == "10.5.0.0/16"
+    error_message = "ICS network should take network_name and network_cidr"
+  }
+}
+
+run "ics_network_vm_nic" {
+  command = apply
+
+  variables {
+    context_id    = "test"
+    switch_type   = "ICS"
+    network_cidr  = "10.5.0.0/16"
+    network_dhcp  = true
+    talos_version = "1.12.6"
+    instances = [
+      {
+        name  = "controlplane-1"
+        role  = "controlplane"
+        count = 1
+      },
+    ]
+  }
+
+  assert {
+    condition     = hyperv_vm.instances["controlplane-1"].network_adapter[0].switch_name == "windsor-shared"
+    error_message = "VM NIC should attach to the ICS network's shared switch"
+  }
+
+  assert {
+    condition     = hyperv_vm.instances["controlplane-1"].network_adapter[0].isolation_id == 7
+    error_message = "VM NIC should carry the ICS network's isolation ID"
+  }
+}
+
+run "ics_requires_network_cidr" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    switch_type = "ICS"
+  }
+
+  expect_failures = [hyperv_ics_network.main]
+}
+
+# Each forward targets its instance's address; unlisted ports target port_forward_target.
+run "port_proxy_targets_instances" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    talos_version               = "1.12.6"
+    port_forward_listen_address = "192.168.3.77"
+    port_forward_name_prefix    = "windsor-test"
+    port_forwards = {
+      "6443"  = 6443
+      "40000" = 50000
+      "40100" = 50000
+    }
+    port_forward_target = "controlplane-1"
+    port_forward_target_overrides = {
+      "40000" = "controlplane-1"
+      "40100" = "worker-1"
+    }
+    instances = [
+      {
+        name  = "controlplane-1"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+      {
+        name  = "worker-1"
+        role  = "worker"
+        count = 1
+        ipv4  = "10.5.0.20"
+      },
+    ]
+  }
+
+  assert {
+    condition     = hyperv_port_proxy.tcp["6443"].connect_address == "10.5.0.10" && hyperv_port_proxy.tcp["40100"].connect_address == "10.5.0.20"
+    error_message = "Forwards should target the overridden or default instance address"
+  }
+
+  assert {
+    condition     = hyperv_port_proxy.tcp["40100"].listen_address == "192.168.3.77" && hyperv_port_proxy.tcp["40100"].connect_port == 50000
+    error_message = "Forward should listen on port_forward_listen_address and connect to the in-VM port"
+  }
+
+  assert {
+    condition     = hyperv_port_proxy.tcp["6443"].firewall_rule.name == "windsor-test-pp-6443"
+    error_message = "Firewall rule name should derive from port_forward_name_prefix"
+  }
+}
+
+run "port_proxy_defaults_to_first_controlplane" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    talos_version = "1.12.6"
+    port_forwards = {
+      "6443" = 6443
+    }
+    instances = [
+      {
+        name  = "cp"
+        role  = "controlplane"
+        count = 2
+        ipv4  = "10.5.0.10"
+      },
+    ]
+  }
+
+  assert {
+    condition     = hyperv_port_proxy.tcp["6443"].connect_address == "10.5.0.10"
+    error_message = "Forward with no target should go to the first control plane by name"
+  }
+}
+
+run "port_proxy_rejects_unknown_target" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    port_forward_target = "missing"
+    port_forwards = {
+      "6443" = 6443
+    }
+  }
+
+  expect_failures = [hyperv_port_proxy.tcp]
 }

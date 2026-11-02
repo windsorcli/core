@@ -3,25 +3,13 @@ locals {
     for k, v in hyperv_vm.instances : k => coalesce(local.instances_by_name[k].role, k)
   }
 
-  # Declared ipv4 wins. DHCP uses the post-wait KVP read, then the create-time snapshot.
+  # Declared ipv4, else the first IPv4 address the guest reports.
   instance_ips = {
     for k, v in hyperv_vm.instances : k => (
-      local.instances_by_name[k].ipv4 != null ? local.instances_by_name[k].ipv4 : (
-        try([
-          for ip in data.hyperv_vm_state.guest[k].ip_addresses : ip
-          if length(regexall(":", ip)) == 0
-        ][0], null) != null
-        ? try([
-          for ip in data.hyperv_vm_state.guest[k].ip_addresses : ip
-          if length(regexall(":", ip)) == 0
-        ][0], null)
-        : (
-          try(length(v.network_adapter[0].ip_addresses) > 0 ? [
-            for ip in v.network_adapter[0].ip_addresses : ip
-            if length(regexall(":", ip)) == 0
-          ][0] : null, null)
-        )
-      )
+      local.instances_by_name[k].ipv4 != null ? local.instances_by_name[k].ipv4 : try([
+        for ip in v.network_adapter[0].ip_addresses : ip
+        if length(regexall(":", ip)) == 0
+      ][0], null)
     )
   }
 
@@ -87,12 +75,12 @@ locals {
 
 output "network_name" {
   description = "Name of the virtual switch the VMs attach to"
-  value       = local.network_name
+  value       = local.vm_switch_name
 }
 
 output "network_type" {
-  description = "Hyper-V switch type (External, Internal, Private). Null when create_network is false"
-  value       = var.create_network ? hyperv_virtual_switch.main[0].switch_type : null
+  description = "Hyper-V switch type (External, Internal, Private, ICS). Null when create_network is false"
+  value       = var.create_network ? var.switch_type : null
 }
 
 output "network_managed" {
@@ -116,13 +104,8 @@ output "workers" {
 }
 
 output "tcp_port_forwards" {
-  description = "Map of installed TCP NAT port forwards keyed by bench-side external_port. Empty when no port_forwards are configured (e.g. non-NAT switch types)"
-  value       = { for k, r in hyperv_nat_static_mapping.tcp : k => r.id }
-}
-
-output "udp_port_forwards" {
-  description = "Map of installed UDP NAT port forwards keyed by bench-side external_port"
-  value       = { for k, r in hyperv_nat_static_mapping.udp : k => r.id }
+  description = "Map of installed TCP port proxies keyed by host listen port, valued by the guest address each one forwards to"
+  value       = { for k, r in hyperv_port_proxy.tcp : k => "${r.connect_address}:${r.connect_port}" }
 }
 
 output "machine_secrets" {
