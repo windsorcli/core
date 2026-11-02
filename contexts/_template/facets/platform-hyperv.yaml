@@ -351,7 +351,6 @@ terraform:
       extra_port_forwards: "${hyperv_effective.nat == true ? (gateway.publish_ports ?? {}) : {}}"
       port_forward_target: "${hyperv_effective.nat == true ? 'controlplane-1' : null}"
       port_forward_target_overrides: "${hyperv_effective.nat == true ? nat_effective.talos_api_targets : {}}"
-      port_forward_listen_address: "${hyperv_effective.nat == true ? hyperv_effective.bench_ip : '0.0.0.0'}"
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       cluster_name: talos

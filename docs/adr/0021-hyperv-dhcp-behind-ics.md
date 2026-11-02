@@ -93,8 +93,10 @@ Each DHCP VM sets `wait_for_guest_ip_timeout` to `guest_ipv4_timeout`
 address. The module removes its `time_sleep` and its
 `hyperv_vm_state` read, and the `hashicorp/time` provider.
 
-The forwards listen on the host address from `cluster.endpoint`, not
-on `0.0.0.0`.
+The forwards listen on `0.0.0.0`. A forward on the host address from
+`cluster.endpoint` works until the host reboots. After a reboot it has
+no listener, and Terraform does not detect it
+(windsorcli/terraform-provider-hyperv#445).
 
 The listen ports do not change. The API is on `6443`. The Talos API of
 control plane N is on `40000+N-1`, and of worker N on `40100+N-1`.
@@ -134,18 +136,23 @@ The ICS DHCP server leases by MAC address, and Hyper-V keeps a VM's
 dynamic MAC address for the life of the VM. On the bench, a guest kept
 its lease across a VM restart and across the Talos install reboot.
 
-The provider documents that the ICS network keeps its ID, prefix, and
-isolation ID across a host reboot, and that a guest can get a
-different lease after one. When a lease changes, the next apply
-updates `connect_address` in place. On the bench, a worker that got a
-new MAC address leased a new address. The next apply moved its Talos
-API forward to the new address, and `talosctl` and `kubectl` reached
-the node again.
+A host reboot keeps the ICS network, with the same ID, prefix, and
+isolation ID. The VMs start again with the same MAC addresses. On the
+bench, every guest then got a new lease: the control plane moved from
+`.173` to `.206`, and the workers moved too.
 
-Until that apply runs, the forwards point at the old address. A lease
-change also changes the node's internal IP in Kubernetes. On the
-bench, the worker re-registered with its new address. Operators SHOULD
-run `windsor apply` after a host reboot.
+Until the next apply, the forwards point at the old addresses, and the
+API is unreachable through `cluster.endpoint`. The next apply updates
+`connect_address` in place on every forward. After that apply on the
+bench, all nodes were `Ready` at their new addresses, and `talosctl`
+reached each node through its forward. etcd on the single control
+plane was healthy, with its peer URL on the new address.
+
+Operators MUST run `windsor apply` after a host reboot.
+
+A lease can also change without a reboot. On the bench, a worker that
+got a new MAC address leased a new address, and the next apply moved
+its Talos API forward to it.
 
 An apply that updates a VM in place while that VM's addresses change
 fails with "inconsistent result after apply"
@@ -187,8 +194,9 @@ destroy, remove it with `Remove-VMSwitch` before the next bootstrap.
   guest without the Hyper-V KVP daemon never reports an address, and
   VM creation fails after `guest_ipv4_timeout`. The Talos schematic
   includes `siderolabs/hyperv-guest-agent` for this reason.
-- A lease change moves the forwards only on the next apply. Until
-  then, the forwards point at the old address.
+- A lease change moves the forwards only on the next apply. A host
+  reboot changes every lease, so the cluster is unreachable from
+  outside the host until `windsor apply` runs.
 - `core` needs a `windsorcli/hyperv` release that has
   `hyperv_ics_network`, `hyperv_port_proxy`, and
   `wait_for_guest_ip_timeout`.
@@ -214,5 +222,6 @@ destroy, remove it with `Remove-VMSwitch` before the next bootstrap.
 - windsorcli/terraform-provider-hyperv#441: disabled firewall rule fix
 - windsorcli/terraform-provider-hyperv#443: NAT switch delete with attached VMs
 - windsorcli/terraform-provider-hyperv#444: `ip_addresses` on in-place VM update
+- windsorcli/terraform-provider-hyperv#445: port proxy listener after a host reboot
 - windsorcli/core#2757: several contexts on one Hyper-V host
 - windsorcli/core#3199: `cluster.endpoint` with DHCP control planes

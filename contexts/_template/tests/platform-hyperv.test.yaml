@@ -568,7 +568,6 @@ cases:
             port_forward_target: controlplane-1
             port_forward_target_overrides:
               "40000": controlplane-1
-            port_forward_listen_address: 192.168.3.77
         - name: cluster
           path: cluster/talos
           inputs:
