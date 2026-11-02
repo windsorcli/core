@@ -77,6 +77,15 @@ locals {
   # land at cidrhost(network_cidr, N).
   node_subnet_cidr = local.network_prefix >= 24 ? var.network_cidr : cidrsubnet(var.network_cidr, 24 - local.network_prefix, 0)
   network_name     = "network-${var.context_id}"
+
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    server = { id = var.context_id, max = 62 - max(0, [for node in local.nodes : length(node.hostname)]...) }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
 }
 
 resource "hcloud_network" "this" {
@@ -193,7 +202,7 @@ resource "terraform_data" "node_replacement" {
 resource "hcloud_server" "this" {
   for_each = local.nodes
 
-  name               = "${each.value.hostname}-${var.context_id}"
+  name               = "${each.value.hostname}-${local.context_id_fit.server}"
   server_type        = each.value.server_type
   image              = local.image_id_by_arch[each.value.architecture]
   location           = var.location

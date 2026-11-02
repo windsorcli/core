@@ -35,11 +35,20 @@ locals {
     WindsorContextID = var.context_id
   })
 
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    key_vault = { id = replace(var.context_id, "-", ""), max = 24 - length("pg") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
   resource_group_name         = "postgres-${var.context_id}"
   private_dns_zone_name       = "${var.context_id}.postgres.database.azure.com"
   private_dns_zone_link_name  = "postgres-${var.context_id}-link"
   network_security_group_name = "azuredb-${var.context_id}"
-  key_vault_name              = replace("pg-${var.context_id}", "-", "")
+  key_vault_name              = "pg${local.context_id_fit.key_vault}"
   cmk_identity_name           = "azuredb-cmk-${var.context_id}"
 }
 

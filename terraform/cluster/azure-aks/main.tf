@@ -45,10 +45,20 @@ data "azurerm_subscription" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    key_vault = { id = var.context_id, max = 24 - length("${var.name}--") - 3 }
+    cluster   = { id = var.context_id, max = 54 - length("${var.name}-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
   kubeconfig_path          = "${var.context_path}/.kube/config"
   kubeconfig_tmp_path      = "${local.kubeconfig_path}.tmp"
-  rg_name                  = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
-  cluster_name             = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
+  rg_name                  = var.resource_group_name == null ? "${var.name}-${local.context_id_fit.cluster}" : var.resource_group_name
+  cluster_name             = var.cluster_name == null ? "${var.name}-${local.context_id_fit.cluster}" : var.cluster_name
   node_resource_group_name = split("/", azurerm_kubernetes_cluster.main.node_resource_group_id)[4]
   node_pool_names          = [var.default_node_pool.name]
   # Safely access kubelet identity (may not be available during plan in tests)
@@ -89,7 +99,7 @@ resource "random_string" "key" {
 
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "${var.name}-${var.context_id}-${random_string.key.result}"
+  name                        = "${var.name}-${local.context_id_fit.key_vault}-${random_string.key.result}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
@@ -111,7 +121,7 @@ resource "azurerm_key_vault" "key_vault" {
     bypass         = "AzureServices"
   }
   tags = merge(local.tags, {
-    Name = "${var.name}-${var.context_id}-${random_string.key.result}"
+    Name = "${var.name}-${local.context_id_fit.key_vault}-${random_string.key.result}"
   })
 }
 
@@ -171,7 +181,7 @@ resource "time_static" "expiry" {}
 resource "azurerm_key_vault_key" "key_vault_key" {
   count = var.disk_encryption_enabled && var.key_vault_key_id == null ? 1 : 0
 
-  name            = "${var.name}-${var.context_id}-${random_string.key.result}"
+  name            = "${var.name}-${local.context_id_fit.cluster}-${random_string.key.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
@@ -209,7 +219,7 @@ moved {
 resource "azurerm_disk_encryption_set" "main" {
   count = var.disk_encryption_enabled ? 1 : 0
 
-  name                = "${var.name}-${var.context_id}-${random_string.key.result}"
+  name                = "${var.name}-${local.context_id_fit.cluster}-${random_string.key.result}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
   key_vault_key_id    = local.disk_encryption_key_id
@@ -230,18 +240,18 @@ moved {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "aks_logs" {
-  name                = "${var.name}-${var.context_id}"
+  name                = "${var.name}-${local.context_id_fit.cluster}"
   location            = azurerm_resource_group.aks.location
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags = merge(local.tags, {
-    Name = "${var.name}-${var.context_id}"
+    Name = "${var.name}-${local.context_id_fit.cluster}"
   })
 }
 
 resource "azurerm_monitor_diagnostic_setting" "aks_cluster" {
-  name                       = "${var.name}-${var.context_id}-aks-diag"
+  name                       = "${var.name}-${local.context_id_fit.cluster}-aks-diag"
   target_resource_id         = azurerm_kubernetes_cluster.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.aks_logs.id
 
@@ -263,7 +273,7 @@ resource "azurerm_monitor_diagnostic_setting" "aks_cluster" {
 
 resource "azurerm_monitor_data_collection_rule" "container_insights" {
   count               = var.container_insights_enabled ? 1 : 0
-  name                = "${var.name}-${var.context_id}-dcr"
+  name                = "${var.name}-${local.context_id_fit.cluster}-dcr"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
 
@@ -300,7 +310,7 @@ resource "azurerm_monitor_data_collection_rule" "container_insights" {
 
 resource "azurerm_monitor_data_collection_rule_association" "aks_dcr" {
   count                   = var.container_insights_enabled ? 1 : 0
-  name                    = "${var.name}-${var.context_id}-dcr-assoc"
+  name                    = "${var.name}-${local.context_id_fit.cluster}-dcr-assoc"
   target_resource_id      = azurerm_kubernetes_cluster.main.id
   data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights[0].id
   description             = "Association of DCR to AKS Cluster"

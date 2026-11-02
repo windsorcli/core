@@ -19,6 +19,15 @@ terraform {
 }
 
 locals {
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    cloudsql = { id = var.context_id, max = 63 - length("cloudsql-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
   # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
   network_id = var.operation == "destroy" ? coalesce(var.network_id, "projects/destroy-placeholder/global/networks/destroy-placeholder") : var.network_id
 }
@@ -30,7 +39,7 @@ locals {
 #---------------------------------------------------------------------------------------------------
 
 resource "google_compute_global_address" "private_service_connection" {
-  name          = "cloudsql-${var.context_id}"
+  name          = "cloudsql-${local.context_id_fit.cloudsql}"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   address       = var.private_service_address
@@ -62,7 +71,7 @@ resource "google_project_service_identity" "cloudsql" {
 
 resource "google_kms_key_ring" "cloudsql" {
   count    = var.manage_encryption_key && var.key_id == "" ? 1 : 0
-  name     = "cloudsql-${var.context_id}"
+  name     = "cloudsql-${local.context_id_fit.cloudsql}"
   location = var.region
 }
 
@@ -70,7 +79,7 @@ resource "google_kms_crypto_key" "cloudsql" {
   # checkov:skip=CKV_GCP_82: Only created when key_id is unset; durable
   # deployments supply an externally-managed key instead of this one.
   count           = var.manage_encryption_key && var.key_id == "" ? 1 : 0
-  name            = "cloudsql-${var.context_id}"
+  name            = "cloudsql-${local.context_id_fit.cloudsql}"
   key_ring        = google_kms_key_ring.cloudsql[0].id
   rotation_period = "7776000s" # 90 days
 }

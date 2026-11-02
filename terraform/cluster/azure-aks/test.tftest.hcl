@@ -1218,3 +1218,59 @@ run "var_tags_cannot_override_windsor_context_id_or_name" {
     error_message = "A caller-supplied Name in var.tags must not override the resource's own Name tag"
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id                 = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    kubernetes_version         = "1.36"
+    container_insights_enabled = true
+  }
+
+  assert {
+    condition     = length("cluster-${local.context_id_fit.key_vault}-abc") <= 24
+    error_message = "Key Vault name must be at most 24 characters"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.dns_prefix) <= 54
+    error_message = "AKS dns_prefix must be at most 54 characters"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.name) <= 63
+    error_message = "AKS cluster name must be at most 63 characters"
+  }
+
+  assert {
+    condition     = length(azurerm_log_analytics_workspace.aks_logs.name) <= 63
+    error_message = "Log Analytics workspace name must be at most 63 characters"
+  }
+
+  assert {
+    condition     = length(azurerm_monitor_data_collection_rule_association.aks_dcr[0].name) <= 64
+    error_message = "Data collection rule association name must be at most 64 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id         = "my-ctx-1"
+    kubernetes_version = "1.36"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.name == "cluster-my-ctx-1"
+    error_message = "AKS cluster name should keep the hyphenated context_id"
+  }
+
+  assert {
+    condition     = local.context_id_fit.key_vault == "my-ctx-1"
+    error_message = "Key Vault name should keep the hyphenated context_id"
+  }
+}

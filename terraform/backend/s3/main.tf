@@ -98,7 +98,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  default_s3_bucket_name = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    bucket = { id = var.context_id, max = 63 - length("terraform-state-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  default_s3_bucket_name = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${local.context_id_fit.bucket}"
   kms_key_id             = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
 
   bucket_policy_statements = flatten([

@@ -112,3 +112,40 @@ run "destroy_operation_relaxes_sibling_input_validation" {
     network_id = null
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    project_id = "test-project"
+    network_id = "projects/test-project/global/networks/network-test"
+  }
+
+  assert {
+    condition     = length(google_compute_global_address.private_service_connection.name) <= 63
+    error_message = "Reserved peering range name must be at most 63 characters"
+  }
+
+  assert {
+    condition     = length(google_kms_key_ring.cloudsql[0].name) <= 63
+    error_message = "KMS key ring name must be at most 63 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id = "my-ctx-1"
+    project_id = "test-project"
+    network_id = "projects/test-project/global/networks/network-test"
+  }
+
+  assert {
+    condition     = google_compute_global_address.private_service_connection.name == "cloudsql-my-ctx-1"
+    error_message = "Reserved peering range name should keep the hyphenated context_id"
+  }
+}

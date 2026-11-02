@@ -24,7 +24,16 @@ terraform {
 # =============================================================================
 
 locals {
-  zone_name = "dns-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    zone = { id = var.context_id, max = 63 - length("dns-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  zone_name = "dns-${local.context_id_fit.zone}"
 }
 
 resource "google_dns_managed_zone" "main" {

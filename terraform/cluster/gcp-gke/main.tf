@@ -25,7 +25,18 @@ terraform {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  cluster_name               = var.cluster_name != "" ? var.cluster_name : "${var.name}-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    cluster         = { id = var.context_id, max = 40 - length("${var.name}-") }
+    service_account = { id = var.context_id, max = 30 - length("${var.name}--external-dns") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  cluster_name               = var.cluster_name != "" ? var.cluster_name : "${var.name}-${local.context_id_fit.cluster}"
+  service_account_prefix     = var.cluster_name != "" ? var.cluster_name : "${var.name}-${local.context_id_fit.service_account}"
   kubeconfig_path            = "${var.context_path}/.kube/config"
   kubeconfig_tmp_path        = "${local.kubeconfig_path}.tmp"
   gke_auth_plugin_cache_path = "${var.context_path}/.kube/gke_gcloud_auth_plugin_cache"
@@ -402,7 +413,7 @@ resource "null_resource" "kubeconfig" {
 
 resource "google_service_account" "cert_manager" {
   count        = var.create_cert_manager_identity ? 1 : 0
-  account_id   = "${local.cluster_name}-cert-manager"
+  account_id   = "${local.service_account_prefix}-cert-manager"
   display_name = "cert-manager for ${local.cluster_name}"
   project      = var.project_id
 }
@@ -444,7 +455,7 @@ resource "google_project_iam_member" "cert_manager_dns_list" {
 
 resource "google_service_account" "external_dns" {
   count        = var.create_external_dns_identity ? 1 : 0
-  account_id   = "${local.cluster_name}-external-dns"
+  account_id   = "${local.service_account_prefix}-external-dns"
   display_name = "external-dns for ${local.cluster_name}"
   project      = var.project_id
 }

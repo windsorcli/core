@@ -536,3 +536,30 @@ run "invalid_pool_references" {
   }
 }
 
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+  }
+
+  assert {
+    condition     = length(incus_network.main[0].name) <= 15
+    error_message = "Bridge network name must fit the 15-character interface name limit"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id = "my-ctx-1"
+  }
+
+  assert {
+    condition     = incus_network.main[0].name == "net-my-ctx-1"
+    error_message = "Network name should keep the hyphenated context_id"
+  }
+}

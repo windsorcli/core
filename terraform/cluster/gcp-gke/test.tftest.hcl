@@ -663,3 +663,56 @@ run "invalid_kubernetes_version" {
     kubernetes_version = "v1.36"
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id                   = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    project_id                   = "test-project"
+    network_id                   = "projects/test-project/global/networks/network-test"
+    subnetwork_id                = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations               = ["us-central1-a"]
+    create_cert_manager_identity = true
+  }
+
+  assert {
+    condition     = length(google_container_cluster.this.name) <= 40
+    error_message = "GKE cluster name must be at most 40 characters"
+  }
+
+  assert {
+    condition     = length(google_service_account.cert_manager[0].account_id) <= 30
+    error_message = "cert-manager service account id must be at most 30 characters"
+  }
+
+  assert {
+    condition     = length(google_service_account.external_dns[0].account_id) <= 30
+    error_message = "external-dns service account id must be at most 30 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id                   = "my-ctx-1"
+    project_id                   = "test-project"
+    network_id                   = "projects/test-project/global/networks/network-test"
+    subnetwork_id                = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations               = ["us-central1-a"]
+    create_cert_manager_identity = true
+  }
+
+  assert {
+    condition     = google_container_cluster.this.name == "cluster-my-ctx-1"
+    error_message = "GKE cluster name should keep the hyphenated context_id"
+  }
+
+  assert {
+    condition     = google_service_account.external_dns[0].account_id == "cluster-my-ctx-1-external-dns"
+    error_message = "external-dns service account id should keep the hyphenated context_id"
+  }
+}

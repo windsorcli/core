@@ -25,7 +25,17 @@ provider "azurerm" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  vnet_name = var.vnet_name == null ? "${var.name}-${var.context_id}" : var.vnet_name
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    vnet        = { id = var.context_id, max = 64 - length("${var.name}-") }
+    route_table = { id = var.context_id, max = 80 - length("${var.name}-private-${var.vnet_zones}-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  vnet_name = var.vnet_name == null ? "${var.name}-${local.context_id_fit.vnet}" : var.vnet_name
   rg_name   = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
   tags = merge(var.tags, {
     WindsorContextID = var.context_id
@@ -147,11 +157,11 @@ resource "azurerm_nat_gateway_public_ip_association" "main" {
 
 resource "azurerm_route_table" "private" {
   count               = var.vnet_zones
-  name                = "${var.name}-private-${count.index + 1}-${var.context_id}"
+  name                = "${var.name}-private-${count.index + 1}-${local.context_id_fit.route_table}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   tags = merge(local.tags, {
-    Name = "${var.name}-private-${count.index + 1}-${var.context_id}"
+    Name = "${var.name}-private-${count.index + 1}-${local.context_id_fit.route_table}"
   })
 }
 

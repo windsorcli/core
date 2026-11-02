@@ -83,13 +83,13 @@ resource "google_storage_bucket_iam_member" "terraform_state" {
 
 resource "google_kms_key_ring" "this" {
   count    = var.enable_cmek ? 1 : 0
-  name     = "terraform-state-${var.context_id}"
+  name     = "terraform-state-${local.context_id_fit.terraform_state}"
   location = var.location
 }
 
 resource "google_kms_crypto_key" "this" {
   count           = var.enable_cmek ? 1 : 0
-  name            = "terraform-state-${var.context_id}"
+  name            = "terraform-state-${local.context_id_fit.terraform_state}"
   key_ring        = google_kms_key_ring.this[0].id
   rotation_period = "7776000s" # 90 days
 }
@@ -113,7 +113,16 @@ resource "google_kms_crypto_key_iam_member" "gcs" {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  default_bucket_name = var.bucket_name != "" ? var.bucket_name : "terraform-state-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    terraform_state = { id = var.context_id, max = 63 - length("terraform-state-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  default_bucket_name = var.bucket_name != "" ? var.bucket_name : "terraform-state-${local.context_id_fit.terraform_state}"
   labels = merge(var.labels, {
     windsor_context_id = var.context_id
   })
