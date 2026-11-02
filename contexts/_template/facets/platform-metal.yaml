@@ -8,10 +8,6 @@ metadata:
 # against them. No compute terraform, no network creation.
 when: platform == 'metal'
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Requires
 # =============================================================================

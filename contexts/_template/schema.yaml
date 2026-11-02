@@ -536,6 +536,11 @@ properties:
             description: S3 backend configuration (https://developer.hashicorp.com/terraform/language/backend/s3)
           kubernetes:
             type: object
+            properties:
+              namespace:
+                type: string
+                default: system-terraform
+                description: Namespace that holds the state Secrets
             additionalProperties: true
             description: Kubernetes backend configuration (https://developer.hashicorp.com/terraform/language/backend/kubernetes)
           azurerm:
@@ -1224,6 +1229,11 @@ properties:
             sensitive: true
             description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
         additionalProperties: false
+      trusted_cas:
+        type: array
+        items:
+          type: string
+        description: PEM-encoded root certificates added to the cluster trust bundle and the API server's OIDC CA file.
       private_ca:
         type: object
         deprecated: true

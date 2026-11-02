@@ -46,8 +46,8 @@ config:
   - name: platform
     value: "${platform ?? 'none'}"
 
-  # Whether core provisions the state backend: the platform's own backend type
-  # with no existing bucket or storage account supplied.
+  # Whether core provisions the state backend: cloud storage (managed) or the
+  # Kubernetes state namespace (kubernetes).
   - name: backend_effective
     value:
       managed: >-
@@ -55,6 +55,7 @@ config:
         : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
         : (platform == 'gcp' ? ((terraform.backend.type ?? 'gcs') == 'gcs' && (terraform.backend.gcs.bucket ?? '') == '')
         : false))}
+      kubernetes: "${(terraform.backend.type ?? '') == 'kubernetes'}"
 
   # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
@@ -272,6 +273,7 @@ config:
         - prometheus/alerts/prometheus
         - prometheus/alerts/coredns
         - prometheus/alerts/cert-manager
+        - prometheus/alerts/x509
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
@@ -312,9 +314,9 @@ substitutions:
 # Every kustomization auto-depends on this layer.
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-  - cert-manager-1.21.2
+  - cert-manager-1.21.3
   # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.1' : ''}"
+  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.2' : ''}"
   # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
   - "${telemetry.logs.enabled ? 'fluent-operator-4.3.0' : ''}"
 
@@ -342,6 +344,17 @@ terraform:
     inputs:
       cert: ${pki.ca.cert ?? pki.private_ca.cert ?? ''}
       key: ${pki.ca.key ?? pki.private_ca.key ?? ''}
+
+  # Kubernetes backend state namespace, after the cluster that holds it.
+  - name: backend
+    path: backend/kubernetes
+    when: backend_effective.kubernetes == true
+    dependsOn:
+      - "${cluster_provisioned ? 'cluster' : ''}"
+    inputs:
+      namespace: ${terraform.backend.kubernetes.namespace}
+      config_path: "${terraform.backend.kubernetes.config_path ?? ''}"
+      config_context: "${terraform.backend.kubernetes.config_context ?? ''}"
 
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)
@@ -419,6 +432,7 @@ flux:
       components:
         - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
         - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+        - "${telemetry.metrics.enabled ? 'x509-exporter' : ''}"
         - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
         - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
       timeout: 30m

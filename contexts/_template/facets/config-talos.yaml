@@ -330,6 +330,20 @@ config:
             content: |
               ${terraform_output('pki', 'cert')}
 
+  # Appends the pki.trusted_cas roots to the OIDC CA file.
+  - name: talos_common
+    when: cluster.oidc.enabled == true && len(pki.trusted_cas ?? []) > 0
+    value:
+      oidc_ca_file_patch: |-
+        machine:
+          files:
+          - op: create
+            path: /var/kubernetes/oidc-ca.crt
+            permissions: 420
+            content: |
+              ${terraform_output('pki', 'cert')}
+              ${join(pki.trusted_cas, '\n')}
+
   # Pinned Talos version; Renovate watches the string below.
   - name: talos
     value:

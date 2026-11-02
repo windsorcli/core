@@ -7,10 +7,6 @@ metadata:
 # Docker requires Talos and a workstation runtime; otherwise this facet is a no-op.
 when: "platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true) && (workstation.runtime ?? '') != ''"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Config — docker-specific Talos values
 # =============================================================================

@@ -7,9 +7,6 @@ metadata:
 # Talos on Proxmox VE, with credentials read from PROXMOX_VE_* env vars.
 when: "platform == 'proxmox' && cluster.driver == 'talos'"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend).
-backend: cluster
-
 requires:
   - paths:
       - proxmox.node

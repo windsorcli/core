@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - path: patches/trust-bundle.yaml
+    target:
+      group: trust.cert-manager.io
+      kind: Bundle
+      name: private-ca
