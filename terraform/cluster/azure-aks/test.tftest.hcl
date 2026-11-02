@@ -1274,3 +1274,19 @@ run "hyphenated_context_id" {
     error_message = "Key Vault name should keep the hyphenated context_id"
   }
 }
+
+# Verifies that a long name leaves only the hash of a 63-character context_id in the Key Vault name.
+run "context_id_at_max_length_with_long_name" {
+  command = plan
+
+  variables {
+    context_id         = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    name               = "aks-prod-east"
+    kubernetes_version = "1.36"
+  }
+
+  assert {
+    condition     = length("aks-prod-east-${local.context_id_fit.key_vault}-abc") <= 24
+    error_message = "Key Vault name must be at most 24 characters"
+  }
+}

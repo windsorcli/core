@@ -716,3 +716,23 @@ run "hyphenated_context_id" {
     error_message = "external-dns service account id should keep the hyphenated context_id"
   }
 }
+
+# Verifies that a long name leaves only the hash of a 63-character context_id in service account ids.
+run "context_id_at_max_length_with_long_name" {
+  command = plan
+
+  variables {
+    context_id                   = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    name                         = "gke-prod-1"
+    project_id                   = "test-project"
+    network_id                   = "projects/test-project/global/networks/network-test"
+    subnetwork_id                = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations               = ["us-central1-a"]
+    create_cert_manager_identity = true
+  }
+
+  assert {
+    condition     = length(google_service_account.external_dns[0].account_id) <= 30
+    error_message = "external-dns service account id must be at most 30 characters"
+  }
+}

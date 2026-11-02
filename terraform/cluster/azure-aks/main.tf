@@ -52,7 +52,7 @@ locals {
   }
   # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
   context_id_fit = {
-    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, r.max - 6)}${substr(sha256(var.context_id), 0, 6)}"
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
   }
 
   kubeconfig_path          = "${var.context_path}/.kube/config"
