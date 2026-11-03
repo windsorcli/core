@@ -1302,6 +1302,19 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+          tls:
+            type: object
+            description: Certificate the external gateway serves in place of a cert-manager one. Renewal is manual.
+            properties:
+              cert:
+                type: string
+                sensitive: true
+                description: PEM-encoded certificate chain, leaf first. MUST cover the gateway domain and its wildcard.
+              key:
+                type: string
+                sensitive: true
+                description: PEM-encoded private key for tls.cert.
+            additionalProperties: false
         additionalProperties: false
       internal:
         type: object
@@ -1321,6 +1334,19 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+          tls:
+            type: object
+            description: Certificate the internal gateway serves in place of a cert-manager one. Renewal is manual.
+            properties:
+              cert:
+                type: string
+                sensitive: true
+                description: PEM-encoded certificate chain, leaf first. MUST cover the gateway domain and its wildcard.
+              key:
+                type: string
+                sensitive: true
+                description: PEM-encoded private key for tls.cert.
+            additionalProperties: false
         additionalProperties: false
       publish_ports:
         type: object

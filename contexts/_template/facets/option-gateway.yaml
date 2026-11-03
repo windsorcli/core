@@ -53,6 +53,12 @@ requires:
     paths:
       - gateway_effective.unsupported
     message: The two NodePort gateways need different gateway.<name>.node_port values.
+  - when: >-
+      ((gateway.external.tls.cert ?? '') == '') != ((gateway.external.tls.key ?? '') == '') ||
+      ((gateway.internal.tls.cert ?? '') == '') != ((gateway.internal.tls.key ?? '') == '')
+    paths:
+      - gateway_effective.unsupported
+    message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
 
 # =============================================================================
 # Config — derived values consumed by this facet
@@ -126,6 +132,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${(gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
           - >-
@@ -152,6 +159,7 @@ flux:
             'lb-address' : ''}
         substitutions:
           gateway_name: external
+          gateway_tls_secret: "${(gateway.external.tls.cert ?? '') != '' ? 'external-supplied-tls' : 'external-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.public_domain ?? ''}"
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"
@@ -179,6 +187,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${(gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
           - >-
@@ -211,6 +220,7 @@ flux:
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
           gateway_name: internal
+          gateway_tls_secret: "${(gateway.internal.tls.cert ?? '') != '' ? 'internal-supplied-tls' : 'internal-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.private_domain ?? ''}"
           gateway_cert_issuer: private
@@ -226,3 +236,24 @@ flux:
           gateway_host_https_port: 8443
         timeout: 10m
         interval: 5m
+
+  # Supplied certificate for each gateway, in place of a cert-manager Certificate.
+  - name: gateway
+    when: gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') != ''
+    secrets:
+      external-supplied-tls:
+        namespaces: [system-gateway]
+        type: kubernetes.io/tls
+        data:
+          tls.crt: ${gateway.external.tls.cert}
+          tls.key: ${gateway.external.tls.key}
+
+  - name: gateway
+    when: gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') != ''
+    secrets:
+      internal-supplied-tls:
+        namespaces: [system-gateway]
+        type: kubernetes.io/tls
+        data:
+          tls.crt: ${gateway.internal.tls.cert}
+          tls.key: ${gateway.internal.tls.key}
