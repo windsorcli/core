@@ -74,7 +74,7 @@ locals {
 # -----------------------------------------------------------------------------------------------------------------------
 
 output "network_name" {
-  description = "Name of the virtual switch the VMs attach to"
+  description = "Name of the virtual switch the VMs attach to. With switch_type ICS, the switch HNS shares across all ICS networks on the host"
   value       = local.vm_switch_name
 }
 

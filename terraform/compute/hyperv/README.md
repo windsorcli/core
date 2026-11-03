@@ -95,7 +95,7 @@ No modules.
 | <a name="output_instances"></a> [instances](#output\_instances) | Flat list of all VMs. Generic shape (name, hostname, ipv4, ipv6, status, type, image, role) matching compute/incus and compute/docker |
 | <a name="output_machine_secrets"></a> [machine\_secrets](#output\_machine\_secrets) | Talos cluster identity. Pass to cluster/talos as var.machine\_secrets so it shares the same cluster CA. |
 | <a name="output_network_managed"></a> [network\_managed](#output\_network\_managed) | True when the virtual switch was created by this module |
-| <a name="output_network_name"></a> [network\_name](#output\_network\_name) | Name of the virtual switch the VMs attach to |
+| <a name="output_network_name"></a> [network\_name](#output\_network\_name) | Name of the virtual switch the VMs attach to. With switch\_type ICS, the switch HNS shares across all ICS networks on the host |
 | <a name="output_network_type"></a> [network\_type](#output\_network\_type) | Hyper-V switch type (External, Internal, Private, ICS). Null when create\_network is false |
 | <a name="output_tcp_port_forwards"></a> [tcp\_port\_forwards](#output\_tcp\_port\_forwards) | Map of installed TCP port proxies keyed by host listen port, valued by the guest address each one forwards to |
 | <a name="output_workers"></a> [workers](#output\_workers) | Worker VMs formatted for cluster/talos (hostname, endpoint, node). Empty list until the guest reports an IP via Hyper-V integration services |
