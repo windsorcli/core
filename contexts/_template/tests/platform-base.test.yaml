@@ -1074,6 +1074,54 @@ cases:
         public_issuer: acme
     expectError: true
 
+  # A secret() ca_bundle stays deferred inside toBase64 until apply resolves the secret.
+  - name: secret pki.acme.ca_bundle is encoded at apply, not as expression text
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        private_domain: example.internal
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+          ca_bundle: ${secret("vault", "corp-root", "cert")}
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/acme
+                - private-issuer/acme/ca-bundle
+              substitutions:
+                private_acme_ca_bundle: ${toBase64(secret("vault", "corp-root", "cert"))}
+
+  # The deferred wrapper encodes the resolved value, shown with a mocked terraform output.
+  - name: deferred pki.acme.ca_bundle resolves to the encoded bundle
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        private_domain: example.internal
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+          ca_bundle: ${terraform_output('pki', 'bundle')}
+    terraformOutputs:
+      pki:
+        bundle: PEM
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - substitutions:
+                private_acme_ca_bundle: UEVN
+
   - name: kubernetes backend creates the default state namespace after the cluster
     applySchemaDefaults: true
     values:
@@ -1177,3 +1225,50 @@ cases:
     exclude:
       terraform:
         - name: backend
+
+  # Split-horizon DNS on one domain is rejected.
+  - name: equal public and private domains fail composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expectError: true
+
+  - name: deprecated dns.domain equal to the public domain fails composition
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+        public_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expectError: true

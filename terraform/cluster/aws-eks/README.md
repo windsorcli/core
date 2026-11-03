@@ -14,6 +14,20 @@ blueprint's platform-aws facet defaults to one autoscaling `general`
 pool alongside it. The `additions/` submodule creates the `system-dns` namespace and the
 external-dns ConfigMap that EKS needs out-of-band.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| IAM roles `cluster-<id>-aws-ebs-csi-driver`, `-aws-efs-csi-driver`, `-pod-identity-agent`, `-cluster-autoscaler` | 1-64 characters | 37 |
+| IAM role `cluster-<id>-aws-lb-controller` | 1-64 characters | 38 |
+| IAM role `cluster-<id>-fargate-profile` | 1-64 characters | 40 |
+| IAM roles `cluster-<id>-external-dns`, `-cert-manager` | 1-64 characters | 43 |
+| IAM role `cluster-<id>-node-group` | 1-64 characters | 45 |
+| IAM role `cluster-<id>-vpc-cni` | 1-64 characters | 48 |
+| IAM role `cluster-<id>` | 1-64 characters | 56 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

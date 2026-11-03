@@ -326,6 +326,9 @@ cases:
     values:
       platform: hyperv
       gateway:
+        external:
+          tls:
+            issuer: selfsigned
         service_type: NodePort
       dns:
         private_domain: test
@@ -366,6 +369,8 @@ cases:
       platform: hyperv
       gateway:
         external:
+          tls:
+            issuer: selfsigned
           service_type: NodePort
           node_port: 30600
         internal:
@@ -447,6 +452,8 @@ cases:
         internal:
           ip: "10.20.0.100"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.20.0.101"
         enabled: true
         service_type: LoadBalancer

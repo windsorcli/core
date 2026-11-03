@@ -83,6 +83,7 @@ flux:
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
         - "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium/l2' : ''}"
+        - "${(cluster.cni.encryption ?? ((workstation.runtime ?? '') == '')) == true ? 'cilium/encryption' : ''}"
       substitutions:
         k8s_service_host: localhost
         k8s_service_port: "7445"
@@ -118,6 +119,7 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
+        - "${(cluster.cni.encryption ?? ((workstation.runtime ?? '') == '')) == true ? 'cilium/encryption' : ''}"
       substitutions:
         k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
         cluster_name: ${context}

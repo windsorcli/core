@@ -259,34 +259,36 @@ cases:
             hostname: "gcr.test"
     terraformOutputs: *terraform-outputs-with-workstation-registries
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              controllerManager:
+                extraArgs:
+                  leader-elect: "false"
+              etcd:
+                extraArgs:
+                  auto-compaction-mode: revision
+                  auto-compaction-retention: "1000"
+                  max-snapshots: "3"
+                  max-wals: "3"
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+              scheduler:
+                extraArgs:
+                  leader-elect: "false"
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
             registry_mirrors:
               gcr.io:
                 endpoints:

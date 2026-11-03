@@ -62,7 +62,7 @@ Other blueprints follow the same shape. They can extend Core, replace it, or com
 
 **CNI.** [Cilium](https://cilium.io) is the default on Talos clusters, including local Colima setups. Docker Desktop falls back to Flannel for runtime compatibility. EKS and AKS use their managed CNIs.
 
-**Gateway driver.** Choose [Envoy](https://www.envoyproxy.io) plus [Gateway API](https://gateway-api.sigs.k8s.io), [NGINX](https://github.com/kubernetes/ingress-nginx) plus the Ingress API, or Cilium Gateway when the CNI is Cilium.
+**Gateway driver.** Choose [Envoy](https://www.envoyproxy.io) plus [Gateway API](https://gateway-api.sigs.k8s.io), or Cilium Gateway when the CNI is Cilium.
 
 **Load balancing (substrate-dependent).** [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/) on EKS. [MetalLB](https://metallb.universe.tf) or [kube-vip](https://kube-vip.io) on bare metal.
 
@@ -70,7 +70,7 @@ Other blueprints follow the same shape. They can extend Core, replace it, or com
 
 **Optional addons.** [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) with a private CA. Self-hosted CoreDNS for private zones. [MinIO](https://min.io) for object storage. Postgres clusters managed by [CloudNativePG](https://cloudnative-pg.io). An observability stack with [Grafana](https://grafana.com) and prebuilt dashboards, [Elasticsearch](https://www.elastic.co/elasticsearch) with [Kibana](https://www.elastic.co/kibana), or [Quickwit](https://quickwit.io) as a lighter alternative.
 
-The [demo/](kustomize/demo/) directory has sample applications wired through ingress, gateway, and storage.
+The [demo/](kustomize/demo/) directory has sample applications wired through the gateway and storage.
 
 ## License
 

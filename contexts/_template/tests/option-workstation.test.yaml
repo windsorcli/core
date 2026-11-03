@@ -55,35 +55,37 @@ cases:
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              controllerManager:
+                extraArgs:
+                  leader-elect: "false"
+              etcd:
+                extraArgs:
+                  auto-compaction-mode: revision
+                  auto-compaction-retention: "1000"
+                  max-snapshots: "3"
+                  max-wals: "3"
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+              scheduler:
+                extraArgs:
+                  leader-elect: "false"
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
             cluster_name: talos
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
             registry_mirrors: {}
         - name: gitops
           path: gitops/flux
@@ -358,6 +360,15 @@ cases:
             node: 10.5.0.20
             hostname: worker-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: workstation
           path: workstation/incus
@@ -371,13 +382,6 @@ cases:
             - compute
           inputs:
             vip_interface: null
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
             registry_mirrors: {}
         - name: gitops
           path: gitops/flux

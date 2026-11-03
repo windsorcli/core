@@ -228,6 +228,20 @@ cases:
         cni:
           driver: cilium
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cni
           path: cni/cilium
@@ -238,19 +252,6 @@ cases:
         # alone, so a declared-node worker read as workerless here.
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
@@ -338,22 +339,23 @@ cases:
         cni:
           driver: cilium
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   # Cilium + Gateway: gateway-resources depends on cni so the LBIPAM sharing policy
   # is applied before the Gateway resource is created.
@@ -503,3 +505,88 @@ cases:
               - cilium/prometheus
               - cilium/hubble
               - cilium/l2
+
+  - name: cilium encryption on by default outside workstation contexts
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium/encryption
+
+  - name: cluster.cni.encryption false omits cilium encryption
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: cilium
+          encryption: false
+    exclude:
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium/encryption
+
+  - name: cilium encryption off by default in workstation contexts
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: cilium
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    exclude:
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium/encryption
+
+  - name: cluster.cni.encryption true enables cilium encryption in workstation contexts
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: cilium
+          encryption: true
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium/encryption

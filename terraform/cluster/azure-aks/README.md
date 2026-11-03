@@ -57,6 +57,15 @@ terraform state list | grep azurerm_role_assignment.external_dns_zones | \
 
 The next apply will then only show creates.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Key Vault `<name>-<id>-<3 random>` | 3-24 characters | 12 with the default `name` |
+| AKS `dns_prefix` `<name>-<id>`, also used for the cluster, resource group, Log Analytics workspace, and data collection rule names | 1-54 characters | 46 with the default `name` |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

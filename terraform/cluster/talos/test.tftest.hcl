@@ -35,14 +35,6 @@ run "minimal_configuration" {
     condition     = length(module.controlplanes) == 0
     error_message = "No additional controlplanes should be created in minimal config"
   }
-  assert {
-    condition     = yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].name == "kubelet-csr-approver"
-    error_message = "kubelet-csr-approver inlineManifest should be enabled by default"
-  }
-  assert {
-    condition     = strcontains(yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].contents, "kind: Deployment")
-    error_message = "kubelet-csr-approver inlineManifest should carry the vendored manifest"
-  }
 }
 
 # Tests a full configuration with all optional variables explicitly set
@@ -72,7 +64,6 @@ run "full_configuration" {
           extraArgs:
             - "--max-pods=110"
     EOT
-    enable_kubelet_csr_approver = false
     controlplanes = [
       {
         hostname = "cp1"
@@ -108,10 +99,6 @@ run "full_configuration" {
   assert {
     condition     = length(module.controlplanes) == 0
     error_message = "No additional controlplanes should be created in this config"
-  }
-  assert {
-    condition     = local.kubelet_csr_approver_patch == ""
-    error_message = "kubelet-csr-approver inlineManifest should be omitted when disabled"
   }
   assert {
     condition     = length(module.workers) == 1

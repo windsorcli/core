@@ -41,7 +41,16 @@ provider "incus" {
 # =============================================================================
 
 locals {
-  network_name = var.network_name != "" ? var.network_name : "net-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    network = { id = var.context_id, max = var.network_type == "bridge" ? 15 - length("net-") : 63 }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  network_name = var.network_name != "" ? var.network_name : "net-${local.context_id_fit.network}"
 
   # Build network config: enable DHCP and NAT by default (configurable)
   # Static IPs on device ipv4.address act as static DHCP leases when DHCP is enabled

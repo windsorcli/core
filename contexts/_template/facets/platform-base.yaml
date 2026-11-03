@@ -8,10 +8,28 @@ metadata:
 when: (platform ?? 'none') != 'none'
 
 requires:
+  # Split-horizon DNS on one domain is not supported.
+  - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
+    paths:
+      - dns.split_horizon_supported
+    message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
+  - when: dns.private.driver == 'cloud' && platform != 'aws' && platform != 'azure' && platform != 'gcp'
+    paths:
+      - dns.private_cloud_supported
+    message: dns.private.driver cloud needs a platform with a cloud private zone (aws, azure or gcp); use coredns or none.
+  - when: dns.private.driver == 'cloud'
+    paths:
+      - dns.private_domain
+    message: The cloud private zone is created for dns.private_domain.
   - when: (pki.public_issuer ?? '') == 'acme'
     paths:
       - dns.public_domain
     message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+  - when: ((pki.acme.eab.key_id ?? '') == '') != ((pki.acme.eab.hmac_key ?? '') == '')
+    paths:
+      - pki.acme.eab.key_id
+      - pki.acme.eab.hmac_key
+    message: ACME external account binding needs both pki.acme.eab.key_id and pki.acme.eab.hmac_key.
   - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
     paths:
       - lb_effective.driver_supported
@@ -209,11 +227,65 @@ config:
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
 
+  # Default dns.private.driver. A NodePort internal gateway outside a workstation defaults to none.
+  - name: dns
+    when: (dns.private.driver ?? '') == ''
+    value:
+      private:
+        driver: >-
+          ${dns.private.enabled == true ? 'coredns' :
+          ((dns.private_domain ?? '') == '' || platform == 'hetzner' ? 'none' :
+          (platform == 'aws' || platform == 'azure' || platform == 'gcp' ? 'cloud' :
+          (dns.private.enabled == false || cluster_provisioned != true ||
+          ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
+
+  # CoreDNS serves the public zone only where no platform DNS zone does.
+  - name: dns_private_effective
+    value:
+      public_zone: >-
+        ${(dns.public_domain ?? '') != '' && platform != 'aws' && platform != 'azure' && platform != 'gcp' && platform != 'hetzner'}
+
   # dns_zone_effective.enabled: platforms provision the public zone, external-dns
   # and the DNS-01 identity. dns.public_zone: false keeps public_domain as a hostname only.
   - name: dns_zone_effective
     value:
       enabled: "${(dns.public_domain ?? '') != '' && (dns.public_zone ?? true) == true}"
+
+  # ClusterIssuer each gateway certificate uses, inferred unless gateway.<name>.tls.issuer overrides it.
+  - name: tls_effective
+    value:
+      public_zone_writable: "${dns_zone_effective.enabled == true && platform in ['aws', 'azure', 'gcp', 'hetzner']}"
+      private_subdomain: "${(dns.public_domain ?? '') != '' && hasSuffix(dns.private_domain ?? '', '.' + dns.public_domain)}"
+      internal_acme: "${(pki.acme.server ?? '') != ''}"
+      external_override: "${gateway.external.tls.issuer ?? ((pki.public_issuer ?? '') == 'selfsigned' ? 'selfsigned' : '')}"
+      internal_override: "${gateway.internal.tls.issuer ?? ''}"
+  - name: tls_effective
+    value:
+      external_issuer: >-
+        ${tls_effective.external_override == 'selfsigned' ? 'public-selfsigned' :
+        (tls_effective.external_override == 'ca' ? 'private' :
+        (tls_effective.public_zone_writable == true ? 'public-acme' :
+        (tls_effective.internal_acme == true ? 'private-acme' :
+        (tls_effective.external_override == 'acme' ? 'public-acme' : 'public-selfsigned'))))}
+      internal_issuer: >-
+        ${tls_effective.internal_override == 'selfsigned' ? 'public-selfsigned' :
+        (tls_effective.internal_override == 'ca' ? 'private' :
+        (tls_effective.internal_acme == true ? 'private-acme' :
+        (tls_effective.private_subdomain == true && tls_effective.public_zone_writable == true ? 'public-acme' :
+        (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private'))))}
+  # Which ClusterIssuers some gateway domain needs.
+  - name: tls_effective
+    value:
+      public_acme: >-
+        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-acme') ||
+        ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme')}
+      private_acme: >-
+        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'private-acme') ||
+        ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'private-acme')}
+      selfsigned: >-
+        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-selfsigned') ||
+        ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-selfsigned')}
+      public_resolvers: "${(dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme'}"
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -494,17 +566,37 @@ flux:
         - cert-manager
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
         - "${topology == 'ha' ? 'cert-manager/ha' : ''}"
+        - "${tls_effective.public_resolvers == true ? 'cert-manager/public-resolvers' : ''}"
       timeout: 20m
       interval: 5m
     resources:
       - components:
-          # Cloud platforms add their own public issuer.
-          - >-
-            ${(dns.public_domain ?? '') != '' &&
-            !(platform in ['aws', 'azure', 'gcp', 'hetzner']) ?
-            'public-issuer/selfsigned' : ''}
+          # Cloud platforms add their own public ACME issuer.
+          - "${tls_effective.selfsigned == true ? 'public-issuer/selfsigned' : ''}"
+          - "${tls_effective.private_acme == true ? 'private-issuer/acme' : ''}"
+          - "${tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != '' ? 'private-issuer/acme/eab' : ''}"
+          - "${tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != '' ? 'private-issuer/acme/ca-bundle' : ''}"
+        substitutions:
+          private_acme_server: "${pki.acme.server ?? ''}"
+          private_acme_email: "${email ?? ''}"
+          private_acme_eab_key_id: "${pki.acme.eab.key_id ?? ''}"
+          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
+          private_acme_ca_bundle: >-
+            ${(pki.acme.ca_bundle ?? '') == '' ? '' :
+            (hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
+            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
+            toBase64(pki.acme.ca_bundle))}
         timeout: 5m
         interval: 5m
+
+  # EAB HMAC key for the private-acme ClusterIssuer.
+  - name: pki
+    when: tls_effective.private_acme == true && (pki.acme.eab.hmac_key ?? '') != ''
+    secrets:
+      private-acme-eab:
+        namespaces: [system-pki]
+        data:
+          hmac-key: ${pki.acme.eab.hmac_key}
 
   # Central FluentD aggregator. Runs in the observability namespace (where
   # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
@@ -590,7 +682,7 @@ messages:
         ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
 
   - when: >-
-      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned' &&
+      tls_effective.public_acme == true &&
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
     text: Certificate issuance won't succeed until delegation propagates.

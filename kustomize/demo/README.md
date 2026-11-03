@@ -195,4 +195,4 @@ HTTPRoute exposing productpage at `bookinfo.${bookinfo_domain}`. It attaches to 
 
 - [contexts/_template/facets/option-demo.yaml](../../contexts/_template/facets/option-demo.yaml) for the canonical wiring.
 - [kustomize/demo/static/assets/](static/assets/) for the Dockerfile and Node.js source for the static-site image. Build and push to `${REGISTRY_URL}` before enabling the static demo.
-- Related add-ons: [database](../database/) (CloudNativePG operator) and [provisioning](../provisioning/) (Crossplane, `driver: rds`) for the Postgres demo, [gateway](../gateway/) or [ingress](../ingress/) (route handling), [csi](../csi/) (PVC for the static site).
+- Related add-ons: [database](../database/) (CloudNativePG operator) and [provisioning](../provisioning/) (Crossplane, `driver: rds`) for the Postgres demo, [gateway](../gateway/) (route handling), [csi](../csi/) (PVC for the static site).

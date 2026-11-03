@@ -12,7 +12,7 @@ coredns). It's active whenever `dns.public_domain` or
 `dns.private_domain` is set.
 
 `coredns` is an in-cluster authoritative private DNS server with an
-etcd backend. It's active when `dns.private.enabled: true`,
+etcd backend. It's active when `dns.private.driver` is `coredns`,
 and lets workstations resolve `*.<dns.private_domain>` without
 needing a cloud zone.
 
@@ -267,7 +267,7 @@ Patches the HelmRelease for Hetzner DNS through the external-dns webhook provide
 
 ### `resources/external-dns/providers/coredns`
 
-_Enabled when `dns.private.enabled: true` (provides DNS through the in-cluster coredns)._
+_Enabled when `dns.private.driver: coredns` (provides DNS through the in-cluster coredns)._
 
 Patches the HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone.
 
@@ -279,33 +279,33 @@ Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `
 
 ### `coredns/public-zone`
 
-_Enabled when `dns.private.enabled: true` AND `dns.public_domain` is set._
+_Enabled when `dns.private.driver: coredns` AND `dns.public_domain` is set, on platforms without a provider DNS zone._
 
 Adds a `${public_domain}` zone to the in-cluster coredns server block, so a local or metal cluster answers for the public domain as well as the private one.
 
 ### `coredns`
 
-_Enabled when `dns.private.enabled: true`._
+_Enabled when `dns.private.driver: coredns`._
 
 Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves only `dns.private_domain` and refuses every other name.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `etcd` | `dns.private.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
-| `prometheus` | `dns.private.enabled: true` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
-| `ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
-| `loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${dns_loadbalancer_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
-| `cilium` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
-| `gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
+| `etcd` | `dns.private.driver: coredns` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
+| `prometheus` | `dns.private.driver: coredns` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
+| `ha` | `dns.private.driver: coredns` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
+| `loadbalancer` | `dns.private.driver: coredns` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${dns_loadbalancer_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
+| `cilium` | `dns.private.driver: coredns` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
+| `gateway` | `dns.private.driver: coredns` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-install` | `dns.private.enabled: true` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
+| `pki-install` | `dns.private.driver: coredns` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
 | `gateway-install` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
 | `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
-| `cni` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
+| `cni` | `dns.private.driver: coredns` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
 
 
 ## See also

@@ -68,6 +68,17 @@ resource "aws_route53_zone" "main" {
 # DNSSEC (opt-in via var.enable_dnssec)
 # =============================================================================
 
+locals {
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    key_signing_key = { id = var.context_id, max = 128 - length("-${replace(var.domain_name, ".", "-")}-ksk") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
+  }
+}
+
 resource "aws_kms_key" "dnssec" {
   count                    = var.enable_dnssec ? 1 : 0
   provider                 = aws.us_east_1
@@ -111,7 +122,7 @@ resource "aws_route53_key_signing_key" "dnssec" {
   count                      = var.enable_dnssec ? 1 : 0
   hosted_zone_id             = aws_route53_zone.main.id
   key_management_service_arn = aws_kms_key.dnssec[0].arn
-  name                       = "${var.context_id}-${replace(var.domain_name, ".", "-")}-ksk"
+  name                       = "${local.context_id_fit.key_signing_key}-${replace(var.domain_name, ".", "-")}-ksk"
 }
 
 resource "aws_route53_hosted_zone_dnssec" "main" {

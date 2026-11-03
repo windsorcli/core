@@ -77,12 +77,17 @@ config:
       cert_rotation:
         kubelet_extra_args:
           rotate-server-certificates: "true"
+        # Approves the kubelet serving CSRs that rotation requests.
+        approver_manifest:
+          name: kubelet-csr-approver
+          contents: "${file('../manifests/kubelet-csr-approver.yaml')}"
 
       # Machine patch stringified into common_config_patches; platform facets
       # can merge additional keys into common_patch.
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
+          inlineManifests: ${[talos_common.cert_rotation.approver_manifest]}
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
@@ -295,6 +300,16 @@ config:
               oidc-username-claim: "${cluster.oidc.username_claim ?? 'sub'}"
               oidc-groups-claim: "${cluster.oidc.groups_claim ?? 'groups'}"
 
+  # public_ca: the hosted Keycloak's gateway serves a Let's Encrypt certificate, verified against system roots.
+  - name: talos_oidc
+    value:
+      public_ca: >-
+        ${(cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true &&
+        (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.hostname ?? '') == '' &&
+        ((dns.public_domain ?? '') != '' ?
+        (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' :
+        (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme')}
+
   # Trusts the Windsor-managed private CA for OIDC token verification. The
   # cert comes from the pki/ca terraform step, which runs ahead of this
   # machine config so it's available at first bootstrap. Without pki
@@ -310,7 +325,7 @@ config:
   # literal text (this pattern, also used by docker's certSANs patch)
   # doesn't hit that path.
   - name: talos_common
-    when: cluster.oidc.enabled == true
+    when: cluster.oidc.enabled == true && talos_oidc.public_ca != true
     value:
       common_patch:
         cluster:
@@ -332,7 +347,7 @@ config:
 
   # Appends the pki.trusted_cas roots to the OIDC CA file.
   - name: talos_common
-    when: cluster.oidc.enabled == true && len(pki.trusted_cas ?? []) > 0
+    when: cluster.oidc.enabled == true && talos_oidc.public_ca != true && len(pki.trusted_cas ?? []) > 0
     value:
       oidc_ca_file_patch: |-
         machine:

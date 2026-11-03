@@ -5,14 +5,10 @@ metadata:
   description: Cluster Certificate Authority with trust-manager integration
 
 requires:
-  - when: (pki.ca.cert ?? pki.private_ca.cert ?? '') != '' && (pki.ca.key ?? pki.private_ca.key ?? '') == ''
-    paths:
-      - pki.ca.key
-    message: Bringing your own CA needs both the certificate and private key.
   - when: (pki.ca.key ?? pki.private_ca.key ?? '') != '' && (pki.ca.cert ?? pki.private_ca.cert ?? '') == ''
     paths:
       - pki.ca.cert
-    message: Bringing your own CA needs both the certificate and private key.
+    message: A CA private key needs its certificate.
 
 # =============================================================================
 # Flux systems — pki (trust-manager + private CA issuer)

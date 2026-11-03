@@ -247,7 +247,8 @@ flux:
 | `gateway_name` | `gateway-resources-external` or `gateway-resources-internal` is composed | `external` or `internal` -- the Gateway/EnvoyProxy/Certificate name this resources variant renders. Every resource and patch in the resources tier is parameterized by this one substitution, so both gateways share the same files. |
 | `gateway_class_name` | always | Name of the `GatewayClass` the cluster Gateway references. Sourced from `gateway.driver` (`envoy` or `cilium`). |
 | `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal -- no fallback ladder, since each variant only composes when its own domain is set. |
-| `gateway_cert_issuer` | `gateway-resources-external` or `gateway-resources-internal` is composed | TLS `ClusterIssuer` name. External: the public issuer (`public-acme` once `dns.public_domain` is set, guaranteed ACME-eligible). Internal: always `private` -- a VPC-only/local zone can't validate ACME DNS-01. |
+| `gateway_tls_secret` | `gateway-resources-external` or `gateway-resources-internal` is composed | Secret the HTTPS listener serves. `<name>-web-tls` from the `certificate` component, or `<name>-supplied-tls` when `gateway.<name>.tls.cert` supplies the certificate. |
+| `gateway_cert_issuer` | `certificate` is composed | TLS `ClusterIssuer` name: `public-acme`, `private-acme`, `private`, or `public-selfsigned`. The facet infers it per gateway unless `gateway.<name>.tls.issuer` sets it. |
 | `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `lb_effective.enabled`, empty otherwise. |
 | `gateway_loadbalancer_ip` | `lb-address` or `cilium/fixed-ip` is composed | Fixed IP this gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation, the `cilium-pool` block, and the envoy variant's `spec.addresses` patch. Sourced from `gateway.<name>.ip`. |
 | `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
@@ -275,6 +276,12 @@ _Enabled when `gateway.driver == 'cilium'`._
 Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`.
 
 ## Components — `gateway-resources`
+
+### `certificate`
+
+_Enabled unless `gateway.<name>.tls.cert` is set._
+
+cert-manager `Certificate` for `${gateway_domain}` and `*.${gateway_domain}` from `${gateway_cert_issuer}`, written to the `${gateway_name}-web-tls` Secret. With a supplied certificate the facet places a `kubernetes.io/tls` Secret named `${gateway_name}-supplied-tls` in `system-gateway` instead, and renewal is manual.
 
 ### `envoy/base`
 

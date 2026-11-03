@@ -8,6 +8,15 @@ subnets carved from `cidr_block`. Size the subnets with enough headroom
 for pod IPs when AKS uses Azure CNI (each Pod consumes one VNet IP).
 Outputs feed the `cluster/azure-aks` module.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Virtual network `<name>-<id>` | 2-64 characters | 56 with the default `name` |
+| Route tables `<name>-private-<n>-<id>` | 1-80 characters | 62 with the default `name` |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -3,3 +3,4 @@ kind: Component
 resources:
   - cluster-issuer.yaml
   - trust-bundle.yaml
+  - cluster-ca-bundle.yaml

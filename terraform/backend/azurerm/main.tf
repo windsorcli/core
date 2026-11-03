@@ -116,9 +116,19 @@ resource "azurerm_storage_container" "this" {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  default_storage_account_name = var.storage_account_name != "" ? var.storage_account_name : replace(lower("tfstate${var.context_id}"), "/[^a-z0-9]/", "")
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    storage_account = { id = replace(var.context_id, "-", ""), max = 24 - length("tfstate") }
+    container       = { id = var.context_id, max = 63 - length("tfstate-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  default_storage_account_name = var.storage_account_name != "" ? var.storage_account_name : "tfstate${local.context_id_fit.storage_account}"
   resource_group_name          = var.resource_group_name != "" ? var.resource_group_name : "rg-tfstate-${var.context_id}"
-  container_name               = var.container_name != "" ? var.container_name : "tfstate-${var.context_id}"
+  container_name               = var.container_name != "" ? var.container_name : "tfstate-${local.context_id_fit.container}"
   tags = merge(var.tags, {
     WindsorContextID = var.context_id
   })

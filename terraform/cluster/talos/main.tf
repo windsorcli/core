@@ -90,7 +90,6 @@ locals {
   vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
   vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
 
-  kubelet_csr_approver_patch = var.enable_kubelet_csr_approver ? yamlencode({ cluster = { inlineManifests = [{ name = "kubelet-csr-approver", contents = file("${path.module}/manifests/kubelet-csr-approver.yaml") }] } }) : ""
 
   # Callers that deliver the machineconfig out of band (hyperv CIDATA) skip the
   # apply, which would otherwise wipe the per-node static IP back to DHCP.
@@ -171,7 +170,6 @@ module "controlplane_bootstrap" {
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,
-    local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
   ], local.controlplane_block_docs[0], local.registry_mirror_docs, local.registry_auth_docs)) : p if p != "null"]
@@ -204,7 +202,6 @@ module "controlplanes" {
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,
-    local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
   ], local.controlplane_block_docs[count.index + 1], local.registry_mirror_docs, local.registry_auth_docs)) : p if p != "null"]

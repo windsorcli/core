@@ -70,6 +70,15 @@ done
 gcloud components install gke-gcloud-auth-plugin
 ```
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Service accounts `<name>-<id>-cert-manager`, `<name>-<id>-external-dns` | 6-30 characters | 9 with the default `name` |
+| GKE cluster `<name>-<id>` | 1-40 characters | 32 with the default `name` |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -317,3 +317,46 @@ run "private_dns_zone" {
     error_message = "private_visibility_config should be set to link the zone to the VPC"
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+  }
+
+  assert {
+    condition     = length(google_compute_network.this.name) <= 63
+    error_message = "Network name must be at most 63 characters"
+  }
+
+  assert {
+    condition     = length(google_compute_firewall.health_checks.name) <= 63
+    error_message = "Firewall names must be at most 63 characters"
+  }
+
+  assert {
+    condition     = length(google_compute_subnetwork.isolated.name) <= 63
+    error_message = "Subnet names must be at most 63 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id = "my-ctx-1"
+  }
+
+  assert {
+    condition     = google_compute_firewall.health_checks.name == "network-my-ctx-1-allow-health-checks"
+    error_message = "Firewall name should keep the hyphenated context_id"
+  }
+
+  assert {
+    condition     = google_compute_subnetwork.isolated.name == "isolated-my-ctx-1"
+    error_message = "Subnet name should keep the hyphenated context_id"
+  }
+}

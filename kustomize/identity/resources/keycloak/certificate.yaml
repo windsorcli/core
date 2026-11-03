@@ -1,0 +1,16 @@
+---
+# Serving certificate for Keycloak's HTTPS listener, signed by the cluster CA.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-tls
+  namespace: system-identity
+spec:
+  secretName: keycloak-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  dnsNames:
+    - keycloak-service
+    - keycloak-service.system-identity.svc
+    - keycloak-service.system-identity.svc.cluster.local
