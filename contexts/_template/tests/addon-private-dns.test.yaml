@@ -421,6 +421,19 @@ cases:
       network: *default-network
     expectError: true
 
+  - name: hetzner private zone driver coredns fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      dns:
+        private:
+          driver: coredns
+      gateway:
+        enabled: false
+      network: *default-network
+    expectError: true
+
   - name: aws defaults the private zone driver to cloud
     values:
       platform: aws
