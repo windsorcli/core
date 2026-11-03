@@ -1,8 +1,7 @@
 ---
-# Keycloak server, reconciled by the operator. TLS terminates at the shared gateway, so
-# Keycloak serves plain HTTP internally (httpEnabled) and trusts the proxy's forwarded
-# headers for the external scheme/host. The operator's own Ingress is disabled — traffic
-# reaches Keycloak through the gateway HTTPRoute (see gateway/httproute.yaml).
+# Keycloak server, reconciled by the operator. The gateway reaches it over HTTPS on 8443,
+# in-cluster clients over plain HTTP on 8080, and it trusts the proxy's forwarded headers
+# for the external scheme/host. The operator's own Ingress is disabled.
 apiVersion: k8s.keycloak.org/v2beta1
 kind: Keycloak
 metadata:
@@ -44,6 +43,7 @@ spec:
     admin: ${keycloak_admin_hostname}
   http:
     httpEnabled: true
+    tlsSecret: keycloak-tls
   proxy:
     headers: xforwarded
   ingress:

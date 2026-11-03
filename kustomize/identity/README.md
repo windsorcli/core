@@ -29,7 +29,8 @@ flowchart LR
     operator_pod[Keycloak Operator Deployment]
     keycloak_cr[Keycloak CR]
     keycloak_sts[Keycloak StatefulSet<br/>provisioned by operator]
-    keycloak_svc[Service<br/>keycloak-service :8080]
+    keycloak_svc[Service<br/>keycloak-service :8443 / :8080]
+    cert[Certificate<br/>keycloak-tls]
     pg_cluster[CNPG Cluster<br/>keycloak-db]
     pg_svc[Service<br/>keycloak-db-rw :5432]
   end
@@ -41,14 +42,18 @@ flowchart LR
   operator_pod -.watches.-> keycloak_cr
   keycloak_cr -.creates.-> keycloak_sts
   keycloak_sts --> keycloak_svc
+  cert -.mounted.-> keycloak_sts
   keycloak_sts -->|JDBC / TLS| pg_svc
   pg_svc --- pg_cluster
   users -->|HTTPS| gateway
-  gateway -->|HTTP| keycloak_svc
+  gateway -->|HTTPS :8443| keycloak_svc
 ```
 
-TLS terminates at the gateway; Keycloak serves plain HTTP internally and trusts
-the proxy's `X-Forwarded-*` headers for the external scheme and host.
+The gateway terminates client TLS and opens a second TLS connection to Keycloak
+on port 8443. A `BackendTLSPolicy` makes the gateway verify Keycloak's
+certificate, issued by the cluster CA, against the `cluster-ca` ConfigMap.
+In-cluster clients keep plain HTTP on port 8080. Keycloak trusts the proxy's
+`X-Forwarded-*` headers for the external scheme and host.
 
 ## Recipes
 
@@ -297,7 +302,7 @@ Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim fr
 
 _Enabled when `identity.driver == 'keycloak'`._
 
-The `Keycloak` server CR. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database.
+The `Keycloak` server CR and its `keycloak-tls` serving certificate from the `private` ClusterIssuer. Keycloak serves HTTPS on 8443 and HTTP on 8080, and stores realms in the `keycloak` database.
 
 ### `keycloak/realm`
 
@@ -333,7 +338,7 @@ Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-ad
 
 _Enabled when `gateway.enabled == true`._
 
-HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one to the operator-managed `keycloak-service`.
+HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one, to port 8443 of the operator-managed `keycloak-service`. Ships the `BackendTLSPolicy` that verifies `keycloak-service.system-identity.svc` against the cluster CA.
 
 ### `keycloak/gateway/public-paths`
 

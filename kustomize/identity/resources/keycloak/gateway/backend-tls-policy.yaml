@@ -1,0 +1,18 @@
+---
+# Gateway connects to Keycloak over TLS and verifies it against the cluster CA.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: keycloak
+  namespace: system-identity
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: keycloak-service
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: cluster-ca
+    hostname: keycloak-service.system-identity.svc

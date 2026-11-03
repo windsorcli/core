@@ -1,0 +1,17 @@
+---
+# Cluster CA alone under ca.crt, the ConfigMap key BackendTLSPolicy reads.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: cluster-ca
+spec:
+  sources:
+  - secret:
+      name: private-ca-trust-cert
+      key: tls.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      matchLabels:
+        use-custom-ca: "true"
