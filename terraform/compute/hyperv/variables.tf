@@ -300,6 +300,12 @@ variable "cluster_endpoint" {
   }
 }
 
+variable "enable_kubelet_csr_approver" {
+  description = "Bake the vendored kubelet-csr-approver manifest into the control-plane machine configs as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag."
+  type        = bool
+  default     = true
+}
+
 variable "controlplane_vip" {
   description = "When true, bake the cluster_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses."
   type        = bool

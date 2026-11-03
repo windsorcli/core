@@ -230,6 +230,9 @@ locals {
     machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
   }) : ""
 
+  # The same vendored manifest cluster/talos inlines when it applies the config.
+  kubelet_csr_approver_patch = var.enable_kubelet_csr_approver ? yamlencode({ cluster = { inlineManifests = [{ name = "kubelet-csr-approver", contents = file("${path.module}/../../cluster/talos/manifests/kubelet-csr-approver.yaml") }] } }) : ""
+
   dhcp_network_patch = yamlencode({
     machine = {
       network = merge(
@@ -312,6 +315,7 @@ data "talos_machine_configuration" "controlplane" {
     var.controlplane_config_patches,
     local.controlplane_network_patches[each.key],
     local.vip_patch,
+    local.kubelet_csr_approver_patch,
   ])
 
   lifecycle {

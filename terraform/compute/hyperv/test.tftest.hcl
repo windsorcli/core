@@ -913,3 +913,51 @@ run "generation_one" {
     error_message = "Gen 1 VM should report generation=1"
   }
 }
+
+# The baked control-plane configs inline the kubelet-csr-approver manifest; workers do not.
+run "kubelet_csr_approver_baked" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = strcontains(local.kubelet_csr_approver_patch, "name: kubelet-csr-approver") && contains(data.talos_machine_configuration.controlplane["controlplane"].config_patches, local.kubelet_csr_approver_patch)
+    error_message = "The control-plane machineconfig should carry the kubelet-csr-approver inline manifest"
+  }
+
+  assert {
+    condition     = !contains(data.talos_machine_configuration.worker["worker"].config_patches, local.kubelet_csr_approver_patch)
+    error_message = "Worker machineconfigs should not carry the kubelet-csr-approver manifest"
+  }
+}
+
+run "kubelet_csr_approver_disabled" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    enable_kubelet_csr_approver = false
+    talos_version               = "1.12.6"
+    destination_dir             = "C:/hyperv/images"
+    network_gateway             = "10.5.0.1"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  assert {
+    condition     = local.kubelet_csr_approver_patch == "" && length([for p in data.talos_machine_configuration.controlplane["controlplane"].config_patches : p if strcontains(p, "kubelet-csr-approver")]) == 0
+    error_message = "enable_kubelet_csr_approver = false should leave the manifest out"
+  }
+}
