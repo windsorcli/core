@@ -242,8 +242,8 @@ run "health_check_command_bootstrap_mode" {
   }
 
   assert {
-    condition     = strcontains(local.health_check_command, "192.168.1.10")
-    error_message = "Should use endpoint host for health check so the host can reach the Talos API (e.g. 127.0.0.1 in docker-desktop)"
+    condition     = strcontains(local.health_check_command, "--nodes 192.168.1.10 ")
+    error_message = "Should pass the node address to --nodes"
   }
 }
 
@@ -266,92 +266,41 @@ run "health_check_command_non_bootstrap_mode" {
   }
 
   assert {
-    condition     = strcontains(local.health_check_command, "192.168.1.20")
-    error_message = "Should use endpoint host for health check so the host can reach the Talos API"
+    condition     = strcontains(local.health_check_command, "--nodes 192.168.1.20 ")
+    error_message = "Should pass the node address to --nodes"
   }
 }
 
-run "health_check_command_uses_node_address" {
+# Hyper-V NodePort: the endpoint is a bench-side port forward and the node is the guest address.
+run "health_check_command_with_forwarded_endpoint" {
   variables {
-    bootstrap     = true
-    node          = "dummy"
-    endpoint      = "dummy:50000"
+    bootstrap     = false
+    node          = "10.77.0.167"
+    endpoint      = "192.168.3.77:40000"
     disk_selector = null
   }
 
   assert {
-    condition     = strcontains(local.health_check_command, "dummy")
-    error_message = "Should use endpoint host (dummy) in health check"
+    condition     = strcontains(local.health_check_command, "--nodes 10.77.0.167 ")
+    error_message = "Should pass the node address, not the endpoint host, to --nodes"
+  }
+
+  assert {
+    condition     = !strcontains(local.health_check_command, "192.168.3.77")
+    error_message = "Should not pass the endpoint host to the health check"
   }
 }
 
 run "health_check_command_with_hostname_as_node" {
   variables {
     bootstrap     = false
-    node          = "test-node"          # Hostname instead of IP
-    endpoint      = "192.168.1.30:50000" # Endpoint is always IP
-    disk_selector = null
-  }
-
-  assert {
-    condition     = strcontains(local.health_check_command, "192.168.1.30")
-    error_message = "Should use endpoint IP address when node is a hostname to avoid DNS resolution issues"
-  }
-
-  assert {
-    condition     = !strcontains(local.health_check_command, "test-node")
-    error_message = "Should not use hostname in health check command"
-  }
-}
-
-# Verifies that endpoint IP extraction correctly handles URLs with paths and no port.
-# Tests that IP is extracted correctly from URLs like https://192.168.1.10/api without corrupting the IP.
-run "endpoint_ip_extraction_with_path_no_port" {
-  variables {
-    bootstrap     = false
     node          = "test-node"
-    endpoint      = "https://192.168.1.10/api" # URL with path but no port
+    endpoint      = "192.168.1.30:50000"
     disk_selector = null
   }
 
   assert {
-    condition     = local.endpoint_ip == "192.168.1.10"
-    error_message = "Should extract IP correctly from URL with path and no port"
-  }
-
-  assert {
-    condition     = strcontains(local.health_check_command, "192.168.1.10")
-    error_message = "Health check should use extracted IP address"
-  }
-
-  assert {
-    condition     = !strcontains(local.health_check_command, "api")
-    error_message = "Health check should not include path segments"
-  }
-}
-
-# Verifies that endpoint IP extraction correctly handles URLs with paths and port.
-# Tests that IP is extracted correctly from URLs like https://192.168.1.10:50000/api.
-run "endpoint_ip_extraction_with_path_and_port" {
-  variables {
-    bootstrap     = false
-    node          = "test-node"
-    endpoint      = "https://192.168.1.10:50000/api" # URL with path and port
-    disk_selector = null
-  }
-
-  assert {
-    condition     = local.endpoint_ip == "192.168.1.10"
-    error_message = "Should extract IP correctly from URL with path and port"
-  }
-
-  assert {
-    condition     = strcontains(local.health_check_command, "192.168.1.10")
-    error_message = "Health check should use extracted IP address"
-  }
-
-  assert {
-    condition     = !strcontains(local.health_check_command, "api")
-    error_message = "Health check should not include path segments"
+    condition     = strcontains(local.health_check_command, "--nodes test-node ")
+    error_message = "Should pass a hostname node to --nodes unchanged"
   }
 }
