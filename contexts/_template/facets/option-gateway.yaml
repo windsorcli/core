@@ -194,7 +194,7 @@ flux:
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium-pool' : ''}
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
-            (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}
+            dns_private_effective.driver == 'coredns' ? 'envoy/nodeport/dns' : ''}
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
             (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}
@@ -204,7 +204,7 @@ flux:
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
-          - "${gateway.driver != 'cilium' && (dns.private.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+          - "${gateway.driver != 'cilium' && dns_private_effective.driver == 'coredns' ? 'dns' : ''}"
           - >-
             ${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'lb-address' : ''}

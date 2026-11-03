@@ -301,3 +301,372 @@ cases:
             - name: private
               substitutions:
                 external_dns_name: external-dns-private
+
+  # dns.private.driver: metal defaults to coredns once dns.private_domain is set.
+  - name: metal defaults the private zone driver to coredns
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+              substitutions:
+                external_dns_domain: internal.example.com
+
+  - name: metal private zone driver none excludes CoreDNS
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: none
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: dns
+
+  - name: metal deprecated private enabled false excludes CoreDNS
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          enabled: false
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: dns
+
+  - name: metal private zone driver cloud fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: cloud
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: metal NodePort internal gateway defaults the private zone driver to none
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+      gateway:
+        driver: envoy
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    exclude:
+      flux:
+        - name: dns
+
+  - name: hetzner defaults the private zone driver to none
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: internal.example.com
+      gateway:
+        enabled: false
+      network: *default-network
+    exclude:
+      flux:
+        - name: dns
+
+  - name: hetzner private zone driver cloud fails composition
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: cloud
+      gateway:
+        enabled: false
+      network: *default-network
+    expectError: true
+
+  - name: aws defaults the private zone driver to cloud
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        private_domain: internal.example.com
+    terraformOutputs:
+      network:
+        private_zone_id: Z9PRIVATEZONE
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/route53
+              substitutions:
+                external_dns_zone_id_filter: Z9PRIVATEZONE
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+
+  # Cloud plus CoreDNS: each zone keeps exactly one external-dns provider.
+  - name: aws private zone driver coredns replaces the cloud private zone provider
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+        private:
+          driver: coredns
+    terraformOutputs:
+      network:
+        private_zone_id: Z9PRIVATEZONE
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/route53
+            - name: private
+              components:
+                - external-dns/providers/coredns
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns/public-zone
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/coredns
+            - name: private
+              components:
+                - external-dns/providers/route53
+
+  - name: aws deprecated private enabled true selects coredns
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        private_domain: internal.example.com
+        private:
+          enabled: true
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+    exclude:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/route53
+
+  - name: aws private zone driver none excludes private external-dns
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: none
+    exclude:
+      flux:
+        - name: dns
+
+  - name: aws private zone driver cloud without a private domain fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        private:
+          driver: cloud
+    expectError: true
+
+  - name: azure defaults the private zone driver to cloud
+    values:
+      platform: azure
+      dns:
+        private_domain: internal.example.com
+    terraformOutputs: &azure-network-outputs
+      network:
+        private_zone_id: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
+        subscription_id: sub-123
+        resource_group_name: rg-net
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/azure
+              substitutions:
+                external_dns_azure_provider: azure-private-dns
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+
+  - name: azure private zone driver coredns replaces the cloud private zone provider
+    values:
+      platform: azure
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: coredns
+    terraformOutputs: *azure-network-outputs
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+    exclude:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/azure
+
+  - name: azure private zone driver none excludes private external-dns
+    values:
+      platform: azure
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: none
+    terraformOutputs: *azure-network-outputs
+    exclude:
+      flux:
+        - name: dns
+
+  - name: gcp defaults the private zone driver to cloud
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dns:
+        private_domain: internal.example.com
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/google
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+
+  - name: gcp private zone driver coredns replaces the cloud private zone provider
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: coredns
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+    exclude:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/google
+
+  - name: gcp private zone driver none excludes private external-dns
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: none
+    exclude:
+      flux:
+        - name: dns
