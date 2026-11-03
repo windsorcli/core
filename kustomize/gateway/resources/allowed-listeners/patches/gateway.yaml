@@ -1,0 +1,11 @@
+---
+# Admits ListenerSets from the namespaces gateway_allowed_listeners selects.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  allowedListeners:
+    namespaces:
+      from: ${gateway_allowed_listeners}

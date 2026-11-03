@@ -1,0 +1,5 @@
+- op: test
+  path: /spec/listeners/1/name
+  value: web-https
+- op: remove
+  path: /spec/listeners/1
