@@ -9,10 +9,10 @@ description: Remove the network.cidr_block offsets that gave vSphere, Proxmox, H
 
 Proposed (2026-11-03). Builds on [ADR-0019](0019-explicit-endpoints-dhcp-and-tls-sources.md),
 which made gateway endpoints explicit and added `network.dhcp` control planes.
-Scope is the platforms where Core places Talos guests on a network it does not
-fully own: `vsphere`, `proxmox`, `hyperv` outside NodePort NAT, and `incus`
-without a workstation. Workstation contexts (`option-workstation.yaml`,
-`terraform/workstation/docker`) and Hyper-V NodePort NAT are out of scope.
+Scope is `vsphere`, `proxmox`, `hyperv`, and `incus` without a workstation.
+Section 6 covers Hyper-V NodePort NAT, which lands in a separate change.
+Workstation contexts (`option-workstation.yaml`, `terraform/workstation/docker`)
+are out of scope.
 
 ## Context
 
@@ -116,6 +116,19 @@ one counted entry per pool, so each node can carry its own address. Instance
 names keep the module's previous pattern: `controlplane` for a single node,
 `controlplane-0` to `controlplane-(N-1)` for several, and the same for
 workers. Existing Incus VMs keep their names.
+
+### 6. Hyper-V NodePort NAT nodes are explicit
+
+When both gateways are NodePort, Hyper-V puts the guests on a NetNat switch
+inside `network.cidr_block`. A NetNat switch serves no DHCP, so `network.dhcp`
+does not apply there. Each NAT node MUST have an explicit entry in
+`cluster.controlplanes.nodes` or `cluster.workers.nodes`, and composition MUST
+fail with a `requires` message when one is missing. The NAT port forwards and
+the default API target follow the first control plane's declared address
+instead of `cidrhost(cidr_block, 10)`.
+
+This section ships with the Hyper-V NAT change, not with sections 1 to 5. Until
+it lands, NAT nodes keep the offsets.
 
 ## Upgrading a v0.8.0 context
 
