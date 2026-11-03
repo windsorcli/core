@@ -48,7 +48,7 @@ flux:
   - name: cni
     dependsOn: [policy-resources, telemetry-install]
     install:
-      components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
+      components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2, cilium/encryption]
       substitutions:
         k8s_service_host: localhost
         k8s_service_port: "7445"
@@ -69,7 +69,7 @@ Adds `cilium/gateway`. The `gateway-install` dependency is contributed by
 starts.
 
 ```yaml
-components: [cilium, cilium/talos, cilium/gateway, cilium/prometheus, cilium/hubble, cilium/l2]
+components: [cilium, cilium/talos, cilium/gateway, cilium/prometheus, cilium/hubble, cilium/l2, cilium/encryption]
 dependsOn:  [policy-resources, telemetry-install, gateway-install]
 ```
 
@@ -80,7 +80,7 @@ Controller handles LB. `k8s_service_host` is parsed from the cluster
 Terraform output.
 
 ```yaml
-components: [cilium, cilium/prometheus, cilium/hubble]
+components: [cilium, cilium/prometheus, cilium/hubble, cilium/encryption]
 substitutions:
   k8s_service_host: <from terraform_output('cluster', 'cluster_endpoint')>
 ```
@@ -118,6 +118,11 @@ Removing this add-on does not restore kube-proxy.
 
 Hubble TLS certificates rotate via an in-cluster CronJob, so
 cert-manager is not required for Hubble.
+
+`cilium/encryption` encrypts pod traffic that crosses nodes with
+WireGuard. Cilium generates and distributes each node's key itself.
+Traffic between two pods on the same node never leaves that node and
+stays unencrypted.
 
 
 ## Substitutions
@@ -162,6 +167,12 @@ Enables Prometheus on the operator, agent, and `cilium-envoy` and creates a Serv
 _Enabled when always._
 
 Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade).
+
+### `cilium/encryption`
+
+_Enabled unless `cluster.cni.encryption: false`. Off by default in workstation contexts._
+
+Sets `encryption.type: wireguard` on the HelmRelease. WireGuard adds per-packet overhead, and Cilium lowers the pod MTU to fit it.
 
 ### `cilium/l2`
 

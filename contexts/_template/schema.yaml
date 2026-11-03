@@ -1102,6 +1102,12 @@ properties:
               CNI driver. flannel is the Talos built-in default and requires no extra bootstrap.
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
+          encryption:
+            type: boolean
+            description: >
+              Encrypt pod traffic between nodes with Cilium's WireGuard transparent encryption.
+              Defaults to true outside workstation contexts. Traffic between pods on the same node
+              stays unencrypted.
         additionalProperties: false
       oidc:
         type: object
