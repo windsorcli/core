@@ -1,0 +1,6 @@
+# Removes web-https, which gateway.yaml MUST keep at listener index 1.
+- op: test
+  path: /spec/listeners/1/name
+  value: web-https
+- op: remove
+  path: /spec/listeners/1
