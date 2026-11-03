@@ -23,13 +23,20 @@ tasks:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
-    desc: Run all tests (Terraform, Blueprint, Prometheus rules, and Composition functions)
+    desc: Run all tests (Terraform, Blueprint, Kustomize components, Prometheus rules, and Composition functions)
     silent: true
     cmds:
       - task: test:terraform
       - task: test:blueprint
+      - task: test:kustomize-components
       - task: test:prometheus-rules
       - task: test:composition-functions
+
+  test:kustomize-components:
+    desc: Build kustomize component sets with kubectl kustomize
+    silent: true
+    cmds:
+      - scripts/test-kustomize-components.sh
 
   test:prometheus-rules:
     desc: Unit-test PrometheusRule alerting rules via promtool

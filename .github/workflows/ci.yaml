@@ -156,7 +156,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: terraform,task,yq,promtool
+          tools: terraform,task,yq,promtool,kubectl
 
       - name: Install Windsor CLI
         uses: windsorcli/action@main

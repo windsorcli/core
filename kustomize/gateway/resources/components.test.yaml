@@ -1,0 +1,155 @@
+# Component sets the gateway facets compose for one gateway variant.
+cases:
+  - name: envoy loadbalancer with a kube-vip address
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/loadbalancer/kube-vip-ip
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - lb-address
+      - flux-webhook
+    expect:
+      - 'select(.kind == "Gateway") | .spec.infrastructure.parametersRef.name == "${gateway_name}"'
+      - 'select(.kind == "Gateway") | .spec.addresses[0].value == "${gateway_loadbalancer_ip}"'
+      - 'select(.kind == "Gateway") | [.spec.listeners[].name] | contains(["flux-webhook"])'
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.spec.type == "LoadBalancer"'
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["kube-vip.io/loadbalancerIPs"] == "${gateway_loadbalancer_ip}"'
+      - 'select(.kind == "HTTPRoute" and .metadata.name == "default-404-${gateway_name}") | .metadata.annotations["external-dns.alpha.kubernetes.io/hostname"] != null'
+
+  - name: envoy loadbalancer with a MetalLB address
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/loadbalancer/metallb-ip
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - lb-address
+    expect:
+      - 'select(.kind == "Gateway") | .spec.addresses[0].value == "${gateway_loadbalancer_ip}"'
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["metallb.io/loadBalancerIPs"] == "${gateway_loadbalancer_ip}"'
+
+  - name: envoy loadbalancer with a Cilium LB IPAM address
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/loadbalancer/cilium-ip
+      - cilium-pool
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - flux-webhook
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["lbipam.cilium.io/ips"] == "${gateway_loadbalancer_ip}"'
+      - 'select(.kind == "CiliumLoadBalancerIPPool") | .spec.blocks[0].cidr == "${gateway_loadbalancer_ip}/32"'
+
+  - name: envoy nodeport with DNS and the Flux webhook
+    components:
+      - envoy/base
+      - envoy/nodeport
+      - envoy/nodeport/dns
+      - envoy/nodeport/flux-webhook
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - dns
+      - flux-webhook
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.spec.type == "NodePort"'
+      - 'select(.kind == "EnvoyProxy") | [.spec.provider.kubernetes.envoyService.patch.value.spec.ports[].name] | contains(["udp-53", "tcp-53", "tcp-9292"])'
+      - 'select(.kind == "Gateway") | [.spec.listeners[].name] | contains(["dns-udp", "dns-tcp", "flux-webhook"])'
+      - 'select(.kind == "Gateway") | .metadata.annotations["external-dns.alpha.kubernetes.io/target"] == "${gateway_dns_target}"'
+
+  - name: envoy nodeport on docker-desktop, internal gateway
+    components:
+      - envoy/base
+      - envoy/nodeport
+      - envoy/nodeport/dns
+      - envoy/nodeport/flux-webhook
+      - envoy/nodeport/docker-desktop
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - dns
+      - flux-webhook
+      - dns/docker-desktop
+    expect:
+      - 'select(.kind == "EnvoyProxy") | [.spec.provider.kubernetes.envoyService.patch.value.spec.ports[].name] | contains(["https-${gateway_host_https_port}", "http-${gateway_host_http_port}", "udp-53"])'
+      - 'select(.kind == "Service" and .metadata.name == "gateway") | .spec.clusterIP == "10.96.0.53"'
+
+  - name: envoy nodeport on docker-desktop, external gateway
+    components:
+      - envoy/base
+      - envoy/nodeport
+      - envoy/nodeport/docker-desktop
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+    expect:
+      - 'select(.kind == "EnvoyProxy") | [.spec.provider.kubernetes.envoyService.patch.value.spec.ports[].name] | contains(["https-443", "https-${gateway_host_https_port}"])'
+
+  - name: envoy loadbalancer on AWS
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - envoy/loadbalancer/aws-nlb
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "${gateway_lb_scheme}"'
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.spec.type == "LoadBalancer"'
+
+  - name: envoy loadbalancer on Azure, internal gateway
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - envoy/loadbalancer/azure
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["service.beta.kubernetes.io/azure-load-balancer-internal"] == "true"'
+
+  - name: envoy loadbalancer on GCP, internal gateway
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - envoy/loadbalancer/gcp
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["networking.gke.io/load-balancer-type"] == "Internal"'
+
+  - name: envoy loadbalancer on Hetzner
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - envoy/loadbalancer/hcloud-lb
+    expect:
+      - 'select(.kind == "EnvoyProxy") | .spec.provider.kubernetes.envoyService.patch.value.metadata.annotations["load-balancer.hetzner.cloud/use-private-ip"] == "true"'
+
+  - name: cilium loadbalancer with a fixed LB IPAM address
+    components:
+      - cilium
+      - cilium/fixed-ip
+      - cilium-pool
+      - flux-webhook
+    expect:
+      - 'select(.kind == "Gateway") | .spec.infrastructure.annotations["lbipam.cilium.io/sharing-key"] == "${gateway_name}"'
+      - 'select(.kind == "Gateway") | .spec.infrastructure.annotations["lbipam.cilium.io/ips"] == "${gateway_loadbalancer_ip}"'
+      - 'select(.kind == "Gateway") | .spec.infrastructure.parametersRef == null'
+      - 'select(.kind == "CiliumLoadBalancerIPPool") | .spec.blocks[0].cidr == "${gateway_loadbalancer_ip}/32"'
+
+  - name: cilium loadbalancer on Hetzner
+    components:
+      - cilium/loadbalancer/hcloud-lb
+    expect:
+      - 'select(.kind == "Gateway") | .spec.infrastructure.annotations["load-balancer.hetzner.cloud/use-private-ip"] == "true"'
+      - 'select(.kind == "Gateway") | .spec.infrastructure.annotations["lbipam.cilium.io/sharing-key"] == null'
