@@ -69,12 +69,17 @@ config:
       cert_rotation:
         kubelet_extra_args:
           rotate-server-certificates: "true"
+        # Approves the kubelet serving CSRs that rotation requests.
+        approver_manifest:
+          name: kubelet-csr-approver
+          contents: "${file('../manifests/kubelet-csr-approver.yaml')}"
 
       # Machine patch stringified into common_config_patches; platform facets
       # can merge additional keys into common_patch.
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
+          inlineManifests: ${[talos_common.cert_rotation.approver_manifest]}
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
