@@ -6,6 +6,7 @@
 set -euo pipefail
 
 fail=0
+found=0
 work=$(mktemp -d)
 plan=$(mktemp -d .components-test.XXXXXX)
 trap 'rm -rf "$work" "$plan"' EXIT
@@ -26,6 +27,7 @@ build_case() {
 }
 
 while IFS= read -r -d '' test_file; do
+  found=$((found + 1))
   base=$(dirname "$test_file")
   echo "=== $test_file ==="
   count=$(yq '.cases | length' "$test_file")
@@ -52,6 +54,7 @@ while IFS= read -r -d '' test_file; do
         result=$(yq ea "$expr" "$out" 2>&1 || true)
         if [ -z "$result" ] || grep -qv '^true$' <<< "$result"; then
           echo "FAIL [$order] $name: $expr"
+          echo "  got: ${result:-<no matching document>}"
           case_fail=1
         fi
       done
@@ -59,5 +62,10 @@ while IFS= read -r -d '' test_file; do
     if [ "$case_fail" -eq 0 ]; then echo "ok   $name"; else fail=1; fi
   done
 done < <(find kustomize -name "components.test.yaml" -print0)
+
+if [ "$found" -eq 0 ]; then
+  echo "FAIL no components.test.yaml found under kustomize/"
+  exit 1
+fi
 
 exit $fail
