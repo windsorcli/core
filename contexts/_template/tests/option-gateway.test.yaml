@@ -1678,11 +1678,6 @@ cases:
               components:
                 - certificate
                 - envoy/default-404
-              substitutions:
-                gateway_allowed_listeners: None
-            - name: internal
-              substitutions:
-                gateway_allowed_listeners: None
     exclude:
       flux:
         - name: gateway
@@ -1723,7 +1718,7 @@ cases:
         driver: envoy
         external:
           ip: "10.5.1.11"
-          allowed_listeners: All
+          listener_namespaces: [app]
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1740,7 +1735,7 @@ cases:
                 - envoy/parameters
                 - envoy/loadbalancer/cilium-ip
               substitutions:
-                gateway_allowed_listeners: All
+                gateway_listener_namespaces: "[app]"
                 gateway_domain: ""
                 gateway_loadbalancer_ip: "10.5.1.11"
     exclude:
@@ -1766,7 +1761,7 @@ cases:
             issuer: selfsigned
         internal:
           ip: "10.5.1.10"
-          allowed_listeners: All
+          listener_namespaces: [app]
           tls:
             cert: CERT
             key: KEY
@@ -1781,7 +1776,7 @@ cases:
                 - allowed-listeners
                 - envoy/default-404
               substitutions:
-                gateway_allowed_listeners: All
+                gateway_listener_namespaces: "[app]"
                 gateway_tls_secret: internal-supplied-tls
     exclude:
       flux:
@@ -1803,7 +1798,7 @@ cases:
         driver: envoy
         internal:
           ip: "10.5.1.10"
-          allowed_listeners: Same
+          listener_namespaces: [app, tools]
           https: false
       network: *default-network
       cluster: *default-cluster
@@ -1816,7 +1811,7 @@ cases:
                 - allowed-listeners
                 - no-web-https
               substitutions:
-                gateway_allowed_listeners: Same
+                gateway_listener_namespaces: "[app, tools]"
     exclude:
       flux:
         - name: gateway
@@ -1835,7 +1830,7 @@ cases:
         driver: cilium
         external:
           ip: "10.5.1.11"
-          allowed_listeners: All
+          listener_namespaces: [app]
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1855,7 +1850,7 @@ cases:
                 - allowed-listeners
                 - no-web-https
               substitutions:
-                gateway_allowed_listeners: All
+                gateway_listener_namespaces: "[app]"
 
   - name: a gateway without a domain and without a certificate source fails composition
     values:
@@ -1865,7 +1860,7 @@ cases:
       gateway:
         external:
           ip: "10.5.1.11"
-          allowed_listeners: All
+          listener_namespaces: [app]
         internal:
           ip: "10.5.1.10"
       network: *default-network
@@ -1914,7 +1909,7 @@ cases:
       gateway:
         internal:
           service_type: NodePort
-          allowed_listeners: All
+          listener_namespaces: [app]
       network: *default-network
       cluster:
         <<: *default-cluster
@@ -1929,7 +1924,7 @@ cases:
         private_domain: test
       gateway:
         external:
-          allowed_listeners: All
+          listener_namespaces: [app]
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1947,7 +1942,7 @@ cases:
         public_domain: example.com
       gateway:
         internal:
-          allowed_listeners: All
+          listener_namespaces: [app]
     expectError: true
 
   - name: a gateway without https that admits no ListenerSets fails composition
@@ -1959,6 +1954,19 @@ cases:
         internal:
           ip: "10.5.1.10"
           https: false
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: a listener namespace that is not a DNS label fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          listener_namespaces: [App_1]
       network: *default-network
       cluster: *default-cluster
     expectError: true

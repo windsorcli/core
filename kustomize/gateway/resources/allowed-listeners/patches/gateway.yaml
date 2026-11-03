@@ -1,5 +1,5 @@
 ---
-# Admits ListenerSets from the namespaces gateway_allowed_listeners selects.
+# Admits ListenerSets from the namespaces in gateway_listener_namespaces.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -8,4 +8,9 @@ metadata:
 spec:
   allowedListeners:
     namespaces:
-      from: ${gateway_allowed_listeners}
+      from: Selector
+      selector:
+        matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: In
+            values: ${gateway_listener_namespaces}

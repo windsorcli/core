@@ -77,13 +77,41 @@ ListenerSet port such as 3010 never reaches that Service.
 
 ## Decision
 
-### 1. `allowed_listeners` per gateway
+### 1. `listener_namespaces` per gateway
 
-`gateway.external.allowed_listeners` and `gateway.internal.allowed_listeners`
-set `spec.allowedListeners.namespaces.from` on that Gateway. The values mirror
-the API: `None`, `Same`, and `All`. The default is `None`, which is the behavior
-today. `Same` admits only ListenerSets in `system-gateway`. `Selector` is out of
-scope until a chart needs it.
+`gateway.external.listener_namespaces` and `gateway.internal.listener_namespaces`
+list the namespaces whose ListenerSets MAY attach to that Gateway. The default
+is an empty list, which admits none, as today.
+
+```yaml
+gateway:
+  external:
+    ip: 10.30.0.20
+    https: false
+    listener_namespaces:
+      - app
+```
+
+Core renders the list as a `Selector` on the `kubernetes.io/metadata.name`
+label, which Kubernetes sets on every namespace:
+
+```yaml
+spec:
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: In
+            values: [app]
+```
+
+The schema names the namespaces instead of exposing the API's `from` values.
+`Same` would admit only `system-gateway`, where no chart deploys. `All` would
+let any namespace claim a port on the gateway address, including 443 on the
+external gateway. A list admits exactly the charts the site approves, and a new
+chart in another namespace needs a `values.yaml` change before it can attach.
 
 A chart's ListenerSet names the gateway as its parent:
 
@@ -109,7 +137,7 @@ spec:
       port: 3010
 ```
 
-`allowed_listeners` MUST NOT be set on a NodePort gateway, because the Envoy
+`listener_namespaces` MUST NOT be set on a NodePort gateway, because the Envoy
 NodePort Service drops every port but 80 and 443. A `requires` rule rejects it
 on both drivers.
 
@@ -123,19 +151,19 @@ certificate and no catch-all 404 route, since both bind to that listener.
 `gateway.<name>.tls.cert` and `gateway.<name>.tls.issuer` MUST NOT be set on a
 gateway with `https: false`. A `requires` rule rejects them.
 
-`https: false` MUST be paired with an `allowed_listeners` other than `None`.
+`https: false` MUST be paired with a non-empty `listener_namespaces`.
 Without a ListenerSet on 443, the `web-http` redirect would point at a port with
 no listener. A `requires` rule rejects the pairing.
 
 ### 3. A gateway exists without its domain when it admits listeners
 
 A gateway exists when its domain is set, as today, or when its
-`allowed_listeners` is not `None`. A gateway without a domain publishes no DNS
+`listener_namespaces` is not empty. A gateway without a domain publishes no DNS
 records: it gets no catch-all 404 hostname annotation and no CoreDNS listeners.
 
 The issue asked for a gateway that exists whenever it has an `ip`. Workstation
 contexts set `gateway.external.ip` by default, so that rule would start an
-external Envoy proxy on every workstation. `allowed_listeners` is the setting
+external Envoy proxy on every workstation. `listener_namespaces` is the setting
 that states the intent.
 
 A gateway without a domain has no names for cert-manager to issue a certificate
@@ -144,7 +172,7 @@ for. It MUST either set `https: false` or supply `gateway.<name>.tls.cert`. A
 still apply. On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer
 gateway needs `gateway.<name>.ip`.
 
-Hetzner has no internal gateway, so `gateway.internal.allowed_listeners` is
+Hetzner has no internal gateway, so `gateway.internal.listener_namespaces` is
 rejected there.
 
 ### 4. Driver support

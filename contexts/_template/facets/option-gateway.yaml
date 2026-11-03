@@ -84,15 +84,15 @@ requires:
       gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
       dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: >-
-      ((gateway.external.allowed_listeners ?? 'None') != 'None' && gateway_exposure.external == 'NodePort') ||
-      ((gateway.internal.allowed_listeners ?? 'None') != 'None' && gateway_exposure.internal == 'NodePort')
+      (len(gateway.external.listener_namespaces ?? []) > 0 && gateway_exposure.external == 'NodePort') ||
+      (len(gateway.internal.listener_namespaces ?? []) > 0 && gateway_exposure.internal == 'NodePort')
     paths:
       - gateway_effective.unsupported
-    message: gateway.<name>.allowed_listeners applies only to service_type LoadBalancer.
-  - when: platform == 'hetzner' && (gateway.internal.allowed_listeners ?? 'None') != 'None'
+    message: gateway.<name>.listener_namespaces applies only to service_type LoadBalancer.
+  - when: platform == 'hetzner' && len(gateway.internal.listener_namespaces ?? []) > 0
     paths:
       - gateway_effective.unsupported
-    message: Hetzner has no internal gateway; remove gateway.internal.allowed_listeners.
+    message: Hetzner has no internal gateway; remove gateway.internal.listener_namespaces.
   - when: >-
       ((gateway.external.https ?? true) == false &&
       ((gateway.external.tls.cert ?? '') != '' || (gateway.external.tls.issuer ?? '') != '')) ||
@@ -102,11 +102,11 @@ requires:
       - gateway_effective.unsupported
     message: gateway.<name>.tls applies only to a gateway with https; remove it or set gateway.<name>.https to true.
   - when: >-
-      ((gateway.external.https ?? true) == false && (gateway.external.allowed_listeners ?? 'None') == 'None') ||
-      ((gateway.internal.https ?? true) == false && (gateway.internal.allowed_listeners ?? 'None') == 'None')
+      ((gateway.external.https ?? true) == false && len(gateway.external.listener_namespaces ?? []) == 0) ||
+      ((gateway.internal.https ?? true) == false && len(gateway.internal.listener_namespaces ?? []) == 0)
     paths:
       - gateway_effective.unsupported
-    message: gateway.<name>.https false leaves port 443 to a ListenerSet; set gateway.<name>.allowed_listeners.
+    message: gateway.<name>.https false leaves port 443 to a ListenerSet; set gateway.<name>.listener_namespaces.
   - when: >-
       gateway.enabled == true &&
       ((gateway_effective.external_enabled == true && (dns.public_domain ?? '') == '' &&
@@ -133,10 +133,10 @@ config:
       # Hetzner is public only and gets no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
       # A gateway exists with its domain, or without one when it admits ListenerSets.
-      external_enabled: "${(dns.public_domain ?? '') != '' || (gateway.external.allowed_listeners ?? 'None') != 'None'}"
+      external_enabled: "${(dns.public_domain ?? '') != '' || len(gateway.external.listener_namespaces ?? []) > 0}"
       internal_enabled: >-
         ${platform != 'hetzner' &&
-        ((dns.private_domain ?? '') != '' || (gateway.internal.allowed_listeners ?? 'None') != 'None')}
+        ((dns.private_domain ?? '') != '' || len(gateway.internal.listener_namespaces ?? []) > 0)}
       external_https: ${gateway.external.https ?? true}
       internal_https: ${gateway.internal.https ?? true}
 
@@ -157,7 +157,7 @@ crds:
 # gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
 # canonical names gateway-install / gateway-resources regardless of driver.
 # Two optional gateways: external from dns.public_domain, internal from dns.private_domain.
-# Either also exists without its domain when its allowed_listeners admits ListenerSets.
+# Either also exists without its domain when it has listener_namespaces.
 # Resources components take ${gateway_name}, so both gateways share one tree.
 flux:
 
@@ -187,7 +187,7 @@ flux:
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
           - "${gateway_effective.external_https == true && (gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway_effective.external_https != true ? 'no-web-https' : ''}"
-          - "${(gateway.external.allowed_listeners ?? 'None') != 'None' ? 'allowed-listeners' : ''}"
+          - "${len(gateway.external.listener_namespaces ?? []) > 0 ? 'allowed-listeners' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
           - >-
@@ -216,7 +216,7 @@ flux:
             'lb-address' : ''}
         substitutions:
           gateway_name: external
-          gateway_allowed_listeners: "${gateway.external.allowed_listeners ?? 'None'}"
+          gateway_listener_namespaces: "${'[' + join(gateway.external.listener_namespaces ?? [], ', ') + ']'}"
           gateway_tls_secret: "${(gateway.external.tls.cert ?? '') != '' ? 'external-supplied-tls' : 'external-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.public_domain ?? ''}"
@@ -246,7 +246,7 @@ flux:
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
           - "${gateway_effective.internal_https == true && (gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway_effective.internal_https != true ? 'no-web-https' : ''}"
-          - "${(gateway.internal.allowed_listeners ?? 'None') != 'None' ? 'allowed-listeners' : ''}"
+          - "${len(gateway.internal.listener_namespaces ?? []) > 0 ? 'allowed-listeners' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
           - >-
@@ -283,7 +283,7 @@ flux:
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
           gateway_name: internal
-          gateway_allowed_listeners: "${gateway.internal.allowed_listeners ?? 'None'}"
+          gateway_listener_namespaces: "${'[' + join(gateway.internal.listener_namespaces ?? [], ', ') + ']'}"
           gateway_tls_secret: "${(gateway.internal.tls.cert ?? '') != '' ? 'internal-supplied-tls' : 'internal-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.private_domain ?? ''}"

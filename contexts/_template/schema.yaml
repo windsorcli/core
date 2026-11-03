@@ -1342,18 +1342,16 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
-          allowed_listeners:
-            type: string
-            enum:
-              - None
-              - Same
-              - All
-            default: None
-            description: Namespaces whose ListenerSets MAY attach to this gateway. Same is system-gateway. A gateway that admits ListenerSets exists without its domain.
+          listener_namespaces:
+            type: array
+            items:
+              type: string
+              pattern: '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$'
+            description: Namespaces whose ListenerSets MAY attach listeners to this gateway. A gateway with listener namespaces exists without its domain.
           https:
             type: boolean
             default: true
-            description: Serve the web-https listener on port 443. Set false, with allowed_listeners, to leave 443 to a ListenerSet.
+            description: Serve the web-https listener on port 443. Set false, with listener_namespaces, to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the external gateway.
@@ -1393,18 +1391,16 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
-          allowed_listeners:
-            type: string
-            enum:
-              - None
-              - Same
-              - All
-            default: None
-            description: Namespaces whose ListenerSets MAY attach to this gateway. Same is system-gateway. A gateway that admits ListenerSets exists without its domain.
+          listener_namespaces:
+            type: array
+            items:
+              type: string
+              pattern: '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$'
+            description: Namespaces whose ListenerSets MAY attach listeners to this gateway. A gateway with listener namespaces exists without its domain.
           https:
             type: boolean
             default: true
-            description: Serve the web-https listener on port 443. Set false, with allowed_listeners, to leave 443 to a ListenerSet.
+            description: Serve the web-https listener on port 443. Set false, with listener_namespaces, to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the internal gateway.
