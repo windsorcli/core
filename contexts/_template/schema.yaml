@@ -1196,11 +1196,11 @@ properties:
           cert:
             type: string
             sensitive: true
-            description: PEM-encoded CA certificate. Supply alongside key to bring your own; leave both unset to generate one via Terraform.
+            description: PEM-encoded CA certificate chain. Set alone to the signed pki/ca CSR to keep the generated key, or with key to bring your own CA. Unset self-signs.
           key:
             type: string
             sensitive: true
-            description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+            description: PEM-encoded CA private key. Requires cert. Unset generates one via Terraform.
         additionalProperties: false
       trusted_cas:
         type: array
