@@ -61,12 +61,12 @@ A private domain outside the public zone, such as `example.internal`, has no pub
 
 ## Internal ACME server
 
-Many sites run an ACME-capable CA of their own, such as Smallstep, EJBCA, Venafi, or the PKI engine in Vault or OpenBao. Its root is already in the site's trust stores, so a certificate it issues is trusted on every managed device. This `values.yaml` points Windsor at one:
+Some sites buy certificates from a CA that serves them over ACME, such as DigiCert or Sectigo ACME. Its root is already in the site's trust stores, so a certificate it issues is trusted on every managed device. This `values.yaml` points Windsor at one:
 
 ```yaml
 pki:
   acme:
-    server: https://ca.example.com/acme/acme/directory
+    server: https://acme.ca.example.com/directory
     ca_bundle: ${secret("vault", "corp-root", "cert")}
     eab:
       key_id: windsor-prod
@@ -76,7 +76,10 @@ email: ops@example.com
 
 `pki.acme.server` is the ACME directory URL. With it set, Core creates the `private-acme` issuer, and both gateways use it unless Core writes a public zone for `external`. `ca_bundle` is the PEM CA that signs the server's own TLS certificate, needed when the system roots do not include it. `eab` holds the *external account binding*, the key ID and HMAC key that some servers require before they open an account, and you MUST set both halves or neither.
 
-The `private-acme` issuer carries no challenge solver. The CA MUST therefore pre-authorize the gateway domains for the account, so that it issues without a challenge.
+The `private-acme` issuer carries no challenge solver. `pki.acme` works only with a server that pre-authorizes the gateway domains for the EAB account and issues without a challenge, as DigiCert and Sectigo ACME do.
+
+> [!WARNING]
+> A server that challenges each order, such as step-ca or the ACME engine in Vault or OpenBao, issues no certificate. Composition reports no error, and the gateway's `Certificate` stays not ready. See [core#3318](https://github.com/windsorcli/core/issues/3318).
 
 ## Under the hood
 
