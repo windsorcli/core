@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: dns_private_effective.driver == 'coredns'
+when: dns.private.driver == 'coredns'
 
 requires:
   - paths:
