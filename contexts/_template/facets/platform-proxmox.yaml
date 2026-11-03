@@ -15,6 +15,14 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+  - when: network.dhcp != true && len(filter(1..int(cluster.controlplanes.count ?? 1), get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) == null)) > 0
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: network.dhcp != true && (cluster.workers.count ?? 0) > 0 && len(filter(1..int(cluster.workers.count), get(cluster.workers.nodes ?? {}, "worker-" + string(#)) == null)) > 0
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
 # =============================================================================
 # Proxmox-specific Talos values
@@ -44,7 +52,7 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Guest IPv4 (cluster.controlplanes.nodes, else cidrhost offset 10) and VM ID per control plane.
+  # Guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC and VM ID per control plane.
   - name: proxmox_controlplanes
     value:
       nodes: >-
@@ -54,11 +62,12 @@ config:
             : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
             ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
                ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))],
+            : null)],
+          ["mac_address", get(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) ?? {}, "mac_address")],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
         ]))}
 
-  # Guest IPv4 (cluster.workers.nodes, else cidrhost offset 20) and VM ID per worker.
+  # Guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC and VM ID per worker.
   - name: proxmox_workers
     value:
       nodes: >-
@@ -68,7 +77,8 @@ config:
             : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
             ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
                ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))],
+            : null)],
+          ["mac_address", get(get(cluster.workers.nodes ?? {}, "worker-" + string(#)) ?? {}, "mac_address")],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
         ]))}
 
@@ -159,6 +169,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.controlplanes.cpu],
             ["memory", cluster_resources_effective.controlplanes.memory],
@@ -171,6 +182,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.workers.cpu],
             ["memory", cluster_resources_effective.workers.memory],

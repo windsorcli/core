@@ -31,6 +31,14 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+  - when: network.dhcp != true && len(filter(1..int(cluster.controlplanes.count ?? 1), get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) == null)) > 0
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: network.dhcp != true && (cluster.workers.count ?? 0) > 0 && len(filter(1..int(cluster.workers.count), get(cluster.workers.nodes ?? {}, "worker-" + string(#)) == null)) > 0
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
 # =============================================================================
 # Config — vSphere-specific Talos values
@@ -74,7 +82,7 @@ config:
       image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
       dhcp: ${network.dhcp == true}
 
-  # Guest IPv4 per control plane: cluster.controlplanes.nodes, else cidrhost offset 10.
+  # Guest IPv4 per control plane from cluster.controlplanes.nodes, null under DHCP.
   - name: vsphere_controlplanes
     value:
       nodes: >-
@@ -84,10 +92,10 @@ config:
             : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
             ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
                ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
+            : null)]
         ]))}
 
-  # Guest IPv4 per worker: cluster.workers.nodes, else cidrhost offset 20.
+  # Guest IPv4 per worker from cluster.workers.nodes, null under DHCP.
   - name: vsphere_workers
     value:
       nodes: >-
@@ -97,7 +105,7 @@ config:
             : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
             ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
                ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
+            : null)]
         ]))}
 
   # ---------------------------------------------------------------------------

@@ -9,6 +9,16 @@ metadata:
 # facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
+requires:
+  - when: (workstation.runtime ?? '') == '' && network.dhcp != true && len(filter(1..int(cluster.controlplanes.count ?? 1), get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) == null)) > 0
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: (workstation.runtime ?? '') == '' && network.dhcp != true && (cluster.workers.count ?? 0) > 0 && len(filter(1..int(cluster.workers.count), get(cluster.workers.nodes ?? {}, "worker-" + string(#)) == null)) > 0
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
+
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================
@@ -53,6 +63,60 @@ config:
             : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
+  # One instance per control plane, addressed from cluster.controlplanes.nodes or by bridge DHCP.
+  - name: incus_controlplanes
+    value:
+      instances: >-
+        ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
+          ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(# - 1) : "controlplane"],
+          ["role", "controlplane"],
+          ["count", 1],
+          ["ipv4", network.dhcp == true ? null
+            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
+            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
+               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
+            : null)],
+          ["image", cluster.controlplanes.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
+          ["type", "virtual-machine"],
+          ["description", "Talos control plane node"],
+          ["storage_pool", "default"],
+          ["root_disk_size", string(cluster.controlplanes.root_disk_size ?? 30) + "GB"],
+          ["limits", {cpu: string(cluster_resources_effective.controlplanes.cpu), memory: string(cluster_resources_effective.controlplanes.memory) + "GB"}],
+          ["disks", talos_common.controlplane_disks],
+          ["config", {
+            "user.hostname": get(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) ?? {}, "hostname") ?? ("controlplane-" + string(#)),
+            "environment.TALOSSKU": string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM",
+            "raw.qemu": "-boot order=c,menu=off"
+          }]
+        ]))}
+
+  # One instance per worker, addressed from cluster.workers.nodes or by bridge DHCP.
+  - name: incus_workers
+    value:
+      instances: >-
+        ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
+          ["name", int(cluster.workers.count) > 1 ? "worker-" + string(# - 1) : "worker"],
+          ["role", "worker"],
+          ["count", 1],
+          ["ipv4", network.dhcp == true ? null
+            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
+            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
+               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
+            : null)],
+          ["image", cluster.workers.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
+          ["type", "virtual-machine"],
+          ["description", "Talos worker node"],
+          ["storage_pool", "default"],
+          ["root_disk_size", string(cluster.workers.root_disk_size ?? 50) + "GB"],
+          ["limits", {cpu: string(cluster_resources_effective.workers.cpu), memory: string(cluster_resources_effective.workers.memory) + "GB"}],
+          ["disks", talos_common.worker_disks],
+          ["config", {
+            "user.hostname": get(get(cluster.workers.nodes ?? {}, "worker-" + string(#)) ?? {}, "hostname") ?? ("worker-" + string(#)),
+            "environment.TALOSSKU": string(cluster_resources_effective.workers.cpu) + "CPU-" + string(cluster_resources_effective.workers.memory * 1024) + "RAM",
+            "raw.qemu": "-boot order=c,menu=off"
+          }]
+        ]))}
+
 # =============================================================================
 # Terraform — standalone incus (no workstation)
 # =============================================================================
@@ -75,41 +139,7 @@ terraform:
       storage_pools:
         local:
           driver: null
-      instances:
-        - name: controlplane
-          role: controlplane
-          count: ${cluster.controlplanes.count ?? 1}
-          ipv4: ${cidrhost(network.cidr_block, 10)}
-          image: ${cluster.controlplanes.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
-          type: virtual-machine
-          description: Talos control plane node
-          storage_pool: "default"
-          root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
-          limits:
-            cpu: ${string(cluster_resources_effective.controlplanes.cpu)}
-            memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
-          disks: ${talos_common.controlplane_disks}
-          config:
-            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (values(cluster.controlplanes.nodes)[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
-            environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
-            raw.qemu: -boot order=c,menu=off
-        - name: worker
-          role: worker
-          count: ${cluster.workers.count ?? 0}
-          ipv4: ${cidrhost(network.cidr_block, 20)}
-          image: ${cluster.workers.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
-          type: virtual-machine
-          description: Talos worker node
-          storage_pool: "default"
-          root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
-          limits:
-            cpu: ${string(cluster_resources_effective.workers.cpu)}
-            memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
-          disks: ${talos_common.worker_disks}
-          config:
-            user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
-            environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
-            raw.qemu: -boot order=c,menu=off
+      instances: ${concat(incus_controlplanes.instances, incus_workers.instances)}
 
   # Talos bootstrap/apply. Uses compute output when available, else user-supplied nodes.
   - name: cluster
