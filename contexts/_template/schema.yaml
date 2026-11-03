@@ -1353,7 +1353,7 @@ properties:
           https:
             type: boolean
             default: true
-            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
+            description: Serve the web-https listener on port 443. Set false, with allowed_listeners, to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the external gateway.
@@ -1404,7 +1404,7 @@ properties:
           https:
             type: boolean
             default: true
-            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
+            description: Serve the web-https listener on port 443. Set false, with allowed_listeners, to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the internal gateway.

@@ -1949,3 +1949,16 @@ cases:
         internal:
           allowed_listeners: All
     expectError: true
+
+  - name: a gateway without https that admits no ListenerSets fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          https: false
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true

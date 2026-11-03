@@ -102,6 +102,12 @@ requires:
       - gateway_effective.unsupported
     message: gateway.<name>.tls applies only to a gateway with https; remove it or set gateway.<name>.https to true.
   - when: >-
+      ((gateway.external.https ?? true) == false && (gateway.external.allowed_listeners ?? 'None') == 'None') ||
+      ((gateway.internal.https ?? true) == false && (gateway.internal.allowed_listeners ?? 'None') == 'None')
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.<name>.https false leaves port 443 to a ListenerSet; set gateway.<name>.allowed_listeners.
+  - when: >-
       gateway.enabled == true &&
       ((gateway_effective.external_enabled == true && (dns.public_domain ?? '') == '' &&
       (gateway.external.https ?? true) == true && (gateway.external.tls.cert ?? '') == '') ||

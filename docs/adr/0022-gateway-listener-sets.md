@@ -123,6 +123,10 @@ certificate and no catch-all 404 route, since both bind to that listener.
 `gateway.<name>.tls.cert` and `gateway.<name>.tls.issuer` MUST NOT be set on a
 gateway with `https: false`. A `requires` rule rejects them.
 
+`https: false` MUST be paired with an `allowed_listeners` other than `None`.
+Without a ListenerSet on 443, the `web-http` redirect would point at a port with
+no listener. A `requires` rule rejects the pairing.
+
 ### 3. A gateway exists without its domain when it admits listeners
 
 A gateway exists when its domain is set, as today, or when its
