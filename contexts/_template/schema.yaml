@@ -1165,13 +1165,21 @@ properties:
         description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
       private_domain:
         $ref: '#/$defs/dnsHostname'
-        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
+        description: Private DNS zone, served by the dns.private.driver. Must differ from dns.public_domain. Lowercase DNS labels separated by dots.
       private:
         type: object
         properties:
+          driver:
+            type: string
+            enum:
+              - cloud
+              - coredns
+              - none
+            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
           enabled:
             type: boolean
-            description: Enable self-hosted CoreDNS for private DNS zones
+            deprecated: true
+            description: Deprecated. Use dns.private.driver. true is an alias for coredns.
         additionalProperties: false
     additionalProperties: false
 

@@ -8,6 +8,19 @@ metadata:
 when: (platform ?? 'none') != 'none'
 
 requires:
+  # Split-horizon DNS on one domain is not supported.
+  - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
+    paths:
+      - dns.split_horizon_supported
+    message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
+  - when: dns.private.driver == 'cloud' && platform != 'aws' && platform != 'azure' && platform != 'gcp'
+    paths:
+      - dns.private_cloud_supported
+    message: dns.private.driver cloud needs a platform with a cloud private zone (aws, azure or gcp); use coredns or none.
+  - when: dns.private.driver == 'cloud'
+    paths:
+      - dns.private_domain
+    message: The cloud private zone is created for dns.private_domain.
   - when: (pki.public_issuer ?? '') == 'acme'
     paths:
       - dns.public_domain
@@ -208,6 +221,24 @@ config:
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
+
+  # Default dns.private.driver. A NodePort internal gateway outside a workstation defaults to none.
+  - name: dns
+    when: (dns.private.driver ?? '') == ''
+    value:
+      private:
+        driver: >-
+          ${dns.private.enabled == true ? 'coredns' :
+          ((dns.private_domain ?? '') == '' || platform == 'hetzner' ? 'none' :
+          (platform == 'aws' || platform == 'azure' || platform == 'gcp' ? 'cloud' :
+          (dns.private.enabled == false || cluster_provisioned != true ||
+          ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
+
+  # CoreDNS serves the public zone only where no platform DNS zone does.
+  - name: dns_private_effective
+    value:
+      public_zone: >-
+        ${(dns.public_domain ?? '') != '' && platform != 'aws' && platform != 'azure' && platform != 'gcp' && platform != 'hetzner'}
 
   # dns_zone_effective.enabled: platforms provision the public zone, external-dns
   # and the DNS-01 identity. dns.public_zone: false keeps public_domain as a hostname only.

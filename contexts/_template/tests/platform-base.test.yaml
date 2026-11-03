@@ -1177,3 +1177,50 @@ cases:
     exclude:
       terraform:
         - name: backend
+
+  # Split-horizon DNS on one domain is rejected.
+  - name: equal public and private domains fail composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expectError: true
+
+  - name: deprecated dns.domain equal to the public domain fails composition
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+        public_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expectError: true

@@ -394,7 +394,7 @@ terraform:
 flux:
 
   - name: gateway
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true && (dns.private_domain ?? '') != ''"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && dns.private.driver == 'coredns'"
     resources:
       - name: internal
         components:
