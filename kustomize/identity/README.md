@@ -1,10 +1,10 @@
 ---
 title: Identity
-description: Cluster identity provider (SSO), either hosted Keycloak or an external OIDC issuer.
+description: Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer.
 ---
 
 The cluster identity provider (SSO). `identity.driver: keycloak` (default) hosts
-Keycloak in-cluster: the operator and a single `Keycloak` server backed by its
+Keycloak in-cluster — the operator plus a single `Keycloak` server backed by its
 own CloudNativePG database, reachable at `keycloak.${keycloak_domain}` through the
 gateway. `identity.driver: oidc` hosts nothing and points consumers at an
 external issuer (`identity.oidc.issuer`).
@@ -15,7 +15,7 @@ and never name Keycloak. This page covers the hosted `keycloak` driver.
 
 Keycloak has no first-party Helm chart, so the operator's Deployment/RBAC is
 vendored verbatim (`install/keycloak-operator/operator.yaml`) and its CRDs are
-vendored through the `crds:` layer (`kustomize/crds/keycloak-26.8.0`). Both come
+vendored through the `crds:` layer (`kustomize/crds/keycloak-26.7.0`). Both come
 from the same `keycloak-k8s-resources` release and are kept in lockstep by
 `kustomize/crds/sources.yaml`. The operator does not manage its own CRDs.
 
@@ -29,26 +29,31 @@ flowchart LR
     operator_pod[Keycloak Operator Deployment]
     keycloak_cr[Keycloak CR]
     keycloak_sts[Keycloak StatefulSet<br/>provisioned by operator]
-    keycloak_svc[Service<br/>keycloak-service :8080]
+    keycloak_svc[Service<br/>keycloak-service :8443 / :8080]
+    cert[Certificate<br/>keycloak-tls]
     pg_cluster[CNPG Cluster<br/>keycloak-db]
     pg_svc[Service<br/>keycloak-db-rw :5432]
   end
 
-  gateway[[Gateway<br/>system-gateway]]
+  gateway[[external Gateway<br/>system-gateway]]
   users[Browser / OIDC clients]
 
   flux ==> operator_pod
   operator_pod -.watches.-> keycloak_cr
   keycloak_cr -.creates.-> keycloak_sts
   keycloak_sts --> keycloak_svc
+  cert -.mounted.-> keycloak_sts
   keycloak_sts -->|JDBC / TLS| pg_svc
   pg_svc --- pg_cluster
   users -->|HTTPS| gateway
-  gateway -->|HTTP| keycloak_svc
+  gateway -->|HTTPS :8443| keycloak_svc
 ```
 
-TLS terminates at the gateway; Keycloak serves plain HTTP internally and trusts
-the proxy's `X-Forwarded-*` headers for the external scheme and host.
+The gateway terminates client TLS and opens a second TLS connection to Keycloak
+on port 8443. A `BackendTLSPolicy` makes the gateway verify Keycloak's
+certificate, issued by the cluster CA, against the `cluster-ca` ConfigMap.
+In-cluster clients keep plain HTTP on port 8080. Keycloak trusts the proxy's
+`X-Forwarded-*` headers for the external scheme and host.
 
 ## Recipes
 
@@ -78,25 +83,24 @@ identity:
       password: ${secret("MyVault", "keycloak-admin", "password")}
 ```
 
-The operator honors `bootstrapAdmin` only at initial cluster creation. It seeds
-the first admin and does not rotate an existing one.
+The operator honors `bootstrapAdmin` only at initial cluster creation, so this
+seeds the first admin — it does not rotate an existing one.
 
 Open `https://keycloak.${keycloak_domain}` and sign in. On docker-desktop the
-gateway is forwarded to a non-standard host port: `:8443` for the internal gateway,
-`:8444` for the external one. The facet bakes that port into Keycloak's base URL
-(see below), so links stay on it.
+gateway is forwarded to a non-standard host port (e.g.
+`https://keycloak.<domain>:8443`); Keycloak resolves its own scheme/port from the
+request, so links stay on that port.
 
 ### Hostname / base URL
 
 Keycloak bakes its external URL into every redirect and issuer, and it can't infer
 the gateway's external port (that lives outside the cluster; the proxy only forwards
 a standard one). The facet derives the base URL from the domain and the gateway
-exposure: `https://keycloak.<domain>` on loadbalancer/cloud (`:443`). On
-docker-desktop it appends the NodePort host-forward: `:8443` when Keycloak is on the
-private domain, `:8444` when `dns.public_domain` is set.
+exposure: `https://keycloak.<domain>` on loadbalancer/cloud (`:443`), and
+`https://keycloak.<domain>:8443` on docker-desktop (its NodePort host-forward).
 
-Override it for a plain-NodePort Talos VM on `:30443` or a fixed canonical
-production URL:
+Override for anything else — a plain-NodePort Talos VM on `:30443`, or a fixed
+canonical production URL:
 
 ```yaml
 identity:
@@ -116,16 +120,16 @@ backend. For faster, production-grade startup, pre-build an optimized image
 identity:
   enabled: true
   keycloak:
-    image: registry.example.com/keycloak-optimized:26.8.0@sha256:<digest>
+    image: registry.example.com/keycloak-optimized:26.7.0@sha256:<digest>
 ```
 
 A set `image` is assumed pre-built, so the operator starts it with `--optimized`.
-It must be digest-pinned, because Kyverno's `require-image-digest` policy covers
-`system-identity`.
+It must be digest-pinned — `system-identity` is policy-managed (Kyverno
+`require-image-digest`).
 
 ### High availability
 
-With `topology: ha`, Keycloak runs 2 replicas (the operator wires
+`topology: ha` scales the stack out — Keycloak runs 2 replicas (the operator wires
 Infinispan clustering across them) on a 3-instance Postgres cluster (primary +
 replicas with automatic failover). `single-node` and `multi-node` keep both at 1.
 
@@ -169,7 +173,7 @@ group into the token, which Grafana maps to the Admin role.
 
 For an external OIDC provider (`identity.driver: oidc`), register Grafana at the provider
 as a public client with PKCE (S256) enabled. The redirect URI is
-`https://grafana.<dns.private_domain>/login/generic_oauth` and the client ID is `grafana`. No secret
+`https://grafana.<domain>/login/generic_oauth` and the client ID is `grafana`. No secret
 is configured on either side:
 
 ```yaml
@@ -193,8 +197,8 @@ observability:
 Keycloak client stays public.
 
 In dev mode the platform realm seeds standard users so local SSO works out of the box
-across every consumer (Grafana and any future one): `dev-admin` / `admin-password` (in
-`platform-admins`, admin) and `dev-viewer` / `viewer-password` (no group, read-only), so you
+across every consumer (Grafana and any future one): **`dev-admin` / `admin-password`** (in
+`platform-admins` → admin) and **`dev-viewer` / `viewer-password`** (no group → read-only), so you
 can see the role mapping take effect. Neither name collides with the local `admin` account
 consumers reserve for themselves. The `dev-admin` password is shared with the Keycloak console
 admin and is overridable through `identity.keycloak.admin.password`. Grafana also uses
@@ -224,7 +228,7 @@ cluster:
     enabled: true
 ```
 
-The client is public (PKCE, no secret). Pair it with a `kubectl` OIDC login plugin
+The client is public (PKCE, no secret) — pair it with a `kubectl` OIDC login plugin
 (e.g. `kubelogin`) pointed at this realm. Override `issuer_url`/`client_id` to bypass
 inference, e.g. to point at a different realm or an already-existing client.
 
@@ -234,12 +238,12 @@ after logging in. Outside dev, bind `platform-admins` (or another claim) to a ro
 
 ### External identity provider
 
-Point the cluster at an issuer you already run, such as a remote Keycloak or any
-OIDC provider, instead of hosting one. Nothing is deployed in `system-identity`;
+Point the cluster at an issuer you already run — a remote Keycloak, or any OIDC
+provider — instead of hosting one. Nothing is deployed in `system-identity`;
 consumers read the external issuer and use a public PKCE client registered at the
 provider (see Grafana single sign-on). The login button label is
 `identity.display_name` (default `SSO`); endpoints derive from the issuer's standard
-OIDC paths. Override them under `identity.oidc` if the provider differs:
+OIDC path — override under `identity.oidc` if the provider differs:
 
 ```yaml
 identity:
@@ -255,31 +259,36 @@ identity:
 
 Core patches an OIDC client into the platform realm import per opted-in consumer, from
 a per-consumer folder under `clients/` (Grafana, kubectl today; MinIO and gateway
-edge-auth to follow). Clients go through the stable v2beta1 `KeycloakRealmImport`. The realm import is one-shot, so adding a
+edge-auth to follow). This uses the stable v2beta1 `KeycloakRealmImport` — not the v2alpha1
+`KeycloakOIDCClient` CRDs, which need the preview `client-admin-api:v2` feature plus a
+manually bootstrapped admin service-account. The realm import is one-shot, so adding a
 client re-imports the realm.
 
 ## Security
 
-- Keycloak connects to Postgres with `sslmode=verify-full`,
+- **Database in transit.** Keycloak connects to Postgres with `sslmode=verify-full`,
   importing CNPG's generated CA into its truststore, so the server certificate and the
   `keycloak-db-rw` hostname are verified (TLS 1.3). Postgres authenticates Keycloak by
   password over that channel.
-- The gateway 301-redirects plain HTTP, and the Keycloak
+- **Ingress is HTTPS-only.** The gateway 301-redirects plain HTTP, and the Keycloak
   route attaches to the HTTPS listener only. On the Cilium gateway driver,
   `keycloak/cilium` further restricts Keycloak ingress to the gateway proxy via
   CiliumNetworkPolicy.
-- The operator generates a temporary admin by default; supply
+- **Admin credentials.** The operator generates a temporary admin by default; supply
   your own via `identity.keycloak.admin` (see Recipes). `bootstrapAdmin` seeds the
   initial admin only, not a rotation path.
-- The platform realm enforces `sslRequired: external`, brute-force
+- **Realm baseline.** The platform realm enforces `sslRequired: external`, brute-force
   detection, and a `length(12) and notUsername and notEmail` password policy, with
   short access tokens and bounded SSO sessions. Realm administration is granted through
   the `platform-admins` group (`realm-admin`), not by handing out the master admin.
-- Grafana registers as a public client with PKCE, so no client secret
+- **Client secrets.** Grafana registers as a public client with PKCE, so no client secret
   exists. A public client cannot authenticate the Grafana server to the provider; the
   authorization code is bound to the login session by the PKCE verifier instead. Some
   external providers restrict or disallow public clients; for those, set
   `observability.grafana.client_secret` to use a confidential client.
+- **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
+  operator, server, and Postgres images are all digest-pinned.
+
 
 ## Components
 
@@ -293,7 +302,7 @@ Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim fr
 
 _Enabled when `identity.driver == 'keycloak'`._
 
-The `Keycloak` server CR. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database.
+The `Keycloak` server CR and its `keycloak-tls` serving certificate from the `private` ClusterIssuer. Keycloak serves HTTPS on 8443 and HTTP on 8080, and stores realms in the `keycloak` database.
 
 ### `keycloak/realm`
 
@@ -327,9 +336,9 @@ Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-ad
 
 ### `keycloak/gateway`
 
-_Enabled when `gateway.enabled == true` AND (`dns.public_domain` is set OR the internal gateway exists)._
+_Enabled when `gateway.enabled == true`._
 
-HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one to the operator-managed `keycloak-service`.
+HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one, to port 8443 of the operator-managed `keycloak-service`. Ships the `BackendTLSPolicy` that verifies `keycloak-service.system-identity.svc` against the cluster CA.
 
 ### `keycloak/gateway/public-paths`
 
@@ -345,7 +354,7 @@ HTTPRoute publishing `keycloak-admin.${private_domain}` through the internal gat
 
 ### `keycloak/cilium`
 
-_Enabled when `gateway.enabled == true` AND `gateway.driver == 'cilium'`._
+_Enabled when `gateway.driver == 'cilium'`._
 
 CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver.
 
@@ -359,7 +368,7 @@ Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.boot
 
 _Enabled when `telemetry.metrics.enabled: true`._
 
-JSON6902 patch enabling Keycloak's server and user-event metrics (`metrics-enabled`, `event-metrics-user-enabled`) and the operator's `spec.serviceMonitor`, so Prometheus scrapes the management-interface `/metrics` endpoint. Also ships a `PodMonitor` for the `keycloak-db` CloudNativePG cluster's postgres-exporter metrics, which the CloudNativePG dashboard reads.
+JSON6902 patch enabling Keycloak's own server and user-event metrics (`metrics-enabled`, `event-metrics-user-enabled`) and the operator's native `spec.serviceMonitor`, so Prometheus scrapes the management-interface `/metrics` endpoint with no hand-rolled ServiceMonitor needed. Also ships a hand-rolled `PodMonitor` for the `keycloak-db` CloudNativePG cluster's own postgres-exporter metrics -- CNPG's `Cluster.spec.monitoring.enablePodMonitor` convenience field is deprecated upstream, so this cluster is scraped the same way fluent-bit's ServiceMonitor is hand-rolled elsewhere. Without it, the CloudNativePG dashboard's namespace/cluster template variables (which query `cnpg_collector_up`) never discover this cluster.
 
 ## Dependencies
 
@@ -367,8 +376,7 @@ JSON6902 patch enabling Keycloak's server and user-event metrics (`metrics-enabl
 |---|---|---|
 | `database` | `identity.driver == 'keycloak'` | Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies. |
 | `identity-resources-database` | `identity.driver == 'keycloak'` | The `Keycloak` server CR waits for the CloudNativePG `Cluster` to report Ready; a server started without a database exits 1 and repeats its whole Quarkus build on restart. |
-| `gateway-resources-external` | `dns.public_domain` is set | The external Gateway must exist before the Keycloak login HTTPRoute attaches to it. |
-| `gateway-resources-internal` | the internal gateway exists | The internal Gateway must exist before the admin console HTTPRoute, and the login HTTPRoute without a public domain, attach to it. |
+| `gateway-resources` | `gateway.enabled == true` | The shared Gateway must exist before the Keycloak HTTPRoute attaches to it. |
 
 
 ## See also

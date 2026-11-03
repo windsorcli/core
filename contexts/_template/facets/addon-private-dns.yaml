@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: dns.private.enabled == true
+when: dns.private.driver == 'coredns'
 
 requires:
   - paths:
@@ -58,7 +58,7 @@ flux:
       components:
         - coredns
         - coredns/etcd
-        - "${(dns.public_domain ?? '') != '' ? 'coredns/public-zone' : ''}"
+        - "${dns_private_effective.public_zone == true ? 'coredns/public-zone' : ''}"
         - "${telemetry.metrics.enabled ? 'coredns/prometheus' : ''}"
         - "${topology == 'ha' ? 'coredns/ha' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
@@ -71,7 +71,7 @@ flux:
         dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
       timeout: 20m
       interval: 5m
-    # One external-dns instance per zone, writing to the coredns etcd backend.
+    # One external-dns instance per CoreDNS zone, writing to the etcd backend.
     resources:
       - name: account
         components:
@@ -79,7 +79,7 @@ flux:
         timeout: 5m
         interval: 5m
       - name: public
-        when: (dns.public_domain ?? '') != ''
+        when: dns_private_effective.public_zone == true
         dependsOn:
           - dns-resources-account
         components:

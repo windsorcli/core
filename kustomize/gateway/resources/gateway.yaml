@@ -21,7 +21,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: ${gateway_name}-web-tls
+            name: ${gateway_tls_secret}
       allowedRoutes:
         namespaces:
           from: All

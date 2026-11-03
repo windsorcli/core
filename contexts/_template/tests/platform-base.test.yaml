@@ -58,6 +58,7 @@ cases:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - fluentbit
               - metrics-server
             timeout: 30m
@@ -70,6 +71,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -107,9 +109,9 @@ cases:
                 - fluentd/prometheus
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
+        - cert-manager-1.21.3
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
         # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
@@ -140,6 +142,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -226,6 +229,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/alerts/envoy
               timeout: 10m
@@ -267,6 +271,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -449,14 +454,14 @@ cases:
               - cert-manager
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
+        - cert-manager-1.21.3
     exclude:
       flux:
         - name: telemetry
         - name: observability
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
         # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
@@ -479,6 +484,7 @@ cases:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - metrics-server
           resources:
             - components:
@@ -488,6 +494,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
         - name: pki
           dependsOn:
@@ -584,6 +591,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/notifications/slack
                 - fluentbit
@@ -701,6 +709,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
 
@@ -749,13 +758,13 @@ cases:
                 - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.2
+        - cert-manager-1.21.3
         # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
     exclude:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
 
   # Both telemetry pipelines off means telemetry-install itself doesn't compose. Observability
   # has no dependency on it (a plain ordering nicety that bought nothing — external-dns-style
@@ -1065,40 +1074,153 @@ cases:
         public_issuer: acme
     expectError: true
 
-  - name: matching public and private domains fail composition
+  - name: kubernetes backend creates the default state namespace after the cluster
+    applySchemaDefaults: true
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+          inputs:
+            namespace: system-terraform
+
+  - name: kubernetes backend passes the namespace and cluster access through
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+
+  - name: kubernetes backend applies alone against an existing cluster
+    applySchemaDefaults: true
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        enabled: false
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            config_path: /tmp/state-kubeconfig
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: system-terraform
+            config_path: /tmp/state-kubeconfig
+    exclude:
+      terraform:
+        - name: cluster
+
+  - name: kubernetes backend on aws creates the state namespace after eks
+    applySchemaDefaults: true
+    values:
+      platform: aws
+      aws:
+        region: us-east-1
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+
+  - name: other backend types skip the state namespace
+    applySchemaDefaults: true
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: s3
+          s3:
+            bucket: existing-state
+    exclude:
+      terraform:
+        - name: backend
+
+  # Split-horizon DNS on one domain is rejected.
+  - name: equal public and private domains fail composition
+    values:
+      platform: metal
       dns:
         public_domain: example.com
         private_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
     expectError: true
 
-  - name: public domain matching the deprecated dns.domain fails composition
+  - name: deprecated dns.domain equal to the public domain fails composition
     values:
       platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
       dns:
-        public_domain: example.com
         domain: example.com
-    expectError: true
-
-  - name: distinct public and private domains compose
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      dns:
         public_domain: example.com
-        private_domain: example.internal
-    exclude:
-      messages:
-        - text: must differ
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expectError: true

@@ -7,9 +7,6 @@ metadata:
 # Talos-only. Connection details come from HYPERV_* env vars; no workstation overlay.
 when: "platform == 'hyperv' && cluster.driver == 'talos'"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend).
-backend: cluster
-
 requires:
   - when: cluster.vip == true && (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     paths:

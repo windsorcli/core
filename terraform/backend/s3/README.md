@@ -11,19 +11,27 @@ and server-side encryption) and a DynamoDB table for state locking.
 Every subsequent `windsor apply` reads/writes through the bucket and
 acquires the lock.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| S3 bucket `terraform-state-<id>` | 3-63 characters | 47 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.67.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.68.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.67.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.68.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.8.0 |
 
 ## Modules
@@ -34,18 +42,18 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_kms_alias.terraform_state_alias](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/kms_alias) | resource |
-| [aws_kms_key.terraform_state](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/kms_key) | resource |
-| [aws_s3_bucket.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket) | resource |
-| [aws_s3_bucket_lifecycle_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_lifecycle_configuration) | resource |
-| [aws_s3_bucket_logging.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_logging) | resource |
-| [aws_s3_bucket_policy.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_policy) | resource |
-| [aws_s3_bucket_public_access_block.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_public_access_block) | resource |
-| [aws_s3_bucket_server_side_encryption_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
-| [aws_s3_bucket_versioning.this](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/resources/s3_bucket_versioning) | resource |
+| [aws_kms_alias.terraform_state_alias](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.terraform_state](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/kms_key) | resource |
+| [aws_s3_bucket.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket) | resource |
+| [aws_s3_bucket_lifecycle_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_lifecycle_configuration) | resource |
+| [aws_s3_bucket_logging.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_logging) | resource |
+| [aws_s3_bucket_policy.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_policy) | resource |
+| [aws_s3_bucket_public_access_block.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_public_access_block) | resource |
+| [aws_s3_bucket_server_side_encryption_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
+| [aws_s3_bucket_versioning.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/s3_bucket_versioning) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/data-sources/caller_identity) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.67.0/docs/data-sources/region) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/region) | data source |
 
 ## Inputs
 

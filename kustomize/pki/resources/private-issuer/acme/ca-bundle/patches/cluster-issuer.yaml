@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: private-acme
+spec:
+  acme:
+    caBundle: ${private_acme_ca_bundle}

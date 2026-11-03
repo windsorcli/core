@@ -13,21 +13,29 @@ subnet.
 Also creates the `system-database` namespace: Terraform runs before Flux,
 so this module provisions its own copy rather than waiting on one.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Global address, KMS key ring, and crypto key `cloudsql-<id>` | 1-63 characters | 54 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
-| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.5.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
+| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.7.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
-| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.5.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.8.0 |
+| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.7.0 |
 
 ## Modules
 
@@ -37,12 +45,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.5.0/docs/resources/google_project_service_identity) | resource |
-| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_global_address) | resource |
-| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_key_ring) | resource |
-| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_networking_connection) | resource |
+| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.7.0/docs/resources/google_project_service_identity) | resource |
+| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/compute_global_address) | resource |
+| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_key_ring) | resource |
+| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/service_networking_connection) | resource |
 
 ## Inputs
 

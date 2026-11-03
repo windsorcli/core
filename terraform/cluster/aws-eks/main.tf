@@ -29,7 +29,19 @@ provider "aws" {
 data "aws_region" "current" {}
 
 locals {
-  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  name              = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  iam_role_suffixes = ["", "-node-group", "-fargate-profile", "-vpc-cni", "-aws-ebs-csi-driver", "-aws-efs-csi-driver", "-pod-identity-agent", "-external-dns", "-aws-lb-controller", "-cluster-autoscaler", "-cert-manager"]
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    for suffix in local.iam_role_suffixes : "iam_role${suffix}" => { id = var.context_id, max = 64 - length("cluster-${suffix}") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
+  }
+  iam_role_names = {
+    for suffix in local.iam_role_suffixes : suffix => var.cluster_name != "" ? "${var.cluster_name}${suffix}" : "cluster-${local.context_id_fit["iam_role${suffix}"]}${suffix}"
+  }
   kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
   ebs_kms_key_id = var.enable_ebs_encryption ? (
     var.ebs_volume_kms_key_id != null ? var.ebs_volume_kms_key_id : (
@@ -263,7 +275,7 @@ data "aws_caller_identity" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "cluster" {
-  name = local.name
+  name = local.iam_role_names[""]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -290,7 +302,7 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSVPCResourceControlle
 }
 
 resource "aws_iam_role" "node_group" {
-  name = "${local.name}-node-group"
+  name = local.iam_role_names["-node-group"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -542,7 +554,7 @@ EOT
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "fargate" {
-  name = "${local.name}-fargate-profile"
+  name = local.iam_role_names["-fargate-profile"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -604,7 +616,7 @@ data "aws_eks_addon_version" "default" {
 
 resource "aws_iam_role" "vpc_cni" {
   count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
-  name  = "${local.name}-vpc-cni"
+  name  = local.iam_role_names["-vpc-cni"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -645,7 +657,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
 
 resource "aws_iam_role" "ebs_csi" {
   count = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
-  name  = "${local.name}-aws-ebs-csi-driver"
+  name  = local.iam_role_names["-aws-ebs-csi-driver"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -685,7 +697,7 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 
 resource "aws_iam_role" "efs_csi" {
   count = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  name  = "${local.name}-aws-efs-csi-driver"
+  name  = local.iam_role_names["-aws-efs-csi-driver"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -725,7 +737,7 @@ resource "aws_iam_role_policy_attachment" "efs_csi" {
 
 resource "aws_iam_role" "pod_identity_agent" {
   count = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
-  name  = "${local.name}-pod-identity-agent"
+  name  = local.iam_role_names["-pod-identity-agent"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -786,7 +798,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 
 resource "aws_iam_role" "external_dns" {
   count = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
-  name  = "${local.name}-external-dns"
+  name  = local.iam_role_names["-external-dns"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -865,7 +877,7 @@ resource "aws_iam_role_policy_attachment" "external_dns" {
 
 resource "aws_iam_role" "aws_lb_controller" {
   count = var.create_aws_lb_controller_role ? 1 : 0
-  name  = "${local.name}-aws-lb-controller"
+  name  = local.iam_role_names["-aws-lb-controller"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -917,7 +929,7 @@ resource "aws_iam_role_policy_attachment" "aws_lb_controller" {
 
 resource "aws_iam_role" "cluster_autoscaler" {
   count = var.create_cluster_autoscaler_role ? 1 : 0
-  name  = "${local.name}-cluster-autoscaler"
+  name  = local.iam_role_names["-cluster-autoscaler"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -1015,7 +1027,7 @@ resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
 
 resource "aws_iam_role" "cert_manager" {
   count = var.create_cert_manager_role ? 1 : 0
-  name  = "${local.name}-cert-manager"
+  name  = local.iam_role_names["-cert-manager"]
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

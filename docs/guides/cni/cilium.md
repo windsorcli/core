@@ -3,7 +3,7 @@ title: Cilium
 description: Cilium as the cluster CNI on Talos, replacing kube-proxy, announcing load balancer addresses, and providing Hubble.
 ---
 
-Cilium is the default [CNI](index.md) on Talos clusters. It replaces kube-proxy with eBPF, announces `LoadBalancer` addresses over L2, and provides Hubble for network visibility. With `gateway.driver: cilium` it also runs the [gateway](../gateway/cilium.md) that serves `my-app.example.com`. The [CNI overview](index.md) defines the terms this page assumes.
+Cilium is the default [CNI](index.md) on Talos clusters. It replaces kube-proxy with eBPF, announces `LoadBalancer` addresses over L2, encrypts pod traffic between nodes, and provides Hubble for network visibility. With `gateway.driver: cilium` it also runs the [gateway](../gateway/cilium.md) that serves `my-app.example.com`. The [CNI overview](index.md) defines the terms this page assumes.
 
 ## Turn it on
 
@@ -72,10 +72,24 @@ network:
 
 Gateway addresses MUST sit outside the range. Cilium assigns only from a pool, so without a range no other `LoadBalancer` Service gets an address.
 
-Cilium takes the place of MetalLB and kube-vip. On a Cilium cluster, `network.loadbalancer_driver` accepts only `cilium` or `none`, and `kube-vip` or `metallb` fails validation.
+Cilium takes the place of MetalLB and kube-vip. On a Cilium cluster, `network.loadbalancer_driver` accepts only `cilium` or `none`, and `kube-vip` or `metallb` fails validation. [Load balancing](../load-balancing.md) compares the drivers.
 
 > [!NOTE]
 > Hetzner's cloud network is not a flat L2 network. On Hetzner, Core leaves out the L2 component and the Hetzner cloud controller assigns addresses.
+
+## Encryption
+
+Pod traffic between nodes crosses the site network in the clear unless something encrypts it. Outside workstation contexts, Core turns on Cilium's WireGuard *transparent encryption*. Cilium generates and distributes each node's key itself, so the encryption needs no certificates and no setting. Traffic between pods on the same node stays unencrypted.
+
+This `values.yaml` turns it off:
+
+```yaml
+cluster:
+  cni:
+    encryption: false
+```
+
+WireGuard adds overhead to each packet, and Cilium lowers the pod MTU to make room for it. Workstation contexts leave it off by default, and `cluster.cni.encryption: true` turns it on there.
 
 ## Hubble
 
@@ -104,7 +118,7 @@ On Talos the agent runs with an explicit capability set instead of privileged mo
 > [!WARNING]
 > Cilium replaces kube-proxy as part of the install, so removing the add-on does not bring kube-proxy back.
 
-Cilium enforces `NetworkPolicy` and `CiliumNetworkPolicy`, but Core applies no default deny policy. Pod-to-pod traffic is unencrypted, and routing uses Cilium's default VXLAN tunnel. Cilium supports WireGuard encryption between nodes, which Core does not turn on yet.
+Cilium enforces `NetworkPolicy` and `CiliumNetworkPolicy`, but Core applies no default deny policy. Routing uses Cilium's default VXLAN tunnel, and [WireGuard](#encryption) encrypts it between nodes outside workstation contexts.
 
 With the Cilium gateway driver, Cilium copies the gateway's TLS Secret into the `cilium-secrets` namespace. The wildcard certificate's private key therefore exists in two namespaces.
 
@@ -115,6 +129,7 @@ The keys below are the ones that affect Cilium.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | `cilium` on Talos | Set to `cilium`. See [CNI](index.md#defaults). |
+| `cluster.cni.encryption` | boolean | `true` outside workstation contexts | WireGuard between nodes. |
 | `network.loadbalancer_driver` | string | `cilium` | `cilium` or `none` on a Cilium cluster. |
 | `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
 | `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |

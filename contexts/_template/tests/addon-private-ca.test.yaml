@@ -115,15 +115,19 @@ cases:
 
   # Supplying only one of cert/key must fail composition, not silently fall
   # back to a generated CA.
-  - name: cert without key fails composition
+  - name: cert without key passes the signed CA to the pki terraform step
     values:
       platform: metal
       network: *default-network
       cluster: *default-cluster
       pki:
         ca:
-          cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
-    expectError: true
+          cert: CERT
+    expect:
+      terraform:
+        - name: pki
+          inputs:
+            cert: CERT
 
   - name: key without cert fails composition
     values:
@@ -136,14 +140,14 @@ cases:
     expectError: true
 
   # pki.private_ca is the deprecated fallback for pki.ca.
-  - name: deprecated private_ca cert without key fails composition
+  - name: deprecated private_ca key without cert fails composition
     values:
       platform: metal
       network: *default-network
       cluster: *default-cluster
       pki:
         private_ca:
-          cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
+          key: "-----BEGIN PRIVATE KEY-----\nFAKE\n-----END PRIVATE KEY-----"
     expectError: true
 
   - name: pki.ca passes the BYO CA to the pki terraform step
@@ -195,3 +199,49 @@ cases:
         - name: pki-resources
           components:
             - private-issuer/ca
+
+  - name: trusted_cas adds the roots to the trust bundle
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        trusted_cas:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTA
+            -----END CERTIFICATE-----
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTB
+            -----END CERTIFICATE-----
+    expect:
+      flux:
+        - name: pki
+          secrets:
+            pki-trusted-cas:
+              namespaces: [system-pki-trust]
+              data:
+                ca.crt: |-
+                  -----BEGIN CERTIFICATE-----
+                  ROOTA
+                  -----END CERTIFICATE-----
+                  -----BEGIN CERTIFICATE-----
+                  ROOTB
+                  -----END CERTIFICATE-----
+      kustomize:
+        - name: pki-resources
+          components:
+            - private-issuer/ca
+            - private-issuer/ca/trusted-cas
+
+  - name: no trusted_cas leaves the trust bundle at the cluster CA
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: pki-resources
+          components:
+            - private-issuer/ca/trusted-cas

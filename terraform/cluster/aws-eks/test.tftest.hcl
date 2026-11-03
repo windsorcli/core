@@ -1235,3 +1235,46 @@ run "pod_identity_roles_scope_trust_policy_to_this_cluster" {
     error_message = "Every Pod Identity role's trust policy should condition on this cluster's aws:SourceArn"
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id               = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    kubernetes_version       = "1.32"
+    addons                   = { "vpc-cni" = {}, "aws-ebs-csi-driver" = {}, "aws-efs-csi-driver" = {}, "pod-identity-agent" = {} }
+    create_cert_manager_role = true
+  }
+
+  assert {
+    condition     = alltrue([for name in [aws_iam_role.cluster.name, aws_iam_role.node_group.name, aws_iam_role.fargate.name, aws_iam_role.vpc_cni[0].name, aws_iam_role.ebs_csi[0].name, aws_iam_role.efs_csi[0].name, aws_iam_role.pod_identity_agent[0].name, aws_iam_role.external_dns[0].name, aws_iam_role.aws_lb_controller[0].name, aws_iam_role.cluster_autoscaler[0].name, aws_iam_role.cert_manager[0].name] : length(name) <= 64])
+    error_message = "Every IAM role name must be at most 64 characters"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.name == "cluster-context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    error_message = "Cluster name should keep the full context_id within its 100-character rule"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id         = "my-ctx-1"
+    kubernetes_version = "1.32"
+    addons             = { "vpc-cni" = {}, "aws-ebs-csi-driver" = {}, "aws-efs-csi-driver" = {}, "pod-identity-agent" = {} }
+  }
+
+  assert {
+    condition     = aws_iam_role.cluster.name == "cluster-my-ctx-1"
+    error_message = "Cluster IAM role name should keep the hyphenated context_id"
+  }
+
+  assert {
+    condition     = aws_iam_role.ebs_csi[0].name == "cluster-my-ctx-1-aws-ebs-csi-driver"
+    error_message = "EBS CSI IAM role name should keep the hyphenated context_id"
+  }
+}

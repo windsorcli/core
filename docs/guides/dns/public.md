@@ -16,7 +16,7 @@ dns:
 email: ops@example.com
 ```
 
-`dns.public_domain` names the zone. The same setting turns on [ACME certificates](../pki/acme.md), and `email` is the ACME account contact the certificates need. The `platform` decides which DNS service holds the zone and how external-dns authenticates to it, as the table below shows.
+`dns.public_domain` names the zone. Because Core writes this zone, the same setting turns on [Let's Encrypt certificates](../pki/acme.md) for the `external` gateway, and `email` is the ACME account contact the certificates need. The `platform` decides which DNS service holds the zone and how external-dns authenticates to it, as the table below shows.
 
 | `platform` | Zone | external-dns provider | Authenticates with |
 |---|---|---|---|
@@ -50,9 +50,13 @@ platform: hetzner
 dns:
   public_domain: single-node.test
   public_zone: false
+gateway:
+  external:
+    tls:
+      issuer: selfsigned
 ```
 
-With the zone off, Core skips the `dns-zone` component, external-dns, and the cert-manager DNS-01 identity. The `external` gateway gets a certificate from the `public-selfsigned` issuer instead. DNS-01 writes its challenge into the zone, so `pki.public_issuer: acme` fails validation while `dns.public_zone` is `false`.
+With the zone off, Core skips the `dns-zone` component, external-dns, and the cert-manager DNS-01 identity. Let's Encrypt validates through that zone, so the `external` gateway needs another certificate source outside dev mode. `gateway.external.tls.issuer: selfsigned` is the simplest, and [Gateway certificates](../pki/index.md#gateway-certificates) lists the rest. `gateway.external.tls.issuer: acme` fails validation while `dns.public_zone` is `false`, unless `pki.acme.server` names an ACME server of your own.
 
 ## Reference
 

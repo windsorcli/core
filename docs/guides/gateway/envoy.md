@@ -43,7 +43,7 @@ docker-desktop publishes `internal` on host ports `8443` and `8080`, and `extern
 
 ## Private DNS
 
-With `dns.private.enabled`, the private zone is served by CoreDNS in the cluster. Core adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS, so the zone answers at `gateway.internal.ip`. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. [Private zones](../dns/private.md#coredns) covers the zone itself.
+With `dns.private.driver: coredns`, CoreDNS in the cluster serves the private zone. Core adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS, so the zone answers at `gateway.internal.ip`. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 

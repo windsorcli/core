@@ -85,6 +85,8 @@ flux:
       # Keycloak server CR. The Keycloak CRD comes from the crds: layer.
       - dependsOn:
           - identity-resources-database
+          # The private ClusterIssuer signs Keycloak's serving certificate.
+          - pki-resources
         components:
           - keycloak
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"

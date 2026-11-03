@@ -668,6 +668,8 @@ cases:
         internal:
           ip: "10.5.1.10"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.11"
         enabled: true
         driver: envoy
@@ -812,12 +814,14 @@ cases:
     values:
       platform: metal
       dns:
-        domain: example.internal
+        domain: internal.example.com
         public_domain: example.com
       gateway:
         internal:
           ip: "10.5.1.10"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.11"
         enabled: true
         driver: envoy
@@ -862,6 +866,8 @@ cases:
         internal:
           ip: "10.5.1.10"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.11"
       platform: metal
       dns:
@@ -880,9 +886,35 @@ cases:
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.10"
 
-  # A public domain on a platform without cloud DNS keeps the selfsigned public issuer.
-  - name: public domain on metal uses the selfsigned public issuer
+  # External gateway: a public domain with no writable zone and no other source fails outside dev.
+  - name: public domain on metal without a certificate source fails composition
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: dns.public_zone false on aws without a certificate source fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        public_domain: example.com
+        public_zone: false
+    expectError: true
+
+  - name: public domain on metal in dev falls back to the selfsigned public issuer
+    values:
+      dev: true
       gateway:
         internal:
           ip: "10.5.1.10"
@@ -901,10 +933,301 @@ cases:
             - name: external
               substitutions:
                 gateway_cert_issuer: public-selfsigned
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private
         - name: pki
           resources:
             - components:
                 - public-issuer/selfsigned
+
+  - name: external tls.issuer selfsigned on metal uses the selfsigned public issuer
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+
+  - name: external tls.issuer ca on metal uses the cluster CA
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: ca
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: private
+
+  # A supplied certificate wins over any issuer, so no certificate source is needed.
+  - name: supplied external certificate on metal composes without an issuer
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: acme
+            cert: CERT
+            key: KEY
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_tls_secret: external-supplied-tls
+
+  - name: external tls.issuer acme on metal without pki.acme fails composition
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: acme
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  # pki.acme.server issues both gateways' certificates when no public zone is writable.
+  - name: pki.acme.server on metal issues both gateways from the internal ACME server
+    values:
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+          ca_bundle: CA
+          eab:
+            key_id: kid-1
+            hmac_key: hmac
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: private-acme
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private-acme
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/acme
+                - private-issuer/acme/eab
+                - private-issuer/acme/ca-bundle
+              substitutions:
+                private_acme_server: https://acme.corp.example/directory
+                private_acme_email: ops@example.com
+                private_acme_eab_key_id: kid-1
+                private_acme_ca_bundle: Q0E=
+
+  - name: pki.acme.eab without hmac_key fails composition
+    values:
+      gateway:
+        enabled: false
+      platform: metal
+      dns:
+        private_domain: example.internal
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+          eab:
+            key_id: kid-1
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  # A writable public zone keeps public ACME on the external gateway over pki.acme.server.
+  - name: pki.acme.server on aws keeps public ACME on the external gateway
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-acme
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private-acme
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/route53
+                - private-issuer/acme
+
+  # A private subdomain of a writable public zone gets public ACME with DNS-01 in the public zone.
+  - name: private subdomain on aws issues the internal gateway from public ACME
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        private_domain: int.example.com
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+                gateway_domain: int.example.com
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/public-resolvers
+          resources:
+            - components:
+                - public-issuer/acme/route53
+
+  - name: private domain outside the public zone on aws uses the cluster CA
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private
+
+  - name: internal tls.issuer ca keeps a private subdomain on the cluster CA
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      gateway:
+        internal:
+          tls:
+            issuer: ca
+      dns:
+        public_domain: example.com
+        private_domain: int.example.com
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private
+
+  - name: internal tls.issuer selfsigned uses the selfsigned public issuer
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      gateway:
+        internal:
+          tls:
+            issuer: selfsigned
+      dns:
+        public_domain: example.com
+        private_domain: int.example.com
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/route53
+                - public-issuer/selfsigned
+
+  - name: internal tls.issuer acme without a source fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      gateway:
+        internal:
+          tls:
+            issuer: acme
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+    expectError: true
 
   # Envoy on Cilium: each gateway pins its address, and the internal gateway keeps the pool start.
   - name: envoy gateways pin their addresses under Cilium LBIPAM
@@ -915,6 +1238,8 @@ cases:
           ip: "10.5.1.10"
         external:
           ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
         driver: envoy
       dns:
         public_domain: example.com
@@ -942,6 +1267,8 @@ cases:
       gateway:
         driver: envoy
         external:
+          tls:
+            issuer: selfsigned
           service_type: LoadBalancer
           ip: 10.5.1.200
         internal:
@@ -990,6 +1317,8 @@ cases:
       gateway:
         driver: envoy
         external:
+          tls:
+            issuer: selfsigned
           service_type: NodePort
         internal:
           service_type: NodePort
@@ -1148,6 +1477,8 @@ cases:
         internal:
           ip: "10.5.1.10"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.11"
       network:
         cidr_block: 10.5.0.0/16
@@ -1209,6 +1540,8 @@ cases:
         internal:
           ip: "10.5.1.19"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.101"
       network: *default-network
       cluster: *default-cluster
@@ -1222,3 +1555,101 @@ cases:
             - name: external
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.101"
+
+  - name: gateway without a supplied certificate issues one through cert-manager
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      platform: metal
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+              substitutions:
+                gateway_tls_secret: internal-web-tls
+
+  - name: supplied internal certificate replaces the cert-manager Certificate
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          tls:
+            cert: CERT
+            key: KEY
+      platform: metal
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_tls_secret: internal-supplied-tls
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+
+  - name: supplied certificate without a key fails composition
+    values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          tls:
+            cert: CERT
+      platform: metal
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: supplied external certificate replaces the cert-manager Certificate
+    values:
+      gateway:
+        external:
+          ip: "10.5.1.11"
+          tls:
+            cert: CERT
+            key: KEY
+        internal:
+          ip: "10.5.1.10"
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_tls_secret: external-supplied-tls
+            - name: internal
+              components:
+                - certificate
+              substitutions:
+                gateway_tls_secret: internal-web-tls
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate

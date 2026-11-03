@@ -5,14 +5,10 @@ metadata:
   description: Cluster Certificate Authority with trust-manager integration
 
 requires:
-  - when: (pki.ca.cert ?? pki.private_ca.cert ?? '') != '' && (pki.ca.key ?? pki.private_ca.key ?? '') == ''
-    paths:
-      - pki.ca.key
-    message: Bringing your own CA needs both the certificate and private key.
   - when: (pki.ca.key ?? pki.private_ca.key ?? '') != '' && (pki.ca.cert ?? pki.private_ca.cert ?? '') == ''
     paths:
       - pki.ca.cert
-    message: Bringing your own CA needs both the certificate and private key.
+    message: A CA private key needs its certificate.
 
 # =============================================================================
 # Flux systems — pki (trust-manager + private CA issuer)
@@ -58,3 +54,15 @@ flux:
           - private-issuer/ca
           # CA auto-injection is a Kyverno mutation; skip it when policies are off.
           - "${(policies.enabled ?? true) == true ? 'private-issuer/ca/kyverno-inject' : ''}"
+
+  # Adds the pki.trusted_cas roots to the trust bundle.
+  - name: pki
+    when: len(pki.trusted_cas ?? []) > 0
+    secrets:
+      pki-trusted-cas:
+        namespaces: [system-pki-trust]
+        data:
+          ca.crt: ${join(pki.trusted_cas, '\n')}
+    resources:
+      - components:
+          - private-issuer/ca/trusted-cas

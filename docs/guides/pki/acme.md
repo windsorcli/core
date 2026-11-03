@@ -1,9 +1,9 @@
 ---
 title: ACME
-description: Let's Encrypt certificates for the gateway through DNS-01 challenges against the public DNS zone.
+description: Gateway certificates from Let's Encrypt through DNS-01 in the public zone, or from an ACME server the site runs.
 ---
 
-A browser that opens `https://my-app.example.com` trusts the certificate only if a public CA signed it. With `dns.public_domain` set, Windsor gets that certificate for the `external` gateway from Let's Encrypt on AWS, Azure, GCP, and Hetzner. This page assumes the issuer terms from [PKI](index.md).
+A browser that opens `https://my-app.example.com` trusts the certificate only if a CA it already knows signed it. *ACME* is the protocol cert-manager uses to request and renew such certificates automatically. Windsor speaks it to two kinds of server: Let's Encrypt, for any gateway whose domain sits in a public zone Core writes, and an ACME server the site runs itself. This page assumes the issuer terms from [PKI](index.md).
 
 ## Turn it on
 
@@ -15,7 +15,7 @@ dns:
 email: ops@example.com
 ```
 
-`dns.public_domain` makes Core create the `public-acme` issuer and issue the `external` gateway certificate from it. `email` is the ACME account contact.
+On AWS, Azure, GCP, and Hetzner, `dns.public_domain` makes Core create the public zone, the `public-acme` issuer, and the `external` gateway certificate from it. `email` is the ACME account contact.
 
 > [!IMPORTANT]
 > Let's Encrypt can validate only after `example.com` is [delegated](../dns/public.md#delegate-the-domain) to the public zone.
@@ -42,28 +42,45 @@ Let's Encrypt runs two servers, and the context decides which one cert-manager u
 > [!NOTE]
 > Browsers do not trust certificates from the Let's Encrypt staging server.
 
-## Keep the zone, skip the certificate
+## Internal gateway
 
-Sometimes you want the public zone and external-dns for `example.com` without a Let's Encrypt certificate. This `values.yaml` sets `pki.public_issuer` to `selfsigned` to get that.
+The `internal` gateway can use Let's Encrypt too, when its domain sits under the public one. This `values.yaml` makes `int.example.com` a subdomain of `example.com`, as the running example does:
 
 ```yaml
 dns:
   public_domain: example.com
-pki:
-  public_issuer: selfsigned
+  private_domain: int.example.com
+email: ops@example.com
 ```
 
-Core still creates the public zone and external-dns, but requests no Let's Encrypt certificate. The `external` gateway uses `public-selfsigned` instead, and no `email` is required.
+The certificate for `int.example.com` and `*.int.example.com` validates through a challenge record under `example.com`, in the public zone Core already writes. Clients trust the result without a private root. The hostnames themselves still resolve only through the [private zone](../dns/private.md).
 
-Leaving `pki.public_issuer` unset keeps ACME whenever `dns.public_domain` is set, unless [`dns.public_zone`](../dns/public.md#use-a-domain-without-a-zone) is `false`.
+cert-manager checks that a challenge record has propagated before it asks Let's Encrypt to validate. The in-cluster resolver answers authoritatively for `int.example.com` and never sees the public record, so Core points those checks at public resolvers whenever the `internal` gateway uses `public-acme`.
 
-## Internal gateway
+A private domain outside the public zone, such as `example.internal`, has no public zone for the challenge, and its gateway falls back to the [cluster CA](private-ca.md). A site that keeps internal hostnames out of Certificate Transparency logs sets `gateway.internal.tls.issuer: ca` to get the same result on a subdomain.
 
-The `internal` gateway for `example.internal` uses the `private` issuer even when `dns.public_domain` is set. DNS-01 cannot validate a zone that exists only inside a VPC. The full selection is under [Issuers](index.md#issuers).
+## Internal ACME server
+
+Many sites run an ACME-capable CA of their own, such as Smallstep, EJBCA, Venafi, or the PKI engine in Vault or OpenBao. Its root is already in the site's trust stores, so a certificate it issues is trusted on every managed device. This `values.yaml` points Windsor at one:
+
+```yaml
+pki:
+  acme:
+    server: https://ca.example.com/acme/acme/directory
+    ca_bundle: ${secret("vault", "corp-root", "cert")}
+    eab:
+      key_id: windsor-prod
+      hmac_key: ${secret("vault", "acme-eab", "hmac")}
+email: ops@example.com
+```
+
+`pki.acme.server` is the ACME directory URL. With it set, Core creates the `private-acme` issuer, and both gateways use it unless Core writes a public zone for `external`. `ca_bundle` is the PEM CA that signs the server's own TLS certificate, needed when the system roots do not include it. `eab` holds the *external account binding*, the key ID and HMAC key that some servers require before they open an account, and you MUST set both halves or neither.
+
+The `private-acme` issuer carries no challenge solver. The CA MUST therefore pre-authorize the gateway domains for the account, so that it issues without a challenge.
 
 ## Under the hood
 
-This diagram shows how Terraform, cert-manager, and Let's Encrypt combine to put a signed certificate on the `external` Gateway.
+This diagram shows how Terraform, cert-manager, and Let's Encrypt combine to put a signed certificate on the `external` Gateway. The `internal` Gateway follows the same path when it uses `public-acme`.
 
 ```mermaid
 flowchart LR
@@ -102,6 +119,7 @@ Terraform creates the public zone and the identity cert-manager uses to write to
 ## Reference
 
 - [kustomize/pki/resources/public-issuer/acme](../../../kustomize/pki/resources/public-issuer/acme)
+- [kustomize/pki/resources/private-issuer/acme](../../../kustomize/pki/resources/private-issuer/acme)
 - [terraform/dns/zone/route53](../../../terraform/dns/zone/route53)
 - [terraform/dns/zone/azure-dns](../../../terraform/dns/zone/azure-dns)
 - [terraform/dns/zone/gcp-dns](../../../terraform/dns/zone/gcp-dns)

@@ -28,7 +28,7 @@ network:
     end: 10.5.1.40
 ```
 
-With the range set, Core adds the kube-vip cloud provider, which hands out its addresses. Without it, each Service MUST pin its own address with the `kube-vip.io/loadbalancerIPs` annotation. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB, which requires the range. Gateway addresses MUST sit outside it.
+With the range set, Core adds the kube-vip cloud provider, which hands out its addresses. Without it, each Service MUST pin its own address with the `kube-vip.io/loadbalancerIPs` annotation. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB, which requires the range. Gateway addresses MUST sit outside it. [Load balancing](../load-balancing.md) covers both drivers.
 
 > [!NOTE]
 > docker-desktop has no routable node network. It skips the load balancer and exposes the gateway on a node port, as described under [Service exposure](../gateway/index.md#service-exposure).

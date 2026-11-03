@@ -23,7 +23,7 @@ With the driver selected, Core creates a `cilium` GatewayClass and the `external
 
 ## Addresses
 
-Each Gateway gets a `LoadBalancer` Service, and on clusters without a cloud load balancer that Service needs an address. Each Gateway names its own in `gateway.<name>.ip`. Core gives Cilium's *LB IPAM* a pool holding only that address and pins the Service to it through the `lbipam.cilium.io/ips` annotation. The address MUST sit outside `network.loadbalancer_ips`, which serves other Services.
+A Gateway with `service_type: LoadBalancer` gets a `LoadBalancer` Service, and on clusters without a cloud load balancer that Service needs an address. Each Gateway names its own in `gateway.<name>.ip`. Core gives Cilium's *LB IPAM* a pool holding only that address and pins the Service to it through the `lbipam.cilium.io/ips` annotation. The address MUST sit outside `network.loadbalancer_ips`, which serves other Services.
 
 Clients find the address through L2 announcements. One node at a time announces each address, whichever claimed it first, so announcement load can be uneven across nodes.
 
@@ -36,7 +36,7 @@ On Hetzner the cloud controller fills the Service of the `external` Gateway inst
 
 ## Private DNS
 
-With `dns.private.enabled`, clients query the private zone on the same address as the `internal` Gateway. CoreDNS gets its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. [Private zones](../dns/private.md#coredns) covers the zone itself.
+With `dns.private.driver: coredns`, clients query the private zone on the same address as the `internal` Gateway. CoreDNS gets its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 

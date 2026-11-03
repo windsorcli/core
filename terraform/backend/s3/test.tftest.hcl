@@ -250,3 +250,36 @@ run "multiple_invalid_inputs" {
     kms_key_alias      = "invalid-alias"                                                    # Invalid format
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket.this.bucket) <= 63
+    error_message = "S3 bucket name must be at most 63 characters"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.bucket == "terraform-state-context-id-at-the-sixty-three-character-d54fb7f"
+    error_message = "S3 bucket name should end with a hash of the full context_id"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id = "my-ctx-1"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.bucket == "terraform-state-my-ctx-1"
+    error_message = "S3 bucket name should keep the hyphenated context_id"
+  }
+}

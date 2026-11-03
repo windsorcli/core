@@ -536,6 +536,11 @@ properties:
             description: S3 backend configuration (https://developer.hashicorp.com/terraform/language/backend/s3)
           kubernetes:
             type: object
+            properties:
+              namespace:
+                type: string
+                default: system-terraform
+                description: Namespace that holds the state Secrets
             additionalProperties: true
             description: Kubernetes backend configuration (https://developer.hashicorp.com/terraform/language/backend/kubernetes)
           azurerm:
@@ -1097,6 +1102,12 @@ properties:
               CNI driver. flannel is the Talos built-in default and requires no extra bootstrap.
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
+          encryption:
+            type: boolean
+            description: >
+              Encrypt pod traffic between nodes with Cilium's WireGuard transparent encryption.
+              Defaults to true outside workstation contexts. Traffic between pods on the same node
+              stays unencrypted.
         additionalProperties: false
       oidc:
         type: object
@@ -1160,13 +1171,21 @@ properties:
         description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
       private_domain:
         $ref: '#/$defs/dnsHostname'
-        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
+        description: Private DNS zone, served by the dns.private.driver. Must differ from dns.public_domain. Lowercase DNS labels separated by dots.
       private:
         type: object
         properties:
+          driver:
+            type: string
+            enum:
+              - cloud
+              - coredns
+              - none
+            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
           enabled:
             type: boolean
-            description: Enable self-hosted CoreDNS for private DNS zones
+            deprecated: true
+            description: Deprecated. Use dns.private.driver. true is an alias for coredns.
         additionalProperties: false
     additionalProperties: false
 
@@ -1180,10 +1199,36 @@ properties:
         description: Deprecated and ignored. The cluster CA and trust-manager are always installed.
       public_issuer:
         type: string
+        deprecated: true
         enum:
           - acme
           - selfsigned
-        description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set and dns.public_zone is not false on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain and dns.public_zone.
+        description: Deprecated. Use gateway.external.tls.issuer. selfsigned is an alias for selfsigned there; acme keeps the inferred issuer.
+      acme:
+        type: object
+        description: Internal ACME server that issues gateway certificates in place of the cluster CA and the selfsigned fallback.
+        properties:
+          server:
+            $ref: '#/$defs/httpUrl'
+            description: ACME directory URL. The CA MUST pre-authorize the gateway domains for the account.
+          ca_bundle:
+            type: string
+            description: PEM-encoded CA that signs the ACME server's own TLS certificate. Unset uses the system roots.
+          eab:
+            type: object
+            description: External account binding the ACME server issued.
+            properties:
+              key_id:
+                type: string
+                description: EAB key ID. Requires hmac_key.
+              hmac_key:
+                type: string
+                sensitive: true
+                description: Base64url-encoded EAB HMAC key. Requires key_id.
+            additionalProperties: false
+        required:
+          - server
+        additionalProperties: false
       ca:
         type: object
         description: Cluster CA that signs workload certificates and backs the trust bundle.
@@ -1191,12 +1236,17 @@ properties:
           cert:
             type: string
             sensitive: true
-            description: PEM-encoded CA certificate. Supply alongside key to bring your own; leave both unset to generate one via Terraform.
+            description: PEM-encoded CA certificate chain. Set alone to the signed pki/ca CSR to keep the generated key, or with key to bring your own CA. Unset self-signs.
           key:
             type: string
             sensitive: true
-            description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+            description: PEM-encoded CA private key. Requires cert. Unset generates one via Terraform.
         additionalProperties: false
+      trusted_cas:
+        type: array
+        items:
+          type: string
+        description: PEM-encoded root certificates added to the cluster trust bundle and the API server's OIDC CA file.
       private_ca:
         type: object
         deprecated: true
@@ -1292,6 +1342,26 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+          tls:
+            type: object
+            description: Certificate source for the external gateway.
+            properties:
+              issuer:
+                type: string
+                enum:
+                  - ca
+                  - acme
+                  - selfsigned
+                description: Overrides the inferred issuer. ca is the cluster CA, acme is pki.acme.server or else Let's Encrypt, and selfsigned is for testing. Ignored when tls.cert is set.
+              cert:
+                type: string
+                sensitive: true
+                description: PEM-encoded certificate chain, leaf first, served in place of an issued one. MUST cover the gateway domain and its wildcard. Renewal is manual.
+              key:
+                type: string
+                sensitive: true
+                description: PEM-encoded private key for tls.cert.
+            additionalProperties: false
         additionalProperties: false
       internal:
         type: object
@@ -1311,6 +1381,26 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+          tls:
+            type: object
+            description: Certificate source for the internal gateway.
+            properties:
+              issuer:
+                type: string
+                enum:
+                  - ca
+                  - acme
+                  - selfsigned
+                description: Overrides the inferred issuer. ca is the cluster CA, acme is pki.acme.server or else Let's Encrypt, and selfsigned is for testing. Ignored when tls.cert is set.
+              cert:
+                type: string
+                sensitive: true
+                description: PEM-encoded certificate chain, leaf first, served in place of an issued one. MUST cover the gateway domain and its wildcard. Renewal is manual.
+              key:
+                type: string
+                sensitive: true
+                description: PEM-encoded private key for tls.cert.
+            additionalProperties: false
         additionalProperties: false
       publish_ports:
         type: object

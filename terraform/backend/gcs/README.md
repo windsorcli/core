@@ -59,19 +59,27 @@ than relying on project-wide roles. The module doesn't make the state
 object public; bucket IAM follows project defaults, so tighten it to
 private service connections in production.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| GCS bucket, KMS key ring, and crypto key `terraform-state-<id>` | 1-63 characters | 47 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.8.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.9.0 |
 
 ## Modules
@@ -82,13 +90,13 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_key_ring) | resource |
-| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/storage_bucket) | resource |
-| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/storage_bucket_iam_member) | resource |
+| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/kms_key_ring) | resource |
+| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/storage_bucket) | resource |
+| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/storage_bucket_iam_member) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
-| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/data-sources/storage_project_service_account) | data source |
+| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/data-sources/storage_project_service_account) | data source |
 
 ## Inputs
 

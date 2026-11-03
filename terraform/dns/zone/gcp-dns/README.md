@@ -7,19 +7,27 @@ Creates a public Cloud DNS managed zone for a domain, independent of any
 cluster — useful for zone-only deployments and for cases where DNS infra
 has a different lifecycle than compute.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Managed zone `dns-<id>` | 1-63 characters | 59 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.8.0 |
 
 ## Modules
 
@@ -29,7 +37,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_dns_managed_zone.main](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/dns_managed_zone) | resource |
+| [google_dns_managed_zone.main](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/dns_managed_zone) | resource |
 
 ## Inputs
 

@@ -53,25 +53,44 @@ requires:
     paths:
       - gateway_effective.unsupported
     message: The two NodePort gateways need different gateway.<name>.node_port values.
+  - when: >-
+      ((gateway.external.tls.cert ?? '') == '') != ((gateway.external.tls.key ?? '') == '') ||
+      ((gateway.internal.tls.cert ?? '') == '') != ((gateway.internal.tls.key ?? '') == '')
+    paths:
+      - gateway_effective.unsupported
+    message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
+  - when: >-
+      gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' &&
+      (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
+      tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
+      (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
+  - when: >-
+      gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') == '' &&
+      tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
+  - when: >-
+      gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') == '' &&
+      tls_effective.internal_issuer == 'public-acme' &&
+      (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
+      dns.public_domain zone on aws, azure, gcp, or hetzner.
 
 # =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
-# selfsigned and ACME public issuers are distinct ClusterIssuers, so flipping the name reissues.
-# ACME needs a cloud DNS zone, so other platforms keep the selfsigned public issuer.
 config:
-
-  - name: cert_effective
-    value:
-      public_issuer: >-
-        ${(dns.public_domain ?? '') != '' &&
-        (pki.public_issuer ?? 'acme') != 'selfsigned' &&
-        platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
-        'public-acme' : 'public-selfsigned'}
 
   - name: gateway_effective
     value:
-      cert_issuer: "${cert_effective.public_issuer}"
       # Cilium assigns the pool addresses when it is the LB driver and no cloud LB controller does.
       cilium_lb: "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true}"
       internal_ip: "${gateway.internal.ip ?? ''}"
@@ -126,6 +145,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${(gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
           - >-
@@ -152,9 +172,10 @@ flux:
             'lb-address' : ''}
         substitutions:
           gateway_name: external
+          gateway_tls_secret: "${(gateway.external.tls.cert ?? '') != '' ? 'external-supplied-tls' : 'external-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.public_domain ?? ''}"
-          gateway_cert_issuer: "${gateway_effective.cert_issuer}"
+          gateway_cert_issuer: "${tls_effective.external_issuer}"
           gateway_lb_scheme: internet-facing
           gateway_loadbalancer_ip: >-
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.external_mode == 'loadbalancer' ?
@@ -179,6 +200,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${(gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
           - >-
@@ -194,7 +216,7 @@ flux:
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium-pool' : ''}
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
-            (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}
+            dns.private.driver == 'coredns' ? 'envoy/nodeport/dns' : ''}
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
             (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}
@@ -204,16 +226,17 @@ flux:
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
-          - "${gateway.driver != 'cilium' && (dns.private.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+          - "${gateway.driver != 'cilium' && dns.private.driver == 'coredns' ? 'dns' : ''}"
           - >-
             ${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'lb-address' : ''}
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
           gateway_name: internal
+          gateway_tls_secret: "${(gateway.internal.tls.cert ?? '') != '' ? 'internal-supplied-tls' : 'internal-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.private_domain ?? ''}"
-          gateway_cert_issuer: private
+          gateway_cert_issuer: "${tls_effective.internal_issuer}"
           gateway_lb_scheme: internal
           gateway_loadbalancer_ip: >-
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.internal_mode == 'loadbalancer' ?
@@ -226,3 +249,24 @@ flux:
           gateway_host_https_port: 8443
         timeout: 10m
         interval: 5m
+
+  # Supplied certificate for each gateway, in place of a cert-manager Certificate.
+  - name: gateway
+    when: gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') != ''
+    secrets:
+      external-supplied-tls:
+        namespaces: [system-gateway]
+        type: kubernetes.io/tls
+        data:
+          tls.crt: ${gateway.external.tls.cert}
+          tls.key: ${gateway.external.tls.key}
+
+  - name: gateway
+    when: gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') != ''
+    secrets:
+      internal-supplied-tls:
+        namespaces: [system-gateway]
+        type: kubernetes.io/tls
+        data:
+          tls.crt: ${gateway.internal.tls.cert}
+          tls.key: ${gateway.internal.tls.key}

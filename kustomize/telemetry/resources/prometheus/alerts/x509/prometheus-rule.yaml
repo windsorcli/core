@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: x509-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: x509.rules
+      rules:
+        - alert: X509ExporterAbsent
+          expr: absent(up{job="x509-certificate-exporter"})
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: x509 certificate exporter absent (job {{ $labels.job }})
+            description: "The x509 certificate exporter has disappeared from Prometheus service discovery. Certificate expiry is unmonitored until it's back.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: X509CertificateExpiringSoon
+          expr: (x509_cert_not_after - time()) < (30 * 24 * 3600) and (x509_cert_not_after - time()) >= (7 * 24 * 3600)
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate expiring soon (secret {{ $labels.secret_namespace }}/{{ $labels.secret_name }})
+            description: "Certificate {{ $labels.subject_CN }} in key {{ $labels.secret_key }} of Secret {{ $labels.secret_namespace }}/{{ $labels.secret_name }} expires in less than 30 days.\n  VALUE = {{ $value | humanizeDuration }}\n  LABELS = {{ $labels }}"
+
+        - alert: X509CertificateExpiring
+          expr: (x509_cert_not_after - time()) < (7 * 24 * 3600)
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: Certificate expiring (secret {{ $labels.secret_namespace }}/{{ $labels.secret_name }})
+            description: "Certificate {{ $labels.subject_CN }} in key {{ $labels.secret_key }} of Secret {{ $labels.secret_namespace }}/{{ $labels.secret_name }} expires in less than 7 days or has expired.\n  VALUE = {{ $value | humanizeDuration }}\n  LABELS = {{ $labels }}"

@@ -9,10 +9,6 @@ metadata:
 # facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
-# Remote state lives in the local Talos cluster (Kubernetes backend); the
-# `cluster` component uses local state since it creates the cluster.
-backend: cluster
-
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================

@@ -1,0 +1,90 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: X509ExporterAbsent
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: X509ExporterAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: x509-certificate-exporter
+            exp_annotations:
+              summary: 'x509 certificate exporter absent (job x509-certificate-exporter)'
+              description: "The x509 certificate exporter has disappeared from Prometheus service discovery. Certificate expiry is unmonitored until it's back.\n  VALUE = 1\n  LABELS = map[job:x509-certificate-exporter]"
+
+  - interval: 1m
+    input_series:
+      - series: 'up{job="x509-certificate-exporter",instance="10.244.0.30:9793"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: X509ExporterAbsent
+        exp_alerts: []
+
+  # 20 days out: warning only.
+  - interval: 1m
+    input_series:
+      - series: 'x509_cert_not_after{secret_namespace="system-gateway",secret_name="internal-web-tls",secret_key="tls.crt",subject_CN="*.int.example.com"}'
+        values: '1728000+0x120'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: X509CertificateExpiringSoon
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: X509CertificateExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              secret_namespace: system-gateway
+              secret_name: internal-web-tls
+              secret_key: tls.crt
+              subject_CN: '*.int.example.com'
+            exp_annotations:
+              summary: 'Certificate expiring soon (secret system-gateway/internal-web-tls)'
+              description: "Certificate *.int.example.com in key tls.crt of Secret system-gateway/internal-web-tls expires in less than 30 days.\n  VALUE = 19d 22h 55m 0s\n  LABELS = map[secret_key:tls.crt secret_name:internal-web-tls secret_namespace:system-gateway subject_CN:*.int.example.com]"
+      - eval_time: 65m
+        alertname: X509CertificateExpiring
+        exp_alerts: []
+
+  # 3 days out: critical only.
+  - interval: 1m
+    input_series:
+      - series: 'x509_cert_not_after{secret_namespace="system-gateway",secret_name="internal-web-tls",secret_key="tls.crt",subject_CN="*.int.example.com"}'
+        values: '259200+0x120'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: X509CertificateExpiringSoon
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: X509CertificateExpiring
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              secret_namespace: system-gateway
+              secret_name: internal-web-tls
+              secret_key: tls.crt
+              subject_CN: '*.int.example.com'
+            exp_annotations:
+              summary: 'Certificate expiring (secret system-gateway/internal-web-tls)'
+              description: "Certificate *.int.example.com in key tls.crt of Secret system-gateway/internal-web-tls expires in less than 7 days or has expired.\n  VALUE = 2d 22h 55m 0s\n  LABELS = map[secret_key:tls.crt secret_name:internal-web-tls secret_namespace:system-gateway subject_CN:*.int.example.com]"
+
+  # 60 days out stays clear of both thresholds.
+  - interval: 1m
+    input_series:
+      - series: 'x509_cert_not_after{secret_namespace="system-pki",secret_name="coredns-etcd-client",secret_key="ca.crt",subject_CN="Windsor Cluster CA"}'
+        values: '5184000+0x120'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: X509CertificateExpiringSoon
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: X509CertificateExpiring
+        exp_alerts: []

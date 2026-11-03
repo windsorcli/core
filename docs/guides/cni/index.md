@@ -47,10 +47,10 @@ The driver decides more than pod networking. Suppose `my-app` exposes a `LoadBal
 | Area | With `cilium` | With `flannel` |
 |---|---|---|
 | Service routing | Cilium replaces kube-proxy. | kube-proxy runs. |
-| LoadBalancer addresses | Cilium LB IPAM assigns them and announces them over L2, with no extra controller. | kube-vip on metal, vSphere, Hyper-V, Incus, and Proxmox, or MetalLB with `network.loadbalancer_driver: metallb`. See [kustomize/lb](../../../kustomize/lb). |
+| LoadBalancer addresses | Cilium LB IPAM assigns them and announces them over L2, with no extra controller. | kube-vip on metal, vSphere, Hyper-V, Incus, and Proxmox, or MetalLB with `network.loadbalancer_driver: metallb`. See [Load balancing](../load-balancing.md). |
 | Default [gateway](../gateway/index.md) driver | `cilium` | `envoy` |
 | NetworkPolicy | Cilium enforces it. | Flannel does not enforce it. |
-| Pod traffic encryption | Cilium supports WireGuard encryption between nodes. Core does not turn it on yet. | Not available. |
+| Pod traffic encryption | WireGuard between nodes, on by default outside workstation contexts. | Not available. |
 | Observability | Hubble, Cilium metrics, and Cilium and Hubble dashboards. | Not installed. |
 
 With Cilium, three add-ons also wait for the Cilium install to finish. The Cilium gateway waits so its Service gets an address, and private DNS waits too when the gateway driver is `cilium`. The CSI storage driver waits because it can crash-loop if it starts while Cilium's eBPF programs are loading.
@@ -62,6 +62,7 @@ The keys below are the whole CNI surface in `values.yaml`. The vendor pages expl
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | by cluster | `cilium` or `flannel`. |
+| `cluster.cni.encryption` | boolean | `true` outside workstation contexts | WireGuard between nodes on Cilium. |
 | `network.loadbalancer_driver` | string | `cilium` with Cilium, `kube-vip` otherwise | `cilium`, `kube-vip`, `metallb`, or `none`. Cilium clusters accept only `cilium` or `none`. |
 | `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
 | `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |

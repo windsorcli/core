@@ -13,8 +13,8 @@ gateway:
   enabled: true
   driver: envoy          # envoy or cilium
 dns:
-  public_domain: example.com          # provisions the external gateway
-  private_domain: example.internal    # provisions the internal gateway
+  public_domain: example.com        # provisions the external gateway
+  private_domain: int.example.com   # provisions the internal gateway
 ```
 
 Each domain provisions one *Gateway*, a Gateway API resource that accepts traffic for the routes attached to it. An application gets a hostname by attaching an *HTTPRoute* to a Gateway. `gateway.driver` picks the software that runs the Gateways, covered under [Choosing a driver](#choosing-a-driver).
@@ -23,14 +23,16 @@ Each domain provisions one *Gateway*, a Gateway API resource that accepts traffi
 
 This table lists what each domain provisions.
 
-| Domain set           | Gateway    | Serves              | DNS zone                          | Certificate issuer                                              |
-| -------------------- | ---------- | ------------------- | --------------------------------- | --------------------------------------------------------------- |
-| `dns.public_domain`  | `external` | The public internet | [Public zone](../dns/public.md)   | [`public-acme` or `public-selfsigned`](../pki/index.md#issuers) |
-| `dns.private_domain` | `internal` | Your network        | [Private zone](../dns/private.md) | `private`                                                       |
+| Domain set           | Gateway    | Serves              | DNS zone                          |
+| -------------------- | ---------- | ------------------- | --------------------------------- |
+| `dns.public_domain`  | `external` | The public internet | [Public zone](../dns/public.md)   |
+| `dns.private_domain` | `internal` | Your network        | [Private zone](../dns/private.md) |
 
 Both Gateways live in the `system-gateway` namespace. A Gateway exists only when its domain is set, so public exposure is opt-in: a cluster with no `dns.public_domain` has no `external` Gateway.
 
-The two domains MUST differ. Windsor fills in `dns.private_domain` for some contexts that leave it unset. A context named `local` or `local-*` runs in *dev mode* unless it sets `dev: false`, and dev mode defaults `dns.private_domain` to `test`, so a dev cluster gets an `internal` Gateway without any DNS settings. Outside dev mode, Hyper-V and vSphere default it to `<id>.local`.
+The two domains MUST differ, and the private domain SHOULD be a subdomain of the public one, as `int.example.com` is of `example.com`. The zones then stay distinct without split-horizon DNS, and the `internal` Gateway can get a Let's Encrypt certificate, as [DNS and certificates](#dns-and-certificates) explains.
+
+Windsor fills in `dns.private_domain` for some contexts that leave it unset. A context named `local` or `local-*` runs in *dev mode* unless it sets `dev: false`, and dev mode defaults `dns.private_domain` to `test`, so a dev cluster gets an `internal` Gateway without any DNS settings. Outside dev mode, Hyper-V, vSphere, and Proxmox default it to `<id>.local`.
 
 Core treats Hetzner as public only. A Hetzner private network is reachable only from servers inside it, so Core provisions only `external` there and rejects `dns.private_domain` outside dev mode. Grafana, Kibana, and the Flux web UI then have no route, and you reach them with `kubectl port-forward`.
 
@@ -125,7 +127,7 @@ On clouds each Gateway gets its own load balancer. The table below lists the loa
 | GCP      | Internal load balancer     | Public load balancer              |
 | Hetzner  | Not provisioned            | Hetzner Cloud load balancer       |
 
-Elsewhere an in-cluster load balancer pins each Gateway to its `ip` and announces it over L2. The [CNI](../cni/index.md#what-depends-on-the-driver) picks which one: Cilium LB IPAM on Cilium clusters, and kube-vip otherwise. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB.
+Elsewhere an in-cluster load balancer pins each Gateway to its `ip` and announces it over L2. The [CNI](../cni/index.md#what-depends-on-the-driver) picks which one: Cilium LB IPAM on Cilium clusters, and kube-vip otherwise. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB. [Load balancing](../load-balancing.md) covers the drivers.
 
 `network.loadbalancer_ips` is a separate, optional range for other `LoadBalancer` Services. Gateway addresses MUST sit outside it, and Windsor rejects a configuration where they overlap.
 
@@ -159,17 +161,20 @@ Keys are host ports, and values are node ports from the node port table. A key t
 
 ## DNS and certificates
 
-A hostname needs a DNS record that points at its Gateway and a certificate that the client trusts. Core derives both from the domain settings.
+A hostname needs a DNS record that points at its Gateway and a certificate that the client trusts. Core derives both from the domain settings, so the common case names no issuer.
 
-Setting `dns.public_domain` creates a public zone at your cloud provider and issues Let's Encrypt certificates for `external`. See [Public zones](../dns/public.md) and [ACME](../pki/acme.md). Setting `dns.private_domain` publishes `internal` records to a private zone. That zone is VPC-attached on AWS, Azure, and GCP. Elsewhere it is CoreDNS in the cluster, turned on with `dns.private.enabled`. See [Private zones](../dns/private.md).
+On AWS, Azure, GCP, and Hetzner, setting `dns.public_domain` creates a public zone, and external-dns writes the `external` records into it. See [Public zones](../dns/public.md). Setting `dns.private_domain` publishes `internal` records to a private zone, which `dns.private.driver` places in a VPC-attached cloud zone on AWS, Azure, and GCP and in CoreDNS inside the cluster elsewhere. See [Private zones](../dns/private.md).
 
-An `external` Gateway gets its certificate from a self-signed issuer in two cases: when there is no cloud DNS zone, as on a local cluster, or when `pki.public_issuer` is `selfsigned`.
+Each Gateway's certificate comes from an issuer that Core infers from what the site supplies. With the running example on AWS, both Gateways get Let's Encrypt certificates: `external` because Core writes the `example.com` zone, and `internal` because `int.example.com` sits under that zone. On metal, where Core writes no public zone, `internal` gets a certificate from the cluster CA instead, and `external` needs a source of its own. [Gateway certificates](../pki/index.md#gateway-certificates) gives the full inference and the order of preference for an on-prem site.
+
+Two settings change the result per Gateway. `gateway.<name>.tls.issuer` overrides the inferred issuer with `ca` for the cluster CA, `acme`, or `selfsigned` for testing. `gateway.<name>.tls.cert` and `.key` serve a certificate the site's PKI team issued, as [Supplied certificates](../pki/supplied.md) describes. A supplied certificate MUST cover both `<domain>` and `*.<domain>`, since the listener serves every route under the domain.
+
+Outside dev mode, an `external` Gateway with no zone Core can write has no certificate source, and Windsor rejects it. Set `pki.acme.server`, `gateway.external.tls.cert`, or `gateway.external.tls.issuer` to give it one.
 
 > [!NOTE]
->
-> Browsers warn about a self-signed certificate.
+> Browsers warn about a certificate from the `selfsigned` issuer.
 
-Some names cannot be delegated to a zone Core controls. Setting `dns.public_zone: false` keeps `dns.public_domain` as the Gateway's hostname without creating a zone. The `internal` certificate comes from the `private` issuer, which signs with the [cluster CA](../pki/private-ca.md). The [PKI](../pki/index.md#issuers) page lists the issuer for each configuration.
+Some names cannot be delegated to a zone Core controls. Setting `dns.public_zone: false` keeps `dns.public_domain` as the Gateway's hostname without creating a zone. That Gateway then needs one of the certificate sources above.
 
 ## Requirements
 
@@ -178,11 +183,13 @@ Windsor rejects these combinations when it validates the configuration:
 - Observability needs `dns.public_domain` or `dns.private_domain` for its Grafana and Kibana hostnames.
 - `dns.public_domain` and `dns.private_domain` are rejected when they match.
 - `dns.private_domain` is rejected on Hetzner outside dev mode.
-- `pki.public_issuer: acme` is rejected with `dns.public_zone: false`, since DNS-01 writes into the zone.
+- Outside dev mode, an `external` Gateway needs a certificate source: a public zone Core writes on AWS, Azure, GCP, or Hetzner, `pki.acme.server`, `gateway.external.tls.cert`, or `gateway.external.tls.issuer`.
+- `gateway.external.tls.issuer: acme` needs `pki.acme.server` or a public zone Core writes. On `internal` it needs `pki.acme.server`, or a `dns.private_domain` under such a zone.
+- `gateway.<name>.tls.cert` and `gateway.<name>.tls.key` MUST be set together.
 - On metal, vSphere, Hyper-V, Incus, and Proxmox, a `LoadBalancer` Gateway needs `gateway.<name>.ip`, outside `network.loadbalancer_ips`.
 - `gateway.<name>.ip` is rejected on AWS, Azure, GCP, and Hetzner, and with `NodePort`. `gateway.<name>.node_port` is rejected with `LoadBalancer`.
 - The two Gateways need different addresses and different node ports.
-- [Private DNS](../dns/private.md#coredns) needs a `LoadBalancer` `internal` Gateway outside workstation contexts.
+- [Private DNS](../dns/private.md#coredns) with `dns.private.driver: coredns` needs a `LoadBalancer` `internal` Gateway outside workstation contexts.
 - Grafana SSO and kubectl OIDC with the hosted Keycloak need the gateway enabled. See [Identity](../identity/index.md#requirements).
 
 A disabled gateway leaves services reachable only inside the cluster or through `kubectl port-forward`.
@@ -249,13 +256,16 @@ The table below lists every key this guide covers.
 | `gateway.enabled`       | boolean | `true`        | Enable the cluster entrypoint.                                                      |
 | `gateway.driver`        | string  | by platform   | `envoy` or `cilium`.                                                                |
 | `dns.public_domain`     | string  | none          | Provisions the `external` Gateway.                                                  |
-| `dns.private_domain`    | string  | `test` in dev | Provisions the `internal` Gateway. `<id>.local` on Hyper-V and vSphere outside dev. |
+| `dns.private_domain`    | string  | `test` in dev | Provisions the `internal` Gateway. `<id>.local` on Hyper-V, vSphere, and Proxmox outside dev. |
 | `dns.public_zone`       | boolean | `true`        | When `false`, keeps `dns.public_domain` as a hostname with no zone.                 |
-| `pki.public_issuer`     | string  | by platform   | `acme` or `selfsigned` for the `external` certificate.                              |
+| `gateway.<name>.tls.issuer` | string | inferred | `ca`, `acme`, or `selfsigned`. Overrides the inferred issuer.                    |
+| `gateway.<name>.tls.cert` | string | none        | PEM certificate chain, leaf first, served in place of an issued one.             |
+| `gateway.<name>.tls.key` | string  | none        | PEM private key for `tls.cert`.                                                     |
 | `gateway.<name>.service_type` | string | by platform | `LoadBalancer` or `NodePort` for the `external` or `internal` Gateway.           |
 | `gateway.<name>.ip`     | string  | none          | Address of a `LoadBalancer` Gateway. Required on metal, vSphere, Hyper-V, Incus, and Proxmox. |
 | `gateway.<name>.node_port` | integer | `30443` / `30444` | HTTPS node port of a `NodePort` Gateway.                                    |
 | `gateway.service_type`  | string  | none          | Deprecated. Applies to both Gateways when neither sets its own.                     |
+| `pki.public_issuer`     | string  | none          | Deprecated. `selfsigned` acts as `gateway.external.tls.issuer: selfsigned`.         |
 | `gateway.publish_ports` | map     | none          | Host port to node port. Read only on Hyper-V with `NodePort`.                       |
 
 ## Reference

@@ -1,9 +1,9 @@
 ---
 title: Cluster CA
-description: The cluster's root CA, generated or supplied, with trust-manager distributing it to workloads that opt in.
+description: The cluster CA, generated, signed by the site's PKI team, or supplied, with trust-manager distributing it to workloads that opt in.
 ---
 
-Every cluster runs a root CA behind the `private` issuer. Everything that issuer signs, such as the `internal` gateway certificate for `my-app.example.internal` and the certificates between CoreDNS and its etcd, chains to that one root, so a client trusts it once. [ACME](acme.md) certificates are unaffected. This page assumes the issuer terms from [PKI](index.md).
+Every cluster runs a CA behind the `private` issuer, the *cluster CA*. Everything that issuer signs, such as the certificates between CoreDNS and its etcd, and the `internal` gateway certificate for `my-app.int.example.com` when no other source applies, chains to it, so a client trusts it once. By default the cluster CA is a root Core generates. A site's PKI team can sign it as a subordinate of the corporate root instead. This page assumes the issuer terms from [PKI](index.md).
 
 ## How it starts
 
@@ -14,26 +14,43 @@ The cluster CA needs no setting. Before the cluster is built, a Terraform compon
 | `private-ca-keypair` | `system-pki` | Certificate and key. The `private` issuer signs with it. |
 | `private-ca-trust-cert` | `system-pki-trust` | Certificate only. trust-manager reads it. |
 
-## Bring your own CA
+## Sign the cluster CA
 
-An organization that already runs a root can have the `private` issuer sign with it. This `values.yaml` reads both halves of an existing root from a secret store.
+A generated root means every client has to add it to its trust store, which on a managed fleet is a change request to the team that owns Group Policy. A PKI team that signs subordinate CAs removes that step. The `pki/ca` component always outputs `csr`, a certificate signing request built from the cluster CA's key. The PKI team signs it, and you set the signed chain in `values.yaml`:
 
 ```yaml
 pki:
   ca:
-    cert: ${secret("MyVault", "root-ca", "cert")}
-    key: ${secret("MyVault", "root-ca", "key")}
+    cert: ${secret("vault", "cluster-ca", "chain")}
 ```
 
-`pki.ca.cert` holds the PEM CA certificate and `pki.ca.key` holds its private key. You MUST set both; Windsor rejects a configuration with only one of them. The deprecated `pki.private_ca` still works when `pki.ca` is unset.
+`pki.ca.cert` holds the chain, with the signed cluster CA certificate first. With `cert` set and `key` unset, Terraform keeps the key it generated and replaces only the certificate, so the next `windsor apply` moves the cluster CA under the corporate root. cert-manager then reissues the certificates `private` signs, and clients that trust the corporate root trust them. The same `values.yaml` applies at every stage, before and after the CSR is signed.
+
+Terraform rejects a chain whose first certificate does not carry the generated public key, which catches a certificate signed for the wrong CSR. The CSR carries no name constraint, so a PKI team that wants to limit the subordinate to `dns.private_domain` MUST add the constraint when it signs. A site with an offline root follows the same path, and the root key never reaches the cluster.
+
+## Bring your own CA
+
+An organization that hands over a whole CA, key included, can have the `private` issuer sign with it. This `values.yaml` reads both halves from a secret store:
+
+```yaml
+pki:
+  ca:
+    cert: ${secret("vault", "root-ca", "cert")}
+    key: ${secret("vault", "root-ca", "key")}
+```
+
+`pki.ca.key` holds the CA's private key, and it requires `pki.ca.cert`. Windsor rejects a key without its certificate. The deprecated `pki.private_ca` still works when `pki.ca` is unset.
+
+> [!IMPORTANT]
+> The cluster CA's key lives in Terraform state, whether Core generated it or you supplied it.
 
 ## Rotation
 
-A generated root is valid for 10 years and does not renew. To replace it, change `validity_period_hours` on the `pki/ca` component in your blueprint and run `windsor apply`. A root you supply follows your own rotation process.
+A generated root is valid for 10 years and does not renew. To replace it, change `validity_period_hours` on the `pki/ca` component in your blueprint and run `windsor apply`. A signed or supplied CA follows its signer's rotation process. The [expiry alerts](index.md#monitoring) cover the cluster CA in every case.
 
 ## Trust the CA in workloads
 
-A pod in `my-app` that calls a service signed by the cluster CA has to find that CA in its trust store. trust-manager provides it. It builds a *`Bundle`* named `private-ca` from the system trust roots plus the cluster CA, and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label.
+A pod in `my-app` that calls a service signed by the cluster CA has to find that CA in its trust store. trust-manager provides it. It builds a *`Bundle`* named `private-ca` from the system trust roots, the cluster CA, and any roots in [`pki.trusted_cas`](supplied.md#trust-the-corporate-root), and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label.
 
 This manifest labels both the `my-app` namespace and a pod in it.
 

@@ -122,16 +122,8 @@ resource "local_sensitive_file" "kubeconfig" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # var.node may be a hostname the health check host can't resolve. var.endpoint
-  # is always an address that host can reach, so extract its bare IP/host,
-  # stripping any scheme, path, and port. IPv4/hostname only, matching the
-  # schema's endpoint validation: splits on ":", so a bracketed IPv6 address
-  # would parse wrong.
-  endpoint_no_scheme   = strcontains(var.endpoint, "://") ? split("://", var.endpoint)[1] : var.endpoint
-  endpoint_host_port   = split("/", local.endpoint_no_scheme)[0]
-  endpoint_ip          = split(":", local.endpoint_host_port)[0]
-  health_check_node    = local.endpoint_ip
-  health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
+  # The CLI dials the talosconfig endpoints and queries var.node as the target.
+  health_check_command = var.bootstrap ? "windsor check node-health --nodes ${var.node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${var.node} --timeout 5m --skip-services dashboard"
 }
 
 resource "null_resource" "node_healthcheck" {

@@ -39,6 +39,7 @@ flowchart LR
     prom_hr[HelmRelease kube-prometheus-stack]
     fb_hr[HelmRelease fluent-operator]
     ms_hr[HelmRelease metrics-server]
+    x509_hr[HelmRelease x509-certificate-exporter]
 
     prom[Prometheus + Alertmanager<br/>+ node-exporter + ksm]
     fb_ds[FluentBit DaemonSet]
@@ -51,7 +52,7 @@ flowchart LR
   hostlogs[(host log paths<br/>containerd + systemd)]
   observability[(observability add-on<br/>Grafana / log store)]
 
-  flux ==> prom_hr & fb_hr & ms_hr
+  flux ==> prom_hr & fb_hr & ms_hr & x509_hr
   prom_hr --> prom
   fb_hr --> fb_ds
   ms_hr --> ms
@@ -63,7 +64,7 @@ flowchart LR
 ```
 
 The install tier installs the Helm charts (Prometheus, FluentBit
-operator, metrics-server). The resources tier wires up scrape targets
+operator, metrics-server, the x509 certificate exporter). The resources tier wires up scrape targets
 and collector configuration. The observability add-on attaches
 Grafana on top of Prometheus and routes FluentBit's output to a log
 store.
@@ -76,7 +77,7 @@ store.
 flux:
   - name: telemetry
     install:
-      components: [prometheus, prometheus/flux, metrics-server]
+      components: [prometheus, prometheus/flux, x509-exporter, metrics-server]
       timeout: 30m
     resources:
       - components: [prometheus, prometheus/flux]
@@ -104,7 +105,7 @@ flux:
 flux:
   - name: telemetry
     install:
-      components: [prometheus, prometheus/flux, fluentbit, metrics-server]
+      components: [prometheus, prometheus/flux, x509-exporter, fluentbit, metrics-server]
     resources:
       - components:
           - prometheus
@@ -160,6 +161,12 @@ Helm release of `metrics-server` for `kubectl top` and HPA. Some platforms (EKS 
 |---|---|---|
 | `skip-tls` | default (when metrics-server is enabled in a cluster with selfsigned kubelet certs) | Patches the metrics-server Deployment to add `--kubelet-insecure-tls`. Required on Talos and other distros where kubelet serves cert-manager-issued or selfsigned certs. |
 
+### `x509-exporter`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Helm release of `x509-certificate-exporter`. It reads the `tls.crt` and `ca.crt` keys of every `kubernetes.io/tls` Secret and exports each certificate's expiry. The `ca.crt` keys cover the cluster CA. The `x509` alerts in `telemetry-resources` warn 30 days before expiry and page 7 days before.
+
 ## Components — `telemetry-resources`
 
 ### `prometheus-resources`
@@ -171,7 +178,7 @@ Reserved anchor component for prometheus-adjacent resources; currently empty by 
 | Variant | Enabled when | Effect |
 |---|---|---|
 | `flux` | `telemetry.metrics.enabled: true` | ServiceMonitor and PodMonitor for Flux controllers. |
-| `alerts` | `telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true` | Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts and official project docs, one system per sub-component (currently `node`, `prometheus`, `coredns`, `cert-manager`, `flux`, `envoy`, `identity`, `database`, `postgres-exporter`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion. |
+| `alerts` | `telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true` | Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts and official project docs, one system per sub-component (currently `node`, `prometheus`, `coredns`, `cert-manager`, `x509`, `flux`, `envoy`, `identity`, `database`, `postgres-exporter`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion. |
 | `notifications/slack` | `telemetry.alerts.slack.webhook_url` is set and `telemetry.metrics.enabled: true` | AlertmanagerConfig routing alerts matching `telemetry.alerts.slack.severity` (default: warning and critical) to Slack, via `telemetry.alerts.slack.channel`. The webhook URL comes from `telemetry.alerts.slack.webhook_url` (sensitive; set via a secret() reference); windsor materializes it into the `alertmanager-notification-slack` Secret (key `url`) in `system-telemetry` through the telemetry system's secrets block. Additional drivers (PagerDuty, etc.) land as their own `telemetry.alerts.<driver>` field and sibling component when built. |
 
 ### `fluentbit-resources`
