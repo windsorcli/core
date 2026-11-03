@@ -24,7 +24,17 @@ terraform {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  network_name = var.network_name != "" ? var.network_name : "${var.name}-${var.context_id}"
+  # Longest context_id each name allows, after removing the characters its rule rejects.
+  context_id_rules = {
+    network = { id = var.context_id, max = 63 - length("${var.name}--allow-health-checks") }
+    subnet  = { id = var.context_id, max = 63 - length("isolated-") }
+  }
+  # Each rule's id, truncated and suffixed with a hash of the full id when longer than max.
+  context_id_fit = {
+    for k, r in local.context_id_rules : k => length(r.id) <= r.max ? r.id : "${substr(r.id, 0, max(r.max - 6, 0))}${substr(sha256(var.context_id), 0, 6)}"
+  }
+
+  network_name = var.network_name != "" ? var.network_name : "${var.name}-${local.context_id_fit.network}"
   zone_names   = slice(data.google_compute_zones.available.names, 0, min(var.zone_count, length(data.google_compute_zones.available.names)))
 }
 
@@ -88,7 +98,7 @@ data "google_compute_zones" "available" {
 
 # Public subnet holds resources that route directly to the internet gateway.
 resource "google_compute_subnetwork" "public" {
-  name                     = "public-${var.context_id}"
+  name                     = "public-${local.context_id_fit.subnet}"
   network                  = google_compute_network.this.id
   region                   = var.region
   ip_cidr_range            = var.public_subnet_cidr != "" ? var.public_subnet_cidr : cidrsubnet(var.cidr_block, 4, 1)
@@ -106,7 +116,7 @@ resource "google_compute_subnetwork" "public" {
 
 # Private subnet egresses through Cloud NAT and never receives a public IP.
 resource "google_compute_subnetwork" "private" {
-  name                     = "private-${var.context_id}"
+  name                     = "private-${local.context_id_fit.subnet}"
   network                  = google_compute_network.this.id
   region                   = var.region
   ip_cidr_range            = var.private_subnet_cidr != "" ? var.private_subnet_cidr : cidrsubnet(var.cidr_block, 2, 1)
@@ -125,7 +135,7 @@ resource "google_compute_subnetwork" "private" {
 # Isolated subnet has no NAT route, for resources that must not reach the
 # internet in either direction (e.g. a managed database's private peering).
 resource "google_compute_subnetwork" "isolated" {
-  name                     = "isolated-${var.context_id}"
+  name                     = "isolated-${local.context_id_fit.subnet}"
   network                  = google_compute_network.this.id
   region                   = var.region
   ip_cidr_range            = var.isolated_subnet_cidr != "" ? var.isolated_subnet_cidr : cidrsubnet(var.cidr_block, 4, 0)

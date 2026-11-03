@@ -146,3 +146,35 @@ run "query_logging_enabled" {
     error_message = "query_log binding must be created."
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id    = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+    domain_name   = "a-long-subdomain-name-for-testing.platform.example.com"
+    enable_dnssec = true
+  }
+
+  assert {
+    condition     = length(aws_route53_key_signing_key.dnssec[0].name) <= 128
+    error_message = "Key-signing key name must be at most 128 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id    = "my-ctx-1"
+    domain_name   = "example.com"
+    enable_dnssec = true
+  }
+
+  assert {
+    condition     = aws_route53_key_signing_key.dnssec[0].name == "my-ctx-1-example-com-ksk"
+    error_message = "Key-signing key name should keep the hyphenated context_id"
+  }
+}

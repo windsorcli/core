@@ -9,6 +9,14 @@ VMs as full-VM instances on the local Incus daemon — pick this over
 Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
 `cluster/talos` module.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Bridge network `net-<id>` | 15 characters, the Linux interface name limit | 11 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -59,6 +59,14 @@ than relying on project-wide roles. The module doesn't make the state
 object public; bucket IAM follows project defaults, so tighten it to
 private service connections in production.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| GCS bucket, KMS key ring, and crypto key `terraform-state-<id>` | 1-63 characters | 47 |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

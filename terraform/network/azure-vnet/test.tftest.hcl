@@ -403,3 +403,41 @@ run "var_tags_cannot_override_windsor_context_id_or_name" {
     error_message = "A caller-supplied Name in var.tags must not override the resource's own Name tag"
   }
 }
+
+# Verifies that a 63-character context_id is fitted to each name rule with a hash of the full id.
+run "context_id_at_max_length" {
+  command = plan
+
+  variables {
+    context_id = "context-id-at-the-sixty-three-character-dns-label-length-limit0"
+  }
+
+  assert {
+    condition     = length(azurerm_virtual_network.main.name) <= 64
+    error_message = "Virtual network name must be at most 64 characters"
+  }
+
+  assert {
+    condition     = alltrue([for rt in azurerm_route_table.private : length(rt.name) <= 80])
+    error_message = "Route table names must be at most 80 characters"
+  }
+}
+
+# Verifies that a hyphenated context_id that fits each name rule reaches names unchanged.
+run "hyphenated_context_id" {
+  command = plan
+
+  variables {
+    context_id = "my-ctx-1"
+  }
+
+  assert {
+    condition     = azurerm_virtual_network.main.name == "network-my-ctx-1"
+    error_message = "Virtual network name should keep the hyphenated context_id"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[0].name == "network-private-1-my-ctx-1"
+    error_message = "Route table name should keep the hyphenated context_id"
+  }
+}

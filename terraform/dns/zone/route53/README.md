@@ -42,6 +42,14 @@ logs to us-east-1), a resource policy granting Route53
 configurable via `query_log_retention_days`. CloudWatch ingestion
 plus storage cost scales with query volume.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| DNSSEC key-signing key `<id>-<domain>-ksk`, dots in the domain replaced with hyphens | 3-128 characters | 123 minus the domain length |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

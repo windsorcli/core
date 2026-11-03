@@ -14,6 +14,14 @@ Key Vault and key. An ephemeral context skips both and uses Flexible Server's
 platform-managed encryption instead — unlike RDS, Flexible Server needs no
 dedicated key-creation step to encrypt at rest.
 
+## Context id
+
+Each name below has a rule narrower than the 63-character DNS label a `context_id` can be. When the id is longer than the limit shown, the module truncates the id and appends the first 6 hex characters of its SHA-256 hash. An id within the limit keeps the name unchanged. The first row is the narrowest rule.
+
+| Name | Rule | Longest id kept |
+| --- | --- | --- |
+| Key Vault `pg<id>`, hyphens removed | 3-24 characters | 22 after hyphens are removed |
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
