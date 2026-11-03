@@ -18,7 +18,7 @@ also depend on `policy-resources` for the private-CA inject policy.
 
 The ClusterIssuers this add-on can ship are named consistently across
 platforms so downstream `Certificate` resources can reference a stable
-name (`private`, `public-selfsigned`, `public-acme`). Switching between selfsigned and ACME is a
+name (`private`, `private-acme`, `public-selfsigned`, `public-acme`). Switching between selfsigned and ACME is a
 substitution flip, not a Certificate spec change. cert-manager
 reissues into the same Secret.
 
@@ -212,6 +212,10 @@ host stays awake long enough for the VM's clock sync to converge.
 | `acme_dns_zone_resource_group` | `public-issuer/acme/azuredns` is enabled | Azure resource group holding the public DNS zone. Sourced from `terraform_output('dns-zone', 'resource_group_name')`. |
 | `acme_dns_zone_subscription_id` | `public-issuer/acme/azuredns` is enabled | Azure subscription ID for the public DNS zone. Sourced from `terraform_output('dns-zone', 'subscription_id')`. |
 | `acme_dns_zone_project` | `public-issuer/acme/clouddns` is enabled | GCP project holding the public Cloud DNS zone. Sourced from `gcp.project_id`. |
+| `private_acme_server` | `private-issuer/acme` is enabled | ACME directory URL from `pki.acme.server`. |
+| `private_acme_email` | `private-issuer/acme` is enabled | Contact email for the ACME account. Sourced from top-level `email`. |
+| `private_acme_eab_key_id` | `private-issuer/acme/eab` is enabled | EAB key ID from `pki.acme.eab.key_id`. |
+| `private_acme_ca_bundle` | `private-issuer/acme/ca-bundle` is enabled | Base64-encoded `pki.acme.ca_bundle`. |
 | `cert_manager_service_account_email` | `cert-manager/gcp-workload-identity` is enabled | Email of the cert-manager Google Service Account. Sourced from `terraform_output('cluster', 'cert_manager_service_account_email')`. |
 
 ## Components — `pki-install`
@@ -240,6 +244,12 @@ _Enabled when platform is GCP AND `dns.public_domain` is set._
 
 Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding used by the DNS-01 ACME solver against Cloud DNS. Reads `cert_manager_service_account_email`.
 
+### `cert-manager/public-resolvers`
+
+_Enabled when the internal gateway uses the `public-acme` issuer._
+
+Patches the cert-manager HelmRelease so DNS-01 propagation checks query only public resolvers. The in-cluster resolver answers for the private subdomain and never sees the challenge record in the public zone.
+
 ### `cert-manager/prometheus`
 
 _Enabled when `telemetry.metrics.enabled: true`._
@@ -264,33 +274,36 @@ The cluster's internal trust anchor, issuing the etcd and private-gateway certif
 
 | Variant | Enabled when | Effect |
 |---|---|---|
+| `acme` | a gateway infers or sets the `private-acme` issuer | ClusterIssuer `private-acme` against `pki.acme.server`. It carries no solver, so the CA MUST pre-authorize the gateway domains for the account. |
+| `acme/eab` | `pki.acme.eab.key_id` is set | Adds the external account binding. The HMAC key reaches the `private-acme-eab` Secret through the facet's `secrets:` block. |
+| `acme/ca-bundle` | `pki.acme.ca_bundle` is set | Trusts `pki.acme.ca_bundle` for the ACME server's own TLS certificate. |
 | `ca` | always | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods. |
 
 ### `public-issuer`
 
-Issuers for the external gateway certificate. One variant is active at a time.
+Issuers for gateway certificates that chain to a public root, or to none for `selfsigned`.
 
 ### `public-issuer/selfsigned`
 
-_Enabled when `dns.public_domain` is unset (default), or when `pki.public_issuer` is `selfsigned`._
+_Enabled when a gateway infers or sets the `public-selfsigned` issuer, on cloud platforms when no gateway uses `public-acme`, and in dev._
 
-ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` (and leaving `pki.public_issuer` unset or `acme`) and cert-manager reissues into the same Secret.
+ClusterIssuer `public-selfsigned`, for dev and testing.
 
 ### `public-issuer/acme/route53`
 
-_Enabled when platform is AWS AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is AWS AND a gateway uses the `public-acme` issuer._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module.
 
 ### `public-issuer/acme/azuredns`
 
-_Enabled when platform is Azure AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is Azure AND a gateway uses the `public-acme` issuer._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`).
 
 ### `public-issuer/acme/clouddns`
 
-_Enabled when platform is GCP AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is GCP AND a gateway uses the `public-acme` issuer._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
 

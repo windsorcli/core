@@ -1,0 +1,11 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: system-pki
+spec:
+  values:
+    # DNS-01 propagation checks query public resolvers only.
+    dns01RecursiveNameserversOnly: true
+    dns01RecursiveNameservers: 1.1.1.1:53,8.8.8.8:53

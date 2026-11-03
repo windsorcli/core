@@ -1193,10 +1193,36 @@ properties:
         description: Deprecated and ignored. The cluster CA and trust-manager are always installed.
       public_issuer:
         type: string
+        deprecated: true
         enum:
           - acme
           - selfsigned
-        description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set and dns.public_zone is not false on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain and dns.public_zone.
+        description: Deprecated. Use gateway.external.tls.issuer. selfsigned is an alias for selfsigned there; acme keeps the inferred issuer.
+      acme:
+        type: object
+        description: Internal ACME server that issues gateway certificates in place of the cluster CA and the selfsigned fallback.
+        properties:
+          server:
+            $ref: '#/$defs/httpUrl'
+            description: ACME directory URL. The CA MUST pre-authorize the gateway domains for the account.
+          ca_bundle:
+            type: string
+            description: PEM-encoded CA that signs the ACME server's own TLS certificate. Unset uses the system roots.
+          eab:
+            type: object
+            description: External account binding the ACME server issued.
+            properties:
+              key_id:
+                type: string
+                description: EAB key ID. Requires hmac_key.
+              hmac_key:
+                type: string
+                sensitive: true
+                description: Base64url-encoded EAB HMAC key. Requires key_id.
+            additionalProperties: false
+        required:
+          - server
+        additionalProperties: false
       ca:
         type: object
         description: Cluster CA that signs workload certificates and backs the trust bundle.
@@ -1312,12 +1338,19 @@ properties:
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
           tls:
             type: object
-            description: Certificate the external gateway serves in place of a cert-manager one. Renewal is manual.
+            description: Certificate source for the external gateway.
             properties:
+              issuer:
+                type: string
+                enum:
+                  - ca
+                  - acme
+                  - selfsigned
+                description: Overrides the inferred issuer. ca is the cluster CA, acme is pki.acme.server or else Let's Encrypt, and selfsigned is for testing. Ignored when tls.cert is set.
               cert:
                 type: string
                 sensitive: true
-                description: PEM-encoded certificate chain, leaf first. MUST cover the gateway domain and its wildcard.
+                description: PEM-encoded certificate chain, leaf first, served in place of an issued one. MUST cover the gateway domain and its wildcard. Renewal is manual.
               key:
                 type: string
                 sensitive: true
@@ -1344,12 +1377,19 @@ properties:
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
           tls:
             type: object
-            description: Certificate the internal gateway serves in place of a cert-manager one. Renewal is manual.
+            description: Certificate source for the internal gateway.
             properties:
+              issuer:
+                type: string
+                enum:
+                  - ca
+                  - acme
+                  - selfsigned
+                description: Overrides the inferred issuer. ca is the cluster CA, acme is pki.acme.server or else Let's Encrypt, and selfsigned is for testing. Ignored when tls.cert is set.
               cert:
                 type: string
                 sensitive: true
-                description: PEM-encoded certificate chain, leaf first. MUST cover the gateway domain and its wildcard.
+                description: PEM-encoded certificate chain, leaf first, served in place of an issued one. MUST cover the gateway domain and its wildcard. Renewal is manual.
               key:
                 type: string
                 sensitive: true
