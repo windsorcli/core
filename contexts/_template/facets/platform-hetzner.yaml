@@ -16,7 +16,7 @@ requires:
       - hetzner.token
     message: Set a Hetzner Cloud API token via hetzner.token or the HCLOUD_TOKEN environment variable.
   - when: >-
-      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      tls_effective.public_acme == true
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
@@ -169,13 +169,13 @@ config:
   # cloud node lifecycle (topology labels) is not managed; not needed here.
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor, then ACME/hetzner once a public domain is set and pki.public_issuer is not selfsigned.
+  # selfsigned floor, then ACME/hetzner once a gateway uses the public-acme issuer.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      tls_effective.public_acme == true
     value:
       issuer_component: public-issuer/acme/hetzner
 

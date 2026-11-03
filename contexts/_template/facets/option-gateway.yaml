@@ -59,25 +59,38 @@ requires:
     paths:
       - gateway_effective.unsupported
     message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
+  - when: >-
+      gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' &&
+      (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
+      tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
+      (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
+  - when: >-
+      gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') == '' &&
+      tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
+  - when: >-
+      gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') == '' &&
+      tls_effective.internal_issuer == 'public-acme' &&
+      (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
+      dns.public_domain zone on aws, azure, gcp, or hetzner.
 
 # =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
-# selfsigned and ACME public issuers are distinct ClusterIssuers, so flipping the name reissues.
-# ACME needs a cloud DNS zone, so other platforms keep the selfsigned public issuer.
 config:
-
-  - name: cert_effective
-    value:
-      public_issuer: >-
-        ${(dns.public_domain ?? '') != '' &&
-        (pki.public_issuer ?? 'acme') != 'selfsigned' &&
-        platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
-        'public-acme' : 'public-selfsigned'}
 
   - name: gateway_effective
     value:
-      cert_issuer: "${cert_effective.public_issuer}"
       # Cilium assigns the pool addresses when it is the LB driver and no cloud LB controller does.
       cilium_lb: "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true}"
       internal_ip: "${gateway.internal.ip ?? ''}"
@@ -162,7 +175,7 @@ flux:
           gateway_tls_secret: "${(gateway.external.tls.cert ?? '') != '' ? 'external-supplied-tls' : 'external-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.public_domain ?? ''}"
-          gateway_cert_issuer: "${gateway_effective.cert_issuer}"
+          gateway_cert_issuer: "${tls_effective.external_issuer}"
           gateway_lb_scheme: internet-facing
           gateway_loadbalancer_ip: >-
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.external_mode == 'loadbalancer' ?
@@ -223,7 +236,7 @@ flux:
           gateway_tls_secret: "${(gateway.internal.tls.cert ?? '') != '' ? 'internal-supplied-tls' : 'internal-web-tls'}"
           gateway_class_name: ${gateway.driver}
           gateway_domain: "${dns.private_domain ?? ''}"
-          gateway_cert_issuer: private
+          gateway_cert_issuer: "${tls_effective.internal_issuer}"
           gateway_lb_scheme: internal
           gateway_loadbalancer_ip: >-
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.internal_mode == 'loadbalancer' ?

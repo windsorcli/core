@@ -489,6 +489,8 @@ cases:
         internal:
           ip: "10.5.1.10"
         external:
+          tls:
+            issuer: selfsigned
           ip: "10.5.1.11"
       platform: metal
       dns:

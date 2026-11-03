@@ -737,3 +737,54 @@ cases:
           path: cluster/talos
           inputs:
             controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n      \n        -----BEGIN CERTIFICATE-----\n        ROOTA\n        -----END CERTIFICATE-----"
+
+  # A Keycloak gateway on public ACME gets no oidc-ca-file.
+  - name: oidc with keycloak behind a public acme gateway omits oidc-ca-file
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster:
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://keycloak.example.com/realms/platform
+                    oidc-username-claim: sub
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  nodeIP:
+                    validSubnets:
+                    - 10.5.0.0/16

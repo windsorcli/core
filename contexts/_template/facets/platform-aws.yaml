@@ -16,7 +16,7 @@ requires:
       - aws.region
     message: The AWS provider needs a region for every API call.
   - when: >-
-      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      tls_effective.public_acme == true
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
@@ -27,13 +27,13 @@ requires:
 config:
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor, then ACME/route53 once a public domain is set and pki.public_issuer is not selfsigned.
+  # selfsigned floor, then ACME/route53 once a gateway uses the public-acme issuer.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      tls_effective.public_acme == true
     value:
       issuer_component: public-issuer/acme/route53
 
