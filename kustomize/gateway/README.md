@@ -7,9 +7,9 @@ The cluster's traffic entrypoints, via the Kubernetes Gateway API. Two
 Gateways can exist: `external`, provisioned when `dns.public_domain` is
 set, and `internal`, provisioned when `dns.private_domain` is set
 (workstation and dev mode default it to `test`). A gateway also exists
-without its domain when `gateway.<name>.listener_namespaces` lists
-namespaces that MAY attach `ListenerSet` resources; it then publishes no
-DNS records. Two driver
+without its domain when `gateway.<name>.enabled` is `true`; it then
+publishes no DNS records. A LoadBalancer gateway admits `ListenerSet`
+resources from namespaces labeled `gateway.windsorcli.dev/<name>: "true"`. Two driver
 options.
 
 Envoy Gateway is the default: a dedicated control-plane and data-plane
@@ -251,7 +251,6 @@ flux:
 | `gateway_name` | `gateway-resources-external` or `gateway-resources-internal` is composed | `external` or `internal` -- the Gateway/EnvoyProxy/Certificate name this resources variant renders. Every resource and patch in the resources tier is parameterized by this one substitution, so both gateways share the same files. |
 | `gateway_class_name` | always | Name of the `GatewayClass` the cluster Gateway references. Sourced from `gateway.driver` (`envoy` or `cilium`). |
 | `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal. Empty for a gateway that exists only to admit ListenerSets. |
-| `gateway_listener_namespaces` | `allowed-listeners` is composed | YAML flow sequence of the namespaces in `gateway.<name>.listener_namespaces`, for example `[app]`. |
 | `gateway_tls_secret` | `gateway-resources-external` or `gateway-resources-internal` is composed | Secret the HTTPS listener serves. `<name>-web-tls` from the `certificate` component, or `<name>-supplied-tls` when `gateway.<name>.tls.cert` supplies the certificate. |
 | `gateway_cert_issuer` | `certificate` is composed | TLS `ClusterIssuer` name: `public-acme`, `private-acme`, `private`, or `public-selfsigned`. The facet infers it per gateway unless `gateway.<name>.tls.issuer` sets it. |
 | `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `lb_effective.enabled`, empty otherwise. |
@@ -422,13 +421,13 @@ Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notifica
 
 ### `allowed-listeners`
 
-_Enabled when `gateway.<name>.listener_namespaces` is not empty._
+_Enabled when this gateway's service type is `LoadBalancer`._
 
-Sets `spec.allowedListeners` to a `Selector` on `kubernetes.io/metadata.name`, so `ListenerSet` resources from the listed namespaces attach their listeners to this Gateway's address. Rejected on a NodePort gateway, whose Envoy Service carries only ports 80 and 443.
+Sets `spec.allowedListeners` to a `Selector` on the label `gateway.windsorcli.dev/${gateway_name}: "true"`, so `ListenerSet` resources in namespaces with that label attach their listeners to this Gateway's address. A NodePort gateway does not get it, because its Envoy Service carries only core's ports.
 
 ### `no-web-https`
 
-_Enabled when `gateway.<name>.https` is `false`. Requires `gateway.<name>.listener_namespaces`._
+_Enabled when `gateway.<name>.https` is `false`._
 
 Removes the `web-https` listener so a `ListenerSet` can take port 443. `web-http` and its redirect stay.
 

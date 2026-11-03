@@ -1654,7 +1654,8 @@ cases:
               components:
                 - certificate
 
-  - name: gateways admit no ListenerSets by default
+
+  - name: LoadBalancer gateways admit ListenerSets from labeled namespaces
     values:
       platform: metal
       dns:
@@ -1677,19 +1678,49 @@ cases:
             - name: external
               components:
                 - certificate
+                - allowed-listeners
                 - envoy/default-404
+            - name: internal
+              components:
+                - allowed-listeners
     exclude:
       flux:
         - name: gateway
           resources:
             - name: external
               components:
-                - allowed-listeners
                 - no-web-https
             - name: internal
               components:
-                - allowed-listeners
                 - no-web-https
+
+  - name: NodePort gateways admit no ListenerSets
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
 
   - name: an address without a domain provisions no gateway
     values:
@@ -1709,7 +1740,7 @@ cases:
           resources:
             - name: external
 
-  - name: external gateway without a domain admits ListenerSets and gives up 443
+  - name: enabled external gateway without a domain gives up 443
     values:
       platform: metal
       dns:
@@ -1717,8 +1748,8 @@ cases:
       gateway:
         driver: envoy
         external:
+          enabled: true
           ip: "10.5.1.11"
-          listener_namespaces: [app]
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1735,7 +1766,6 @@ cases:
                 - envoy/parameters
                 - envoy/loadbalancer/cilium-ip
               substitutions:
-                gateway_listener_namespaces: "[app]"
                 gateway_domain: ""
                 gateway_loadbalancer_ip: "10.5.1.11"
     exclude:
@@ -1748,7 +1778,7 @@ cases:
                 - envoy/default-404
                 - envoy/default-404/external-dns
 
-  - name: internal gateway without a domain serves a supplied certificate and publishes no records
+  - name: enabled internal gateway without a domain serves a supplied certificate and publishes no records
     values:
       platform: metal
       dns:
@@ -1760,8 +1790,8 @@ cases:
           tls:
             issuer: selfsigned
         internal:
+          enabled: true
           ip: "10.5.1.10"
-          listener_namespaces: [app]
           tls:
             cert: CERT
             key: KEY
@@ -1776,7 +1806,6 @@ cases:
                 - allowed-listeners
                 - envoy/default-404
               substitutions:
-                gateway_listener_namespaces: "[app]"
                 gateway_tls_secret: internal-supplied-tls
     exclude:
       flux:
@@ -1798,7 +1827,6 @@ cases:
         driver: envoy
         internal:
           ip: "10.5.1.10"
-          listener_namespaces: [app, tools]
           https: false
       network: *default-network
       cluster: *default-cluster
@@ -1810,8 +1838,6 @@ cases:
               components:
                 - allowed-listeners
                 - no-web-https
-              substitutions:
-                gateway_listener_namespaces: "[app, tools]"
     exclude:
       flux:
         - name: gateway
@@ -1821,7 +1847,7 @@ cases:
                 - certificate
                 - envoy/default-404
 
-  - name: cilium gateway admits ListenerSets
+  - name: cilium gateway without a domain admits ListenerSets
     values:
       platform: metal
       dns:
@@ -1829,8 +1855,8 @@ cases:
       gateway:
         driver: cilium
         external:
+          enabled: true
           ip: "10.5.1.11"
-          listener_namespaces: [app]
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1849,8 +1875,6 @@ cases:
                 - cilium/fixed-ip
                 - allowed-listeners
                 - no-web-https
-              substitutions:
-                gateway_listener_namespaces: "[app]"
 
   - name: a gateway without a domain and without a certificate source fails composition
     values:
@@ -1859,8 +1883,8 @@ cases:
         private_domain: test
       gateway:
         external:
+          enabled: true
           ip: "10.5.1.11"
-          listener_namespaces: [app]
         internal:
           ip: "10.5.1.10"
       network: *default-network
@@ -1901,30 +1925,14 @@ cases:
       cluster: *default-cluster
     expectError: true
 
-  - name: allowed listeners on a NodePort gateway fail composition
-    values:
-      platform: metal
-      dns:
-        private_domain: test
-      gateway:
-        internal:
-          service_type: NodePort
-          listener_namespaces: [app]
-      network: *default-network
-      cluster:
-        <<: *default-cluster
-        cni:
-          driver: flannel
-    expectError: true
-
-  - name: a gateway without a domain on metal still needs an address
+  - name: an enabled gateway without a domain on metal still needs an address
     values:
       platform: metal
       dns:
         private_domain: test
       gateway:
         external:
-          listener_namespaces: [app]
+          enabled: true
           https: false
         internal:
           ip: "10.5.1.10"
@@ -1932,7 +1940,20 @@ cases:
       cluster: *default-cluster
     expectError: true
 
-  - name: allowed listeners on the hetzner internal gateway fail composition
+  - name: disabling a gateway that has a domain fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          enabled: false
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: enabling the hetzner internal gateway fails composition
     values:
       platform: hetzner
       hetzner:
@@ -1942,31 +1963,5 @@ cases:
         public_domain: example.com
       gateway:
         internal:
-          listener_namespaces: [app]
-    expectError: true
-
-  - name: a gateway without https that admits no ListenerSets fails composition
-    values:
-      platform: metal
-      dns:
-        private_domain: test
-      gateway:
-        internal:
-          ip: "10.5.1.10"
-          https: false
-      network: *default-network
-      cluster: *default-cluster
-    expectError: true
-
-  - name: a listener namespace that is not a DNS label fails composition
-    values:
-      platform: metal
-      dns:
-        private_domain: test
-      gateway:
-        internal:
-          ip: "10.5.1.10"
-          listener_namespaces: [App_1]
-      network: *default-network
-      cluster: *default-cluster
+          enabled: true
     expectError: true

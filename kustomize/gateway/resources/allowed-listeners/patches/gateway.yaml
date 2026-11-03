@@ -1,5 +1,5 @@
 ---
-# Admits ListenerSets from the namespaces in gateway_listener_namespaces.
+# Admits ListenerSets from namespaces labeled gateway.windsorcli.dev/<gateway_name>: "true".
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -10,7 +10,5 @@ spec:
     namespaces:
       from: Selector
       selector:
-        matchExpressions:
-          - key: kubernetes.io/metadata.name
-            operator: In
-            values: ${gateway_listener_namespaces}
+        matchLabels:
+          gateway.windsorcli.dev/${gateway_name}: "true"

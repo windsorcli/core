@@ -77,23 +77,10 @@ ListenerSet port such as 3010 never reaches that Service.
 
 ## Decision
 
-### 1. `listener_namespaces` per gateway
+### 1. A namespace label admits ListenerSets
 
-`gateway.external.listener_namespaces` and `gateway.internal.listener_namespaces`
-list the namespaces whose ListenerSets MAY attach to that Gateway. The default
-is an empty list, which admits none, as today.
-
-```yaml
-gateway:
-  external:
-    ip: 10.30.0.20
-    https: false
-    listener_namespaces:
-      - app
-```
-
-Core renders the list as a `Selector` on the `kubernetes.io/metadata.name`
-label, which Kubernetes sets on every namespace:
+Every LoadBalancer Gateway sets `spec.allowedListeners` to a selector on one
+label per gateway:
 
 ```yaml
 spec:
@@ -101,19 +88,32 @@ spec:
     namespaces:
       from: Selector
       selector:
-        matchExpressions:
-          - key: kubernetes.io/metadata.name
-            operator: In
-            values: [app]
+        matchLabels:
+          gateway.windsorcli.dev/external: "true"
 ```
 
-The schema names the namespaces instead of exposing the API's `from` values.
-`Same` would admit only `system-gateway`, where no chart deploys. `All` would
-let any namespace claim a port on the gateway address, including 443 on the
-external gateway. A list admits exactly the charts the site approves, and a new
-chart in another namespace needs a `values.yaml` change before it can attach.
+No namespace has the label by default, so a Gateway admits no ListenerSets, as
+today. A downstream blueprint admits its chart by labeling the chart's
+Namespace in its own manifests:
 
-A chart's ListenerSet names the gateway as its parent:
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app
+  labels:
+    gateway.windsorcli.dev/external: "true"
+```
+
+Changing a Namespace's labels takes a cluster role. A role scoped to the
+namespace cannot admit it. The blueprint that ships the chart knows its
+namespace, so the admission stays with the chart, and `values.yaml` carries no
+namespace names. Two blueprints that each label their own namespace cannot
+overwrite each other.
+
+The chart's ListenerSet names the gateway as its parent. Without DNS, clients
+connect to an address and send no TLS server name, so the listeners use `TCP`
+and the pods terminate TLS:
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -127,44 +127,51 @@ spec:
     name: external
     namespace: system-gateway
   listeners:
-    - name: app-tls
-      protocol: TLS
+    - name: app-443
+      protocol: TCP
       port: 443
-      tls:
-        mode: Passthrough
     - name: app-3010
       protocol: TCP
       port: 3010
 ```
 
-`listener_namespaces` MUST NOT be set on a NodePort gateway, because the Envoy
-NodePort Service drops every port but 80 and 443. A `requires` rule rejects it
-on both drivers.
+A `TCP` listener carries one service per port. Several services MAY share a
+port only through `TLS` listeners with distinct hostnames, which needs DNS.
 
-### 2. `https: false` removes `web-https`
+### 2. NodePort gateways admit no ListenerSets
+
+A NodePort Gateway gets no `allowedListeners`, and a ListenerSet that names it
+reports `NotAllowed`. Core writes a NodePort gateway's Service ports at compose
+time, each with a fixed node port, and a label carries no port. A later change
+MAY add `gateway.<name>.node_ports`, a map from listener port to node port in
+the format of `gateway.publish_ports`, before that gateway admits ListenerSets.
+It needs Envoy Gateway's container port for each listener port, and
+docker-desktop needs the port published from the VM.
+
+### 3. `https: false` removes `web-https`
 
 `gateway.<name>.https` defaults to `true`. When it is `false`, the Gateway has no
 `web-https` listener, so a ListenerSet can take 443 with any protocol. `web-http`
 stays on 80, with its redirect to HTTPS. Without `web-https`, the gateway gets no
-certificate and no catch-all 404 route, since both bind to that listener.
+certificate and no catch-all 404 route, since both bind to that listener. A
+gateway with `https: false` and no ListenerSet on 443 redirects to a port that
+refuses connections.
 
 `gateway.<name>.tls.cert` and `gateway.<name>.tls.issuer` MUST NOT be set on a
 gateway with `https: false`. A `requires` rule rejects them.
 
-`https: false` MUST be paired with a non-empty `listener_namespaces`.
-Without a ListenerSet on 443, the `web-http` redirect would point at a port with
-no listener. A `requires` rule rejects the pairing.
+### 4. `enabled` provisions a gateway without its domain
 
-### 3. A gateway exists without its domain when it admits listeners
-
-A gateway exists when its domain is set, as today, or when its
-`listener_namespaces` is not empty. A gateway without a domain publishes no DNS
+A gateway exists when its domain is set, as today, or when
+`gateway.<name>.enabled` is `true`. A gateway without a domain publishes no DNS
 records: it gets no catch-all 404 hostname annotation and no CoreDNS listeners.
+A downstream facet MAY set `enabled`, since a boolean merges across facets.
+`enabled: false` on a gateway with a domain has no effect, and a `requires`
+rule rejects it.
 
 The issue asked for a gateway that exists whenever it has an `ip`. Workstation
 contexts set `gateway.external.ip` by default, so that rule would start an
-external Envoy proxy on every workstation. `listener_namespaces` is the setting
-that states the intent.
+external Envoy proxy on every workstation.
 
 A gateway without a domain has no names for cert-manager to issue a certificate
 for. It MUST either set `https: false` or supply `gateway.<name>.tls.cert`. A
@@ -172,10 +179,11 @@ for. It MUST either set `https: false` or supply `gateway.<name>.tls.cert`. A
 still apply. On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer
 gateway needs `gateway.<name>.ip`.
 
-Hetzner has no internal gateway, so `gateway.internal.listener_namespaces` is
-rejected there.
+Hetzner has no internal gateway, so `gateway.internal.enabled` is rejected
+there. A consumer without DNS SHOULD use the external gateway: the internal one
+carries `flux-webhook` on 9292 in push mode.
 
-### 4. Driver support
+### 5. Driver support
 
 Both drivers support ListenerSet at the pinned versions, so no `requires` rule
 rejects the setting by driver.
@@ -183,11 +191,16 @@ rejects the setting by driver.
 ## Consequences
 
 - Charts attach listeners to a core Gateway without patching core.
+- Admission lives in the cluster, so the composed blueprint does not show which
+  namespaces are admitted. `kubectl get namespaces -l gateway.windsorcli.dev/external=true`
+  lists them.
+- A chart installed with Helm's `createNamespace` cannot set the label; its
+  blueprint ships the Namespace.
 - A chart that takes 443 on a gateway with `https: false` owns every hostname on
   443 there. Core HTTPRoutes on that gateway, such as Keycloak's, attach only to
   `web-http`, whose redirect sends clients to the chart's listener.
 - `values.yaml` gains two fields per gateway. Existing contexts render the same
-  Gateway as before.
+  Gateway as before, plus `allowedListeners` on LoadBalancer gateways.
 - Facets that need a gateway with a hostname keep testing the domain. The
   gateway facet tests the new `gateway_effective.external_enabled` and
   `gateway_effective.internal_enabled` values for whether a Gateway exists.
@@ -206,6 +219,21 @@ It does not meet this application's needs. TLS ends at the gateway, so the pods
 never see the client's TLS session, and the application cannot serve a protocol
 other than HTTP on 443. Port 3010 still needs a listener of its own. Charts that
 serve HTTP and accept TLS from the gateway SHOULD keep using this pattern.
+
+### A namespace list in the gateway config
+
+`gateway.<name>.listener_namespaces` would list the admitted namespaces in
+config. The list belongs to whichever blueprint ships the chart, not to the
+site operator. The CLI replaces lists when facet config merges, so two
+downstream facets that each set the list would overwrite each other without an
+error. A map keyed by namespace merges, but it still puts the chart's namespace
+in config that the chart's own manifests already carry.
+
+### The API's `from` values
+
+An enum of `None`, `Same`, and `All` would copy the API field into the schema.
+`Same` admits only `system-gateway`, where no chart deploys, and `All` admits
+every namespace.
 
 ### Core-owned listener patches per chart
 
