@@ -9,8 +9,9 @@ set, and `internal`, provisioned when `dns.private_domain` is set
 (workstation and dev mode default it to `test`). A gateway also exists
 without its domain when `gateway.<name>.enabled` is `true`; it then
 publishes no DNS records. A LoadBalancer gateway admits `ListenerSet`
-resources from namespaces labeled `gateway.windsorcli.dev/<name>: "true"`. Two driver
-options.
+resources from namespaces labeled `gateway.windsorcli.dev/<name>: "true"`. A
+NodePort gateway admits them too when `gateway.<name>.node_ports` maps each
+listener port to a node port. Two driver options.
 
 Envoy Gateway is the default: a dedicated control-plane and data-plane
 Envoy stack installed by Helm. It is heavier than Cilium's built-in path
@@ -149,7 +150,9 @@ flux:
 
 NodePort skips the LB controller and forwards via host ports. The
 `/dns` and `/flux-webhook` sub-overlays open the additional NodePort
-slots needed for in-cluster DNS and Flux push-mode webhooks.
+slots needed for in-cluster DNS and Flux push-mode webhooks. With
+`gateway.<name>.node_ports` set, `/listeners` adds a second NodePort
+Service for ListenerSet ports.
 
 ### Envoy on AWS (NLB)
 
@@ -258,6 +261,7 @@ flux:
 | `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
 | `gateway_redirect_port` | `gateway-resources-external` or `gateway-resources-internal` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` internal, `8444` external). |
 | `gateway_nodeport_http / gateway_nodeport_https` | this gateway's service type is `NodePort` | NodePort numbers for this gateway's data-plane Service. Internal: 30080 and `gateway.internal.node_port` (default 30443). External: 30081 and `gateway.external.node_port` (default 30444). |
+| `gateway_listener_ports` | `gateway-resources-external` or `gateway-resources-internal` is composed | JSON array of Service ports for `gateway.<name>.node_ports`, sorted by listener port. Read only by `envoy/nodeport/listeners`. |
 
 ## Components — `gateway-install`
 
@@ -365,6 +369,12 @@ _Enabled when envoy/nodeport AND internal gateway AND `gitops.mode == 'push'`._
 
 Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Internal-only, since the webhook receiver is a utility surface.
 
+### `envoy/nodeport/listeners`
+
+_Enabled when envoy/nodeport AND `gateway.<name>.node_ports` is not empty._
+
+Adds the `${gateway_name}-listeners` NodePort Service, which selects this gateway's Envoy pods and takes its port list from `gateway_listener_ports`. Each `gateway.<name>.node_ports` entry becomes one TCP port. The target is Envoy's container port: the listener port itself from 1024 up, or the listener port plus 10000 below that. On docker-desktop each listener port is also published as a host port on the first node's container.
+
 ### `resources/cilium`
 
 _Enabled when `gateway.driver == 'cilium'` AND no cloud LB controller owns the IP._
@@ -421,9 +431,9 @@ Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notifica
 
 ### `allowed-listeners`
 
-_Enabled when this gateway's service type is `LoadBalancer`._
+_Enabled when this gateway's service type is `LoadBalancer`, or `gateway.<name>.node_ports` is not empty._
 
-Sets `spec.allowedListeners` to a `Selector` on the label `gateway.windsorcli.dev/${gateway_name}: "true"`, so `ListenerSet` resources in namespaces with that label attach their listeners to this Gateway's address. A NodePort gateway does not get it, because its Envoy Service carries only core's ports.
+Sets `spec.allowedListeners` to a `Selector` on the label `gateway.windsorcli.dev/${gateway_name}: "true"`, so `ListenerSet` resources in namespaces with that label attach their listeners to this Gateway's address. A NodePort gateway without `node_ports` does not get it, because no Service carries a ListenerSet port to its node ports.
 
 ### `no-web-https`
 

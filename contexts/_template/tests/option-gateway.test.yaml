@@ -1694,7 +1694,7 @@ cases:
               components:
                 - no-web-https
 
-  - name: NodePort gateways admit no ListenerSets
+  - name: NodePort gateways without node_ports admit no ListenerSets
     values:
       platform: metal
       dns:
@@ -1964,4 +1964,222 @@ cases:
       gateway:
         internal:
           enabled: true
+    expectError: true
+
+  - name: NodePort gateway with node_ports admits ListenerSets through a listeners Service
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30310
+            "993": 30993
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - envoy/nodeport
+                - envoy/nodeport/listeners
+              substitutions:
+                gateway_listener_ports: >-
+                  [{"name": "tcp-3010","nodePort": 30310,"port": 3010,"protocol": "TCP","targetPort": 3010},{"name":
+                  "tcp-993","nodePort": 30993,"port": 993,"protocol": "TCP","targetPort": 10993}]
+
+  - name: docker-desktop publishes node_ports listener ports on the host
+    values:
+      platform: docker
+      dns:
+        private_domain: test
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          enabled: true
+          https: false
+          node_ports:
+            "3010": 30310
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                hostports:
+                  - 8080:30080/tcp
+                  - 8443:30443/tcp
+                  - 8081:30081/tcp
+                  - 8444:30444/tcp
+                  - 3010:30310/tcp
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - allowed-listeners
+                - envoy/nodeport
+                - envoy/nodeport/docker-desktop
+                - envoy/nodeport/listeners
+
+  - name: node_ports on a LoadBalancer gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+          node_ports:
+            "3010": 30310
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: node_ports on a cilium gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: cilium
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30310
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: node_ports listing a port the gateway already serves fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "9292": 30310
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: node_ports reusing a core node port fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30081
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: node_ports reusing a custom gateway node_port fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_port: 30500
+          node_ports:
+            "3010": 30500
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: one node port in both gateways' node_ports fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          service_type: NodePort
+          tls:
+            issuer: selfsigned
+          node_ports:
+            "3010": 30310
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3011": 30310
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: one listener port on both gateways on docker-desktop fails composition
+    values:
+      platform: docker
+      dns:
+        private_domain: test
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          enabled: true
+          https: false
+          node_ports:
+            "3010": 30310
+        internal:
+          node_ports:
+            "3010": 30311
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
     expectError: true
