@@ -177,7 +177,9 @@ The `private` ClusterIssuer signs every workload certificate with the CA
 from the `pki/ca` Terraform step, which generates one unless `pki.ca.cert`
 and `.key` supply it. trust-manager publishes the CA certificate as the
 `private-ca` ConfigMap, and a Kyverno policy mounts it into Pods labeled
-`use-custom-ca: "true"`.
+`use-custom-ca: "true"`. It also publishes the cluster CA alone as the
+`cluster-ca` ConfigMap under the `ca.crt` key, which `BackendTLSPolicy`
+resources reference to verify backends.
 
 The `private-issuer/ca/trusted-cas` component adds the roots in
 `pki.trusted_cas` to the same bundle, read from the `pki-trusted-cas`
