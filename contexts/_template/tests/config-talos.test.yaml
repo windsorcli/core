@@ -815,3 +815,21 @@ cases:
       config:
         talos_oidc:
           public_ca: true
+        talos_common:
+          common_patch:
+            cluster:
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://keycloak.example.com/realms/platform
+                  oidc-username-claim: sub
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              apiServer:
+                extraArgs:
+                  oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+                extraVolumes: []
