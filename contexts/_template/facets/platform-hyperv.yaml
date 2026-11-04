@@ -17,31 +17,26 @@ requires:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
   - when: >-
-      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
-      len(filter(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), # == '')) > 0
+      len(filter(hyperv_nat_nodes.controlplanes ?? [], # == '')) > 0
     paths:
       - cluster.controlplanes.nodes.controlplane-N.node
     message: With both gateways on NodePort, set cluster.controlplanes.nodes.controlplane-N.node for each control plane to an address in network.cidr_block. A v0.8.0 cluster already has control plane N at host number 9 + N of that block.
   - when: >-
-      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
-      len(filter((cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? ''), # == '')) > 0
+      len(filter(hyperv_nat_nodes.workers ?? [], # == '')) > 0
     paths:
       - cluster.workers.nodes.worker-N.node
     message: With both gateways on NodePort, set cluster.workers.nodes.worker-N.node for each worker to an address in network.cidr_block. A v0.8.0 cluster already has worker N at host number 19 + N of that block.
   - when: >-
-      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
-      any(filter(concat(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), (cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? '')), # != ''),
+      let cidr = network.cidr_block ?? '10.5.0.0/16';
+      let bits = split(cidr, '/')[1];
+      any(hyperv_nat_nodes.addresses ?? [],
         !(# matches '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$') ||
-        cidrhost(# + '/' + split(network.cidr_block ?? '10.5.0.0/16', '/')[1], 0) != cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
-        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
-        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 1) ||
-        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', int(2 ** (32 - int(split(network.cidr_block ?? '10.5.0.0/16', '/')[1]))) - 1))
+        cidrhost(# + '/' + bits, 0) != cidrhost(cidr, 0) ||
+        # in [cidrhost(cidr, 0), cidrhost(cidr, 1), cidrhost(cidr, int(2 ** (32 - int(bits))) - 1)])
     paths:
       - hyperv_effective.unsupported
     message: With both gateways on NodePort, each node address MUST be an IPv4 address in network.cidr_block other than the network, broadcast, and host addresses.
-  - when: >-
-      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
-      (let addresses = filter(concat(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), (cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? '')), # != ''); len(uniq(addresses)) != len(addresses))
+  - when: len(uniq(hyperv_nat_nodes.addresses ?? [])) != len(hyperv_nat_nodes.addresses ?? [])
     paths:
       - hyperv_effective.unsupported
     message: With both gateways on NodePort, each node in cluster.controlplanes.nodes and cluster.workers.nodes MUST have its own address.
@@ -137,6 +132,13 @@ config:
       workers: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count),
           (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) ?? {}).node ?? '')}
+
+  # Every declared NAT node address, for the address rules.
+  - name: hyperv_nat_nodes
+    when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
+    value:
+      addresses: >-
+        ${filter(concat(hyperv_nat_nodes.controlplanes, hyperv_nat_nodes.workers), # != '')}
 
   # Per-VM lists (NodePort). Talos API forwards: cp-N → bench:(40000+N-1),
   # worker-N → bench:(40100+N-1), both → :50000 in-VM.
