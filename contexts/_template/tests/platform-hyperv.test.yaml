@@ -1140,6 +1140,26 @@ cases:
           count: 0
     expectError: true
 
+  - name: NodePort with a node on the broadcast address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.255
+        workers:
+          count: 0
+    expectError: true
+
   - name: NodePort with a hostname as a node address fails composition
     values:
       platform: hyperv

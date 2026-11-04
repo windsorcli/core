@@ -34,10 +34,11 @@ requires:
         !(# matches '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$') ||
         cidrhost(# + '/' + split(network.cidr_block ?? '10.5.0.0/16', '/')[1], 0) != cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
         # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
-        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 1))
+        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 1) ||
+        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', int(2 ** (32 - int(split(network.cidr_block ?? '10.5.0.0/16', '/')[1]))) - 1))
     paths:
       - hyperv_effective.unsupported
-    message: With both gateways on NodePort, each node address MUST be an IPv4 address in network.cidr_block other than the network address and the host's first address.
+    message: With both gateways on NodePort, each node address MUST be an IPv4 address in network.cidr_block other than the network, broadcast, and host addresses.
   - when: >-
       (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
       (let addresses = filter(concat(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), (cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? '')), # != ''); len(uniq(addresses)) != len(addresses))
