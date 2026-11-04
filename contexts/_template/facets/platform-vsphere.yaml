@@ -31,11 +31,11 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
-  - when: network.dhcp != true && len(filter(1..int(cluster.controlplanes.count ?? 1), get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) == null)) > 0
+  - when: network.dhcp != true && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
-  - when: network.dhcp != true && (cluster.workers.count ?? 0) > 0 && len(filter(1..int(cluster.workers.count), get(cluster.workers.nodes ?? {}, "worker-" + string(#)) == null)) > 0
+  - when: network.dhcp != true && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
@@ -88,11 +88,7 @@ config:
       nodes: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
-          ["ipv4", vsphere_effective.dhcp ? null
-            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
-            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
-               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : null)]
+          ["ipv4", vsphere_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4]
         ]))}
 
   # Guest IPv4 per worker from cluster.workers.nodes, null under DHCP.
@@ -101,11 +97,7 @@ config:
       nodes: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
-          ["ipv4", vsphere_effective.dhcp ? null
-            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
-            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
-               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : null)]
+          ["ipv4", vsphere_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4]
         ]))}
 
   # ---------------------------------------------------------------------------
