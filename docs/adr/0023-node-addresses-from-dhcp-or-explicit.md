@@ -10,7 +10,7 @@ description: Remove the network.cidr_block offsets that gave vSphere, Proxmox, H
 Proposed (2026-11-03). Builds on [ADR-0019](0019-explicit-endpoints-dhcp-and-tls-sources.md),
 which made gateway endpoints explicit and added `network.dhcp` control planes.
 Scope is `vsphere`, `proxmox`, `hyperv`, and `incus` without a workstation.
-Section 6 covers Hyper-V NodePort NAT, which lands in a separate change.
+Section 6 keeps the derived addresses for Hyper-V NodePort NAT.
 Workstation contexts (`option-workstation.yaml`, `terraform/workstation/docker`)
 are out of scope.
 
@@ -117,18 +117,17 @@ names keep the module's previous pattern: `controlplane` for a single node,
 `controlplane-0` to `controlplane-(N-1)` for several, and the same for
 workers. Existing Incus VMs keep their names.
 
-### 6. Hyper-V NodePort NAT nodes are explicit
+### 6. Hyper-V NodePort NAT nodes keep derived addresses
 
 When both gateways are NodePort, Hyper-V puts the guests on a NetNat switch
-inside `network.cidr_block`. A NetNat switch serves no DHCP, so `network.dhcp`
-does not apply there. Each NAT node MUST have an explicit entry in
-`cluster.controlplanes.nodes` or `cluster.workers.nodes`, and composition MUST
-fail with a `requires` message when one is missing. The NAT port forwards and
-the default API target follow the first control plane's declared address
-instead of `cidrhost(cidr_block, 10)`.
+inside `network.cidr_block`. Core creates that switch and its subnet, and only
+Core's guests use it. The LAN collision that sections 1 and 2 remove cannot
+occur there.
 
-This section ships with the Hyper-V NAT change, not with sections 1 to 5. Until
-it lands, NAT nodes keep the offsets.
+On NAT, control plane N keeps `cidrhost(cidr_block, 9 + N)` and worker N keeps
+`cidrhost(cidr_block, 19 + N)`. The `requires` rules of section 2 do not apply.
+`windsor init` writes no node entries, so a new NAT context composes without
+them.
 
 ## Upgrading a v0.8.0 context
 
@@ -163,7 +162,8 @@ whatever lease the DHCP server offers, and the cluster's node addresses change.
 ## Consequences
 
 - Every node address on these platforms appears in `values.yaml` or comes from
-  the site's DHCP server. Core never picks one.
+  the site's DHCP server. Core picks one only on a Hyper-V NodePort NAT subnet,
+  which Core creates.
 - A context for these platforms with neither `network.dhcp: true` nor a nodes
   map no longer composes, so `windsor init` defaults for them need one of the
   two.
@@ -183,3 +183,8 @@ from their own file.
 Defaulting Incus to DHCP, since Core owns the bridge, would make one platform
 read `network.dhcp: false` differently from the others. One rule for all four
 is easier to state in an error message.
+
+Requiring explicit addresses on Hyper-V NodePort NAT too would make the four
+platforms read the same way. It would also fail every new NAT context until the
+operator writes a node list, or make `windsor init` copy Core's offsets into the
+CLI. Neither buys anything on a subnet that only Core's guests use.
