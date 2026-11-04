@@ -65,8 +65,7 @@ locals {
     }
   )
 
-  # Extract network base IP and prefix length from CIDR for sequential IP calculation
-  network_base_ip       = var.network_cidr != null ? cidrhost(var.network_cidr, 0) : null
+  # Prefix length applied to expanded instance addresses
   network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : null
 }
 
@@ -198,9 +197,6 @@ resource "incus_storage_volume" "disks" {
 # =============================================================================
 
 locals {
-  # Calculate starting IP offset (skip gateway, typically .1)
-  ip_start_offset = 2 # Start from .2 (assuming .1 is gateway)
-
   # Validate IP octet overflow before expansion
   # Check that instances with count > 1 and explicit ipv4 won't overflow the last octet
   ip_octet_overflow_instances = [
@@ -275,19 +271,6 @@ locals {
       }
     ]
   ])
-
-  # Track all instance names for sequential IP assignment
-  all_instance_keys = [for instance in local.expanded_instances : instance.name]
-
-  # Calculate sequential IPs when network_cidr is provided and no explicit IP provided
-  # These will be assigned as static DHCP leases
-  instance_sequential_ips = {
-    for idx, instance_key in local.all_instance_keys : instance_key => (
-      local.network_base_ip != null ? (
-        "${cidrhost(var.network_cidr, local.ip_start_offset + idx)}/${local.network_prefix_length}"
-      ) : null
-    )
-  }
 
   # Merge transformed disks back into expanded instances
   # Transform disks from generic schema format (size as integer GB, type for pool) to Incus format (size as string, pool)
