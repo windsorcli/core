@@ -1335,6 +1335,9 @@ properties:
         type: object
         description: Exposure of the external gateway.
         properties:
+          enabled:
+            type: boolean
+            description: Provision this gateway without dns.public_domain, for ListenerSets. A gateway with its domain is always provisioned.
           service_type:
             type: string
             enum:
@@ -1349,6 +1352,10 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+          https:
+            type: boolean
+            default: true
+            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the external gateway.
@@ -1374,6 +1381,9 @@ properties:
         type: object
         description: Exposure of the internal gateway.
         properties:
+          enabled:
+            type: boolean
+            description: Provision this gateway without dns.private_domain, for ListenerSets. A gateway with its domain is always provisioned.
           service_type:
             type: string
             enum:
@@ -1388,6 +1398,10 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+          https:
+            type: boolean
+            default: true
+            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the internal gateway.
