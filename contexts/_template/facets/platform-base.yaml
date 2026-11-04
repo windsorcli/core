@@ -92,6 +92,36 @@ config:
       controlplanes: "${max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))}"
       workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
 
+  # Nodes-map entry per pool position, keyed controlplane-N and worker-N; null when undeclared.
+  - name: cluster_node_entries
+    value:
+      controlplanes: >-
+        ${map(
+          1..int(cluster.controlplanes.count ?? 1),
+          get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
+        )}
+      workers: >-
+        ${map(
+          1..int(cluster.workers.count ?? 0),
+          get(cluster.workers.nodes ?? {}, "worker-" + string(#))
+        )}
+
+  # Declared guest IPv4 and MAC per pool position, and whether any position lacks an entry.
+  - name: cluster_node_addresses
+    value:
+      controlplanes: >-
+        ${map(cluster_node_entries.controlplanes, fromPairs([
+          ["ipv4", # == null ? null : (#.node ?? split(#.endpoint, ":")[0])],
+          ["mac_address", # == null ? null : #.mac_address]
+        ]))}
+      workers: >-
+        ${map(cluster_node_entries.workers, fromPairs([
+          ["ipv4", # == null ? null : (#.node ?? split(#.endpoint, ":")[0])],
+          ["mac_address", # == null ? null : #.mac_address]
+        ]))}
+      controlplanes_missing: "${any(cluster_node_entries.controlplanes, # == null)}"
+      workers_missing: "${any(cluster_node_entries.workers, # == null)}"
+
   # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
   # azure→aks, gcp→gke); else talos. Talos defaults CNI to cilium; managed
   # clouds leave it empty — gke's own Dataplane V2 is Google's managed Cilium

@@ -15,6 +15,14 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+  - when: network.dhcp != true && cluster_node_addresses.controlplanes_missing
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: network.dhcp != true && cluster_node_addresses.workers_missing
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
 # =============================================================================
 # Proxmox-specific Talos values
@@ -44,31 +52,25 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Guest IPv4 (cluster.controlplanes.nodes, else cidrhost offset 10) and VM ID per control plane.
+  # Guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC and VM ID per control plane.
   - name: proxmox_controlplanes
     value:
       nodes: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
-          ["ipv4", proxmox_effective.dhcp ? null
-            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
-            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
-               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))],
+          ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
         ]))}
 
-  # Guest IPv4 (cluster.workers.nodes, else cidrhost offset 20) and VM ID per worker.
+  # Guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC and VM ID per worker.
   - name: proxmox_workers
     value:
       nodes: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
-          ["ipv4", proxmox_effective.dhcp ? null
-            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
-            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
-               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))],
+          ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["mac_address", cluster_node_addresses.workers[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
         ]))}
 
@@ -159,6 +161,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.controlplanes.cpu],
             ["memory", cluster_resources_effective.controlplanes.memory],
@@ -171,6 +174,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.workers.cpu],
             ["memory", cluster_resources_effective.workers.memory],
