@@ -1653,3 +1653,315 @@ cases:
             - name: external
               components:
                 - certificate
+
+
+  - name: LoadBalancer gateways admit ListenerSets from labeled namespaces
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
+                - allowed-listeners
+                - envoy/default-404
+            - name: internal
+              components:
+                - allowed-listeners
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - no-web-https
+            - name: internal
+              components:
+                - no-web-https
+
+  - name: NodePort gateways admit no ListenerSets
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+
+  - name: an address without a domain provisions no gateway
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          ip: "10.5.1.11"
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+
+  - name: enabled external gateway without a domain gives up 443
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - allowed-listeners
+                - no-web-https
+                - envoy/parameters
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_domain: ""
+                gateway_loadbalancer_ip: "10.5.1.11"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
+                - envoy/default-404
+                - envoy/default-404/external-dns
+
+  - name: enabled internal gateway without a domain serves a supplied certificate and publishes no records
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        driver: envoy
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+        internal:
+          enabled: true
+          ip: "10.5.1.10"
+          tls:
+            cert: CERT
+            key: KEY
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - envoy/default-404
+              substitutions:
+                gateway_tls_secret: internal-supplied-tls
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+                - no-web-https
+                - envoy/default-404/external-dns
+                - dns
+
+  - name: a gateway with a domain drops its certificate when it gives up 443
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+          https: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - no-web-https
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+                - envoy/default-404
+
+  - name: cilium gateway without a domain admits ListenerSets
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: cilium
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              dependsOn:
+                - cni-install
+              components:
+                - cilium
+                - cilium/fixed-ip
+                - allowed-listeners
+                - no-web-https
+
+  - name: a gateway without a domain and without a certificate source fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: a supplied certificate on a gateway without https fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          https: false
+          tls:
+            cert: CERT
+            key: KEY
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: an issuer on a gateway without https fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        external:
+          ip: "10.5.1.11"
+          https: false
+          tls:
+            issuer: selfsigned
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: an enabled gateway without a domain on metal still needs an address
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          enabled: true
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: disabling a gateway that has a domain fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          enabled: false
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: enabling the hetzner internal gateway fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      gateway:
+        internal:
+          enabled: true
+    expectError: true

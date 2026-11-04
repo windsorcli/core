@@ -16,6 +16,18 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+  - when: >-
+      hyperv_effective.nat != true && network.dhcp != true
+      && cluster_node_addresses.controlplanes_missing
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: >-
+      hyperv_effective.nat != true && network.dhcp != true
+      && cluster_node_addresses.workers_missing
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
 # =============================================================================
 # Config — Hyper-V-specific Talos values
@@ -216,8 +228,8 @@ config:
           ]))
         )}
 
-  # Guest IPv4 per LAN control plane: cluster.controlplanes.nodes, else cidrhost
-  # offset 10. The name comes from the pool position, never nodes[].hostname:
+  # Guest IPv4 and MAC per LAN control plane from cluster.controlplanes.nodes.
+  # The name comes from the pool position, never nodes[].hostname:
   # it keys the VM, its VHDX and its seed, which renaming would replace.
   - name: hyperv_controlplanes
     when: "!((gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort')"
@@ -225,14 +237,11 @@ config:
       nodes: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
-          ["ipv4", hyperv_effective.dhcp ? null
-            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
-            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
-               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
+          ["ipv4", hyperv_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address]
         ]))}
 
-  # Guest IPv4 per LAN worker: cluster.workers.nodes, else cidrhost offset 20.
+  # Guest IPv4 and MAC per LAN worker from cluster.workers.nodes.
   # Named by pool position, like the control planes.
   - name: hyperv_workers
     when: "!((gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort')"
@@ -240,11 +249,8 @@ config:
       nodes: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
-          ["ipv4", hyperv_effective.dhcp ? null
-            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
-            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
-               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
+          ["ipv4", hyperv_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["mac_address", cluster_node_addresses.workers[# - 1].mac_address]
         ]))}
 
   - name: hyperv_compute_instances
@@ -257,6 +263,7 @@ config:
             ["role", "controlplane"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
             ["boot_from_dvd", false],
@@ -272,6 +279,7 @@ config:
             ["role", "worker"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["mac_address", get(#, "mac_address")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
             ["boot_from_dvd", false],
