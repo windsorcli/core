@@ -3,11 +3,11 @@ title: Cilium
 description: Cilium as the cluster CNI on Talos, replacing kube-proxy, announcing load balancer addresses, and providing Hubble.
 ---
 
-Cilium is the default [CNI](index.md) on Talos clusters. It replaces kube-proxy with eBPF, announces `LoadBalancer` addresses over L2, encrypts pod traffic between nodes, and provides Hubble for network visibility. With `gateway.driver: cilium` it also runs the [gateway](../gateway/cilium.md) that serves `my-app.example.com`. The [CNI overview](index.md) defines the terms this page assumes.
+Cilium is the default [CNI](index.md) on Talos clusters. It replaces kube-proxy with eBPF and announces `LoadBalancer` addresses over L2. It encrypts pod traffic between nodes, and it provides Hubble for network visibility. With `gateway.driver: cilium`, Cilium also runs the [gateway](../gateway/cilium.md) that serves `my-app.example.com`. The [CNI overview](index.md) defines the terms that this page uses.
 
 ## Turn it on
 
-Talos clusters already default to Cilium, so you set the driver only to make the choice explicit or to opt in on a platform that defaults to Flannel. This `values.yaml` selects it.
+Talos clusters use Cilium by default. Set the driver to make the choice explicit, or to use Cilium on a platform that defaults to Flannel. This `values.yaml` selects Cilium:
 
 ```yaml
 cluster:
@@ -15,21 +15,28 @@ cluster:
     driver: cilium
 ```
 
-With `cilium` set, Core turns off Talos's built-in Flannel and kube-proxy in the machine config. Cilium's pods run in `kube-system`, and the HelmRelease that manages them lives in `system-cni`.
+With `cilium`, Core disables the Talos Flannel and kube-proxy in the machine config. The Cilium pods run in `kube-system`. The HelmRelease that manages them is in `system-cni`.
 
-EKS can opt in with the same setting, but that path is untested. Core then installs Cilium once the cluster exists and skips L2 announcements, because the AWS Load Balancer Controller owns `LoadBalancer` Services. AKS and GKE keep their managed CNIs. See [Defaults](index.md#defaults).
+EKS accepts the same setting, but nobody tests that path. On EKS, Core installs Cilium after the cluster exists. Core skips L2 announcements there, because the AWS Load Balancer Controller owns `LoadBalancer` Services. AKS and GKE keep their managed CNIs. See [Defaults](index.md#defaults).
 
 ## Bootstrap
 
-Flux needs pod networking to run, so Cilium has to exist before Flux does. Terraform installs it first through the Talos API. Flux then adopts the release through a HelmRelease with the same name and namespace, and later changes go through Git.
+Flux cannot run without pod networking, so Cilium must exist before Flux. Terraform installs Cilium first, through the Talos API. Then Flux adopts the release through a HelmRelease with the same name and namespace. Later changes go through Git.
 
-The two tools split the configuration. Terraform sets only the baseline: IPAM mode, kube-proxy replacement, operator replicas, and the Talos capabilities. Flux owns everything else, including Hubble, the gateway, and L2.
+Terraform sets only the baseline values:
 
-Cilium reaches the Kubernetes API through Talos *KubePrism*, a local load balancer at `localhost:7445` on every node that spreads requests across the control planes. Cilium therefore keeps working when one control plane is down, and it needs no fixed API address.
+- the IPAM mode
+- the kube-proxy replacement
+- the operator replicas
+- the Talos capabilities
 
-Operator replicas are the one value both tools must agree on. The operator runs two replicas, or one on a single-node cluster, where two would contend for the same host port. Terraform and Flux both read the count from `topology`.
+Flux owns all other values, which include Hubble, the gateway, and L2.
 
-This diagram shows the handoff from Terraform to Flux and the workloads the HelmRelease manages.
+Cilium connects to the Kubernetes API through Talos *KubePrism*. KubePrism is a local load balancer at `localhost:7445` on each node, and it sends requests to all the control planes. Cilium continues to work when one control plane is down, and it needs no fixed API address.
+
+Terraform and Flux MUST agree on the number of operator replicas. The operator runs two replicas, or one on a single-node cluster. On a single node, two replicas compete for the same host port. Terraform and Flux both read the number from `topology`.
+
+This diagram shows the handoff from Terraform to Flux, and the workloads that the HelmRelease manages.
 
 ```mermaid
 flowchart LR
@@ -59,9 +66,9 @@ flowchart LR
 
 ## Load balancer addresses
 
-A `LoadBalancer` Service stays pending until something assigns it an address. Cilium LB IPAM does that with no other controller, and it announces each address over L2 on every network interface. For each address, one node at a time answers, whichever claimed it first.
+A `LoadBalancer` Service stays pending until it gets an address. Cilium LB IPAM assigns the address, and no other controller is necessary. Cilium announces each address over L2 on all network interfaces. For each address, one node answers at a time: the node that claimed it first.
 
-Each [gateway](../gateway/index.md#service-exposure) gets a pool holding only its `gateway.<name>.ip`. A `LoadBalancer` Service for `my-app` that pins no address needs a range, as in this example.
+Each [gateway](../gateway/index.md#service-exposure) gets a pool that holds only its `gateway.<name>.ip`. A `LoadBalancer` Service for `my-app` that does not pin an address needs a range. This example sets a range:
 
 ```yaml
 network:
@@ -70,18 +77,18 @@ network:
     end: 10.5.1.40
 ```
 
-Gateway addresses MUST sit outside the range. Cilium assigns only from a pool, so without a range no other `LoadBalancer` Service gets an address.
+Gateway addresses MUST be outside the range. Cilium assigns addresses only from a pool. Without a range, no other `LoadBalancer` Service gets an address.
 
-Cilium takes the place of MetalLB and kube-vip. On a Cilium cluster, `network.loadbalancer_driver` accepts only `cilium` or `none`, and `kube-vip` or `metallb` fails validation. [Load balancing](../load-balancing.md) compares the drivers.
+Cilium replaces MetalLB and kube-vip. On a Cilium cluster, `network.loadbalancer_driver` accepts only `cilium` or `none`. Validation fails for `kube-vip` and `metallb`. [Load balancing](../load-balancing.md) compares the drivers.
 
 > [!NOTE]
-> Hetzner's cloud network is not a flat L2 network. On Hetzner, Core leaves out the L2 component and the Hetzner cloud controller assigns addresses.
+> The Hetzner cloud network is not a flat L2 network. On Hetzner, Core does not install the L2 component, and the Hetzner cloud controller assigns the addresses.
 
 ## Encryption
 
-Pod traffic between nodes crosses the site network in the clear unless something encrypts it. Outside workstation contexts, Core turns on Cilium's WireGuard *transparent encryption*. Cilium generates and distributes each node's key itself, so the encryption needs no certificates and no setting. Traffic between pods on the same node stays unencrypted.
+Without encryption, pod traffic between nodes crosses the site network in clear text. Outside workstation contexts, Core enables Cilium WireGuard *transparent encryption*. Cilium makes and distributes the key for each node. The encryption needs no certificates and no setting. Traffic between pods on the same node is not encrypted.
 
-This `values.yaml` turns it off:
+This `values.yaml` disables encryption:
 
 ```yaml
 cluster:
@@ -89,52 +96,59 @@ cluster:
     encryption: false
 ```
 
-WireGuard adds overhead to each packet, and Cilium lowers the pod MTU to make room for it. Workstation contexts leave it off by default, and `cluster.cni.encryption: true` turns it on there.
+WireGuard adds bytes to each packet, so Cilium decreases the pod MTU. Workstation contexts disable WireGuard by default. To enable it there, set `cluster.cni.encryption: true`.
 
 ## Hubble
 
-*Hubble* is Cilium's network visibility layer. It is always on, with its relay, UI, and flow metrics for DNS, drops, ports, TCP, ICMP, and HTTP. An in-cluster CronJob rotates its certificates, so Hubble does not depend on cert-manager.
+*Hubble* is the network visibility layer of Cilium. Hubble is always on. It runs a relay, a UI, and flow metrics for DNS, drops, ports, TCP, ICMP, and HTTP. A CronJob in the cluster rotates the Hubble certificates, so Hubble does not use cert-manager.
 
-The UI has no gateway route. Reach it with `kubectl port-forward` to the `hubble-ui` Service in `kube-system`.
+The Hubble UI has no gateway route. To open it, run `kubectl port-forward` to the `hubble-ui` Service in `kube-system`.
 
 ## Monitoring
 
-With `telemetry.metrics.enabled` (the default), Prometheus scrapes the Cilium agent, operator, and `cilium-envoy` pods and the Hubble metrics. Setting `observability.enabled` adds Grafana dashboards for the agent, the operator, and Hubble.
+With `telemetry.metrics.enabled` (the default), Prometheus scrapes these targets:
+
+- the Cilium agent pods
+- the Cilium operator pods
+- the `cilium-envoy` pods
+- the Hubble metrics
+
+With `observability.enabled`, Core adds Grafana dashboards for the agent, the operator, and Hubble.
 
 ## Operations
 
-Each item below pairs a symptom with its usual cause.
+Each item gives a symptom and its usual cause.
 
-- If the Cilium pods crash-loop with `Operation not permitted` on Talos, the capabilities patch did not apply. Check that the `cilium/talos` component is in the `cni` Kustomization.
-- If `cilium-operator` creates no Gateway controller, the Gateway API CRDs were missing when it started. Restart the operator once they exist.
-- If the gateway Service has no address, check that the `cilium-gateway-lbipam-sharing` MutatingPolicy is `Ready` and that the `cilium-lbipam-config-<gateway>` ConfigMap exists in `system-gateway`.
-- If the HelmRelease reports `no matches for kind CiliumLoadBalancerIPPool`, Flux reconciled before the chart installed its CRDs. Reconcile again.
-- If `windsor apply` keeps changing the Cilium replica count, Terraform and Flux disagree about `operator_replicas`. Both come from `topology`.
+- The Cilium pods crash-loop with `Operation not permitted` on Talos. The capabilities patch did not apply. Make sure that the `cni` Kustomization includes the `cilium/talos` component.
+- `cilium-operator` makes no Gateway controller. The Gateway API CRDs did not exist when the operator started. Restart the operator after the CRDs exist.
+- The gateway Service has no address. Make sure that the `cilium-gateway-lbipam-sharing` MutatingPolicy is `Ready`. Make sure that the `cilium-lbipam-config-<gateway>` ConfigMap exists in `system-gateway`.
+- The HelmRelease reports `no matches for kind CiliumLoadBalancerIPPool`. Flux reconciled before the chart installed its CRDs. Reconcile again.
+- `windsor apply` changes the Cilium replica count each time. Terraform and Flux do not agree about `operator_replicas`. Both read the value from `topology`.
 
 ## Security
 
-On Talos the agent runs with an explicit capability set instead of privileged mode. The workloads run in `kube-system` with host networking.
+On Talos, the agent runs with an explicit set of capabilities, not in privileged mode. The workloads run in `kube-system` with host networking.
 
 > [!WARNING]
-> Cilium replaces kube-proxy as part of the install, so removing the add-on does not bring kube-proxy back.
+> Cilium replaces kube-proxy during the install. If you remove the add-on, kube-proxy does not come back.
 
-Cilium enforces `NetworkPolicy` and `CiliumNetworkPolicy`, but Core applies no default deny policy. Routing uses Cilium's default VXLAN tunnel, and [WireGuard](#encryption) encrypts it between nodes outside workstation contexts.
+Cilium enforces `NetworkPolicy` and `CiliumNetworkPolicy`. Core applies no default deny policy. Cilium routes traffic through its default VXLAN tunnel. Outside workstation contexts, [WireGuard](#encryption) encrypts the tunnel between nodes.
 
-With the Cilium gateway driver, Cilium copies the gateway's TLS Secret into the `cilium-secrets` namespace. The wildcard certificate's private key therefore exists in two namespaces.
+With the Cilium gateway driver, Cilium copies the gateway TLS Secret into the `cilium-secrets` namespace. The private key of the wildcard certificate then exists in two namespaces.
 
 ## Configuration
 
-The keys below are the ones that affect Cilium.
+This table gives the keys that affect Cilium.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | `cilium` on Talos | Set to `cilium`. See [CNI](index.md#defaults). |
 | `cluster.cni.encryption` | boolean | `true` outside workstation contexts | WireGuard between nodes. |
 | `network.loadbalancer_driver` | string | `cilium` | `cilium` or `none` on a Cilium cluster. |
-| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
+| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin an address. |
 | `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |
-| `topology` | string | derived | `single-node` runs one operator, otherwise two. |
-| `telemetry.metrics.enabled` | boolean | `true` | Scrape Cilium and Hubble metrics. |
+| `topology` | string | derived | `single-node` runs one operator. All other values run two. |
+| `telemetry.metrics.enabled` | boolean | `true` | Prometheus scrapes the Cilium and Hubble metrics. |
 
 ## Reference
 

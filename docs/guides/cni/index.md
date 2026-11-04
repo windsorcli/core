@@ -4,9 +4,11 @@ description: Pod networking with Cilium on Talos clusters, Flannel where Cilium 
 sidebar_order: 6
 ---
 
-A pod in namespace `my-app` can't reach another pod, or be reached by a Service, until something gives it a network. That something is the *CNI*, the Container Network Interface plugin that assigns pod addresses and routes traffic between nodes. Every other networking feature in the core blueprint, from `LoadBalancer` addresses to the [gateway](../gateway/index.md) that serves `my-app.example.com`, sits on top of it.
+A pod in the `my-app` namespace has no network until a plugin gives it one. That plugin is the *CNI* (Container Network Interface). The CNI assigns pod addresses and routes traffic between nodes. All other networking in the core blueprint runs on top of the CNI, from `LoadBalancer` addresses to the [gateway](../gateway/index.md) that serves `my-app.example.com`.
 
-On Talos clusters the core blueprint installs [Cilium](cilium.md). Besides pod networking, Cilium replaces *kube-proxy*, the Kubernetes component that routes Service traffic, and it announces load balancer addresses and can serve as the [gateway](../gateway/cilium.md). [Flannel](flannel.md), Talos's built-in CNI, is the alternative where Cilium does not fit. You choose between them with `cluster.cni.driver` in a context's `values.yaml`, which this minimal example sets to Cilium.
+On Talos clusters, Core installs [Cilium](cilium.md). Cilium also replaces *kube-proxy*, the Kubernetes component that routes Service traffic. Cilium announces load balancer addresses, and it can run the [gateway](../gateway/cilium.md). [Flannel](flannel.md) is the CNI built into Talos, and it is the alternative where Cilium does not fit.
+
+`cluster.cni.driver` in `values.yaml` selects the CNI. This example selects Cilium:
 
 ```yaml
 cluster:
@@ -14,16 +16,16 @@ cluster:
     driver: cilium   # cilium or flannel
 ```
 
-The two values do very different amounts of work. This table summarizes what Core does for each.
+This table shows what Core does for each driver.
 
 | `cluster.cni.driver` | What Core does |
 |---|---|
-| [`cilium`](cilium.md) | Disables Talos's built-in Flannel and kube-proxy, installs Cilium with Terraform, and hands it to Flux. |
-| [`flannel`](flannel.md) | Installs nothing. Talos's built-in Flannel and kube-proxy stay in place. |
+| [`cilium`](cilium.md) | Disables the Talos Flannel and kube-proxy. Installs Cilium with Terraform, then gives it to Flux. |
+| [`flannel`](flannel.md) | Installs nothing. The Talos Flannel and kube-proxy stay in place. |
 
 ## Defaults
 
-Most clusters never set `cluster.cni.driver`, because Core picks a driver from the platform. Local and Hyper-V Talos clusters get Flannel, other Talos clusters get Cilium, and the managed clouds keep their own CNI. The defaults per cluster are listed here.
+Most clusters do not set `cluster.cni.driver`. Core selects a driver from the platform. This table gives the default for each type of cluster.
 
 | Cluster | `cluster.cni.driver` default |
 |---|---|
@@ -31,43 +33,47 @@ Most clusters never set `cluster.cni.driver`, because Core picks a driver from t
 | Talos on Incus with Colima | `flannel` |
 | Talos on Hyper-V | `flannel` |
 | Any other Talos cluster | `cilium` |
-| EKS, AKS, and GKE | Not set. The cloud's managed CNI runs, and Core installs none. |
+| EKS, AKS, and GKE | Not set. The managed CNI of the cloud runs, and Core installs no CNI. |
 
-On Talos an explicit `cluster.cni.driver` overrides the default.
+On Talos, a value that you set for `cluster.cni.driver` replaces the default.
 
 > [!IMPORTANT]
-> Set `cluster.cni.driver` before the first apply. It changes the Talos machine config.
+> Set `cluster.cni.driver` before the first apply. The value changes the Talos machine config.
 
-The Cilium add-on targets Talos. EKS can opt in with the same setting, but that path is untested. AKS and GKE keep their managed CNIs, and GKE's Dataplane V2 is already Google's managed Cilium.
+The Cilium add-on is for Talos. EKS accepts the same setting, but nobody tests that path. AKS and GKE keep their managed CNIs. GKE Dataplane V2 is already a managed Cilium from Google.
 
 ## What depends on the driver
 
-The driver decides more than pod networking. Suppose `my-app` exposes a `LoadBalancer` Service. With Cilium, Cilium itself assigns and announces the address. With Flannel, a separate load balancer does, kube-vip by default. The same split runs through service routing, the default gateway, policy enforcement, encryption, and observability, as this table shows.
+The driver controls more than pod networking. For example, `my-app` can expose a `LoadBalancer` Service. With Cilium, Cilium assigns and announces the address. With Flannel, a separate load balancer does this, kube-vip by default. This table shows the other areas that change with the driver.
 
 | Area | With `cilium` | With `flannel` |
 |---|---|---|
 | Service routing | Cilium replaces kube-proxy. | kube-proxy runs. |
-| LoadBalancer addresses | Cilium LB IPAM assigns them and announces them over L2, with no extra controller. | kube-vip on metal, vSphere, Hyper-V, Incus, and Proxmox, or MetalLB with `network.loadbalancer_driver: metallb`. See [Load balancing](../load-balancing.md). |
+| LoadBalancer addresses | Cilium LB IPAM assigns the addresses and announces them over L2. | kube-vip on metal, vSphere, Hyper-V, Incus, and Proxmox. MetalLB with `network.loadbalancer_driver: metallb`. See [Load balancing](../load-balancing.md). |
 | Default [gateway](../gateway/index.md) driver | `cilium` | `envoy` |
 | NetworkPolicy | Cilium enforces it. | Flannel does not enforce it. |
-| Pod traffic encryption | WireGuard between nodes, on by default outside workstation contexts. | Not available. |
+| Pod traffic encryption | WireGuard between nodes. On by default outside workstation contexts. | Not available. |
 | Observability | Hubble, Cilium metrics, and Cilium and Hubble dashboards. | Not installed. |
 
-With Cilium, three add-ons also wait for the Cilium install to finish. The Cilium gateway waits so its Service gets an address, and private DNS waits too when the gateway driver is `cilium`. The CSI storage driver waits because it can crash-loop if it starts while Cilium's eBPF programs are loading.
+With Cilium, three add-ons wait until the Cilium install is complete:
+
+- The Cilium gateway waits, so that its Service gets an address.
+- Private DNS waits when the gateway driver is `cilium`.
+- The CSI storage driver waits. If it starts while Cilium loads its eBPF programs, it can crash-loop.
 
 ## Configuration
 
-The keys below are the whole CNI surface in `values.yaml`. The vendor pages explain each in context.
+This table gives all the CNI keys in `values.yaml`. The vendor pages explain each key.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | by cluster | `cilium` or `flannel`. |
 | `cluster.cni.encryption` | boolean | `true` outside workstation contexts | WireGuard between nodes on Cilium. |
-| `network.loadbalancer_driver` | string | `cilium` with Cilium, `kube-vip` otherwise | `cilium`, `kube-vip`, `metallb`, or `none`. Cilium clusters accept only `cilium` or `none`. |
-| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
+| `network.loadbalancer_driver` | string | `cilium` with Cilium, `kube-vip` otherwise | `cilium`, `kube-vip`, `metallb`, or `none`. A Cilium cluster accepts only `cilium` or `none`. |
+| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin an address. |
 | `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |
-| `topology` | string | derived | `single-node` runs one Cilium operator. Everything else runs two. |
-| `telemetry.metrics.enabled` | boolean | `true` | Scrape Cilium and Hubble metrics with Prometheus. |
+| `topology` | string | derived | `single-node` runs one Cilium operator. All other values run two. |
+| `telemetry.metrics.enabled` | boolean | `true` | Prometheus scrapes the Cilium and Hubble metrics. |
 
 ## Reference
 

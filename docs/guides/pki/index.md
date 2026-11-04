@@ -4,9 +4,11 @@ description: TLS certificates through cert-manager, from Let's Encrypt, an inter
 sidebar_order: 5
 ---
 
-Every [gateway](../gateway/index.md) serves TLS, so before `my-app.example.com` answers over HTTPS, something has to sign a certificate for it. In Windsor that is *cert-manager*, which runs in every cluster and issues the certificate for each gateway along with the certificates a few add-ons need internally. Which authority signs a gateway's certificate depends on what the site has: a public zone Core can write, an ACME server of its own, a corporate CA, or nothing at all.
+Each [gateway](../gateway/index.md) serves TLS. Before `my-app.example.com` answers over HTTPS, a CA must sign a certificate for it. In Windsor, *cert-manager* gets these certificates. cert-manager runs in each cluster. It issues the certificate for each gateway, and the internal certificates that some add-ons need.
 
-`values.yaml` states those facts, and Core picks every issuer from them. This example, which the other PKI pages reuse, sets two domains and an ACME contact.
+The authority that signs a gateway certificate depends on what the site has. The site can have a public zone that Core can write, its own ACME server, or a corporate CA. It can also have none of these.
+
+`values.yaml` states these facts, and Core selects all issuers from them. This example sets two domains and an ACME contact. The other PKI pages use the same example.
 
 ```yaml
 dns:
@@ -15,94 +17,111 @@ dns:
 email: ops@example.com
 ```
 
-`dns.public_domain` gives the cluster an `external` gateway for `example.com`, and `dns.private_domain` gives it an `internal` gateway for `int.example.com`. `email` is the contact Let's Encrypt keeps on the account. On AWS both gateways get Let's Encrypt certificates. On metal, `internal` gets one from the [cluster CA](private-ca.md), which every cluster runs along with *trust-manager*, the controller that distributes the CA to workloads that opt in.
+`dns.public_domain` gives the cluster an `external` gateway for `example.com`. `dns.private_domain` gives it an `internal` gateway for `int.example.com`. `email` is the contact that Let's Encrypt keeps on the account.
+
+On AWS, both gateways get Let's Encrypt certificates. On metal, `internal` gets a certificate from the [cluster CA](private-ca.md). Each cluster runs the cluster CA. Each cluster also runs *trust-manager*, the controller that distributes the CA to workloads that opt in.
 
 ## Issuers
 
-cert-manager signs through an *issuer*, a resource that names a certificate authority and how to reach it. Core defines cluster-wide issuers as `ClusterIssuer` resources with fixed names, and add-ons refer to them by name. This table lists each one, what it signs with, and when it exists.
+cert-manager signs through an *issuer*. An issuer is a resource that names a certificate authority and how to connect to it. Core defines cluster-wide issuers as `ClusterIssuer` resources with fixed names. Add-ons refer to them by name. This table gives each issuer, what it signs with, and when it exists.
 
 | Issuer | Signs with | Exists when |
 |---|---|---|
-| `public-acme` | [Let's Encrypt](acme.md), through DNS-01 in the public zone Core writes. | A gateway uses it. |
+| `public-acme` | [Let's Encrypt](acme.md), through DNS-01 in the public zone that Core writes. | A gateway uses it. |
 | `private-acme` | The [internal ACME server](acme.md#internal-acme-server) in `pki.acme.server`. | A gateway uses it. |
-| `public-selfsigned` | A self-signed certificate per request. | A gateway uses it. Also on AWS, Azure, GCP, and Hetzner whenever no gateway uses `public-acme`, and always in dev mode. |
+| `public-selfsigned` | A self-signed certificate for each request. | A gateway uses it. Also on AWS, Azure, GCP, and Hetzner when no gateway uses `public-acme`, and always in dev mode. |
 | `private` | The [cluster CA](private-ca.md). | Always. |
 
-`private` also issues the certificates between CoreDNS and its etcd for [private DNS](../dns/private.md), and every other workload certificate an add-on requests, whichever issuer the gateways use.
+`private` also issues the certificates between CoreDNS and its etcd for [private DNS](../dns/private.md). It issues all other workload certificates that an add-on requests. The issuer of the gateways does not change this.
 
-When a gateway's issuer changes, cert-manager reissues its certificate into the same Secret, so the gateway keeps reading the same name.
+When the issuer of a gateway changes, cert-manager issues a new certificate into the same Secret. The gateway continues to read the same Secret name.
 
 ## Gateway certificates
 
-Each gateway infers its issuer on its own. A gateway that sets `gateway.<name>.tls.cert` serves that [supplied certificate](supplied.md) and uses no issuer. A gateway that sets `gateway.<name>.tls.issuer` uses the issuer it names. Otherwise Core walks the conditions in this table from the top and takes the first that holds.
+Core selects the issuer for each gateway separately. It uses these rules, in this order:
+
+1. A gateway with `gateway.<name>.https: false` has no HTTPS listener and no certificate.
+2. A gateway with `gateway.<name>.tls.cert` serves that [supplied certificate](supplied.md) and uses no issuer.
+3. A gateway with `gateway.<name>.tls.issuer` uses the issuer that it names.
+4. All other gateways use the first row in this table where the condition is true.
 
 | Gateway | Condition | Issuer |
 |---|---|---|
-| `external` | Core writes the public zone: `dns.public_domain` on AWS, Azure, GCP, or Hetzner, with `dns.public_zone` left `true` | `public-acme` |
+| `external` | Core writes the public zone: `dns.public_domain` on AWS, Azure, GCP, or Hetzner, and `dns.public_zone` is `true` | `public-acme` |
 | `external` | `pki.acme.server` is set | `private-acme` |
 | `external` | dev mode | `public-selfsigned` |
-| `external` | otherwise | none, and Windsor rejects the configuration |
+| `external` | all other cases | none. Windsor rejects the configuration. |
 | `internal` | `pki.acme.server` is set | `private-acme` |
 | `internal` | `dns.private_domain` is a subdomain of `dns.public_domain`, and Core writes the public zone | `public-acme` |
-| `internal` | otherwise | `private` |
+| `internal` | all other cases | `private` |
 
-The `internal` rows explain why the private domain SHOULD be a [subdomain of the public one](../dns/index.md#domains-and-gateways). Let's Encrypt validates a wildcard through a DNS-01 record it looks up in the public zone. For `int.example.com` that record lives in `example.com`, which Core already writes, so the `internal` gateway gets a certificate every browser trusts. A private domain outside the public zone has nowhere public to put the record.
+The `internal` rows show why the private domain SHOULD be a [subdomain of the public domain](../dns/index.md#domains-and-gateways). Let's Encrypt validates a wildcard through a DNS-01 record in the public zone. For `int.example.com`, that record is in `example.com`, which Core already writes. The `internal` gateway then gets a certificate that all browsers trust. A private domain outside the public zone has no public location for the record.
 
-`gateway.<name>.tls.issuer` takes one of three values. `ca` uses `private`, which suits a site that keeps internal hostnames out of Certificate Transparency logs. `acme` uses `pki.acme.server` or Let's Encrypt, and fails validation when neither is available to that gateway. `selfsigned` uses `public-selfsigned` and is meant for testing.
+`gateway.<name>.tls.issuer` has three values:
+
+- `ca` uses `private`. Use it to keep internal hostnames out of Certificate Transparency logs.
+- `acme` uses `pki.acme.server` or Let's Encrypt. Validation fails when neither is available to that gateway.
+- `selfsigned` uses `public-selfsigned`. It is for tests.
 
 > [!NOTE]
-> Browsers warn about every self-signed certificate, because each one is its own root.
+> Browsers show a warning for each self-signed certificate, because each one is its own root.
 
-The deprecated `pki.public_issuer: selfsigned` still acts as `gateway.external.tls.issuer: selfsigned`.
+The deprecated `pki.public_issuer: selfsigned` has the same effect as `gateway.external.tls.issuer: selfsigned`.
 
 ## Choosing a source on-prem
 
-A cluster on metal, vSphere, Hyper-V, Incus, or Proxmox has more choices to make, because its clients are often plant-floor devices that trust only the site's own roots. The options below run in order of preference. Each needs more from the site than the one after it, and gives clients a certificate they trust with less work.
+A cluster on metal, vSphere, Hyper-V, Incus, or Proxmox has more choices. Its clients are often plant-floor devices that trust only the roots of the site. This list gives the options in order of preference. Each option needs more from the site than the next option. In return, clients need less work to trust the certificate.
 
-1. Public ACME on a subdomain. When Core writes the public zone and `dns.private_domain` sits under `dns.public_domain`, both gateways get Let's Encrypt certificates and no client needs a private root. Core writes public zones only on AWS, Azure, GCP, and Hetzner, so an on-prem cluster cannot use this option yet. See [ACME](acme.md#internal-gateway).
-2. Internal ACME. A site whose ACME server pre-authorizes the gateway domains for its account sets `pki.acme.server`, and cert-manager renews the gateway certificates against it. A server that challenges each order does not work yet. See [Internal ACME server](acme.md#internal-acme-server).
-3. A subordinate CA. The site's PKI team signs a CSR for the cluster CA, so every certificate the cluster issues chains to the corporate root. See [Sign the cluster CA](private-ca.md#sign-the-cluster-ca).
-4. A supplied certificate. The PKI team issues a wildcard certificate for each gateway domain, and the operator renews it by hand. See [Supplied certificates](supplied.md).
-5. The generated CA. Core needs nothing from the site, and clients trust the gateway only after the CA's root is added to their trust stores. See [Cluster CA](private-ca.md).
+1. Public ACME on a subdomain. Core writes the public zone, and `dns.private_domain` is under `dns.public_domain`. Both gateways get Let's Encrypt certificates, and no client needs a private root. Core writes public zones only on AWS, Azure, GCP, and Hetzner. An on-prem cluster cannot use this option yet. See [ACME](acme.md#internal-gateway).
+2. Internal ACME. The site sets `pki.acme.server`, and cert-manager renews the gateway certificates from that server. The server must pre-authorize the gateway domains for the account. A server that challenges each order does not work yet. See [Internal ACME server](acme.md#internal-acme-server).
+3. A subordinate CA. The PKI team of the site signs a CSR for the cluster CA. All certificates that the cluster issues then chain to the corporate root. See [Sign the cluster CA](private-ca.md#sign-the-cluster-ca).
+4. A supplied certificate. The PKI team issues a wildcard certificate for each gateway domain. The operator renews it manually. See [Supplied certificates](supplied.md).
+5. The generated CA. Core needs nothing from the site. Clients trust the gateway only after you add the root of the CA to their trust stores. See [Cluster CA](private-ca.md).
 
-The generated CA is the default because it works with no input. It is the right choice for an air-gapped site with no corporate PKI, and for pilots and labs.
+The generated CA is the default, because it works with no input. Use it at an air-gapped site with no corporate PKI, and for pilots and labs.
 
 ## Behind the gateway
 
-The gateway ends TLS for clients and forwards to the backend inside the cluster. On Cilium clusters outside workstation contexts, [WireGuard](../cni/cilium.md#encryption) encrypts that pod traffic between nodes. A backend that speaks TLS itself, such as Keycloak, gets a `BackendTLSPolicy` from its add-on that verifies it against the cluster CA. Neither needs a setting.
+The gateway ends TLS for clients and sends the request to the backend in the cluster. On Cilium clusters outside workstation contexts, [WireGuard](../cni/cilium.md#encryption) encrypts that pod traffic between nodes. Some backends use TLS themselves, for example Keycloak. The add-on of such a backend adds a `BackendTLSPolicy` that verifies the backend against the cluster CA. These two features need no setting.
 
 ## Monitoring
 
-With `telemetry.metrics.enabled` (the default), Prometheus scrapes cert-manager, and an x509 exporter reads the `tls.crt` and `ca.crt` of every `kubernetes.io/tls` Secret. Two alerts fire from its metrics: `X509CertificateExpiringSoon` 30 days before a certificate expires, and `X509CertificateExpiring` 7 days before. They cover supplied certificates, which nothing renews, and the cluster CA, which cert-manager does not watch. `observability.enabled` adds a cert-manager dashboard.
+With `telemetry.metrics.enabled` (the default), Prometheus scrapes cert-manager. An x509 exporter reads `tls.crt` and `ca.crt` from each `kubernetes.io/tls` Secret. Two alerts use its metrics:
+
+- `X509CertificateExpiringSoon` fires 30 days before a certificate expires.
+- `X509CertificateExpiring` fires 7 days before a certificate expires.
+
+The alerts cover supplied certificates, which nothing renews. They also cover the cluster CA, which cert-manager does not monitor. `observability.enabled` adds a cert-manager dashboard.
 
 ## Operations
 
-On docker-desktop and Colima, cert-manager's controller can restart after the host sleeps. It logs `clockHealth failed: the system clock is out of sync` with `Reason: Completed`. On wake, the VM's wall clock jumps forward while the controller's monotonic clock does not, and the restart resets it.
+On docker-desktop and Colima, the cert-manager controller can restart after the host sleeps. It logs `clockHealth failed: the system clock is out of sync` with `Reason: Completed`. When the host wakes, the wall clock of the VM jumps forward. The monotonic clock of the controller does not jump. The restart resets the clock of the controller.
 
 > [!NOTE]
-> The restarts stop once the VM's clock settles.
+> The restarts stop when the clock of the VM is stable.
 
 ## Configuration
 
-This table lists every `values.yaml` key the PKI guides use.
+This table gives all the `values.yaml` keys that the PKI guides use.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `dns.public_domain` | string | none | Domain of the `external` gateway. Core writes its zone on AWS, Azure, GCP, and Hetzner. See [DNS](../dns/index.md). |
 | `dns.private_domain` | string | by platform | Domain of the `internal` gateway. SHOULD be a subdomain of `dns.public_domain`. |
 | `email` | string | none | ACME account contact. Required when a gateway uses `public-acme`. |
+| `gateway.<name>.https` | boolean | `true` | Serves `web-https`. With `false`, the gateway has no certificate. |
 | `gateway.<name>.tls.issuer` | string | inferred | `ca`, `acme`, or `selfsigned`. Ignored when `tls.cert` is set. |
 | `gateway.<name>.tls.cert` | string | none | PEM certificate chain, leaf first. MUST cover `<domain>` and `*.<domain>`. |
 | `gateway.<name>.tls.key` | string | none | PEM private key for `tls.cert`. |
 | `pki.acme.server` | string | none | Directory URL of an internal ACME server. |
-| `pki.acme.ca_bundle` | string | system roots | PEM CA that signs the ACME server's own TLS certificate. |
-| `pki.acme.eab.key_id` | string | none | External account binding key ID. Set with `hmac_key`. |
-| `pki.acme.eab.hmac_key` | string | none | External account binding HMAC key. Set with `key_id`. |
-| `pki.ca.cert` | string | generated | PEM CA certificate chain. Alone, the signed CSR. With `key`, a CA you bring. |
+| `pki.acme.ca_bundle` | string | system roots | PEM CA that signs the TLS certificate of the ACME server. |
+| `pki.acme.eab.key_id` | string | none | External account binding key ID. Set it with `hmac_key`. |
+| `pki.acme.eab.hmac_key` | string | none | External account binding HMAC key. Set it with `key_id`. |
+| `pki.ca.cert` | string | generated | PEM CA certificate chain. Alone, the signed CSR. With `key`, a CA that you supply. |
 | `pki.ca.key` | string | generated | PEM CA private key. Requires `cert`. |
-| `pki.trusted_cas` | list | none | PEM roots added to the trust bundle and the API server's OIDC CA file. |
-| `pki.public_issuer` | string | none | Deprecated. `selfsigned` acts as `gateway.external.tls.issuer: selfsigned`. |
-| `pki.private_ca` | object | none | Deprecated. Read as `pki.ca` when that is unset. |
+| `pki.trusted_cas` | list | none | PEM roots added to the trust bundle and to the OIDC CA file of the API server. |
+| `pki.public_issuer` | string | none | Deprecated. `selfsigned` has the same effect as `gateway.external.tls.issuer: selfsigned`. |
+| `pki.private_ca` | object | none | Deprecated. Read as `pki.ca` when `pki.ca` is not set. |
 | `pki.enabled` | boolean | none | Deprecated and ignored. The cluster CA always runs. |
 | `policies.enabled` | boolean | `true` | Installs the Kyverno policy that mounts the CA bundle into labeled pods. |
 
