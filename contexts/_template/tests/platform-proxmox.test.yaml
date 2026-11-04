@@ -624,6 +624,7 @@ cases:
           driver: flannel
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 0
       proxmox: *default-proxmox
