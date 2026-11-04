@@ -16,6 +16,34 @@ requires:
     paths:
       - cluster.endpoint
     message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+  - when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      len(filter(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), # == '')) > 0
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N.node
+    message: With both gateways on NodePort, set cluster.controlplanes.nodes.controlplane-N.node for each control plane to an address in network.cidr_block. A v0.8.0 cluster already has control plane N at host number 9 + N of that block.
+  - when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      len(filter((cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? ''), # == '')) > 0
+    paths:
+      - cluster.workers.nodes.worker-N.node
+    message: With both gateways on NodePort, set cluster.workers.nodes.worker-N.node for each worker to an address in network.cidr_block. A v0.8.0 cluster already has worker N at host number 19 + N of that block.
+  - when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      any(filter(concat(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), (cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? '')), # != ''),
+        !(# matches '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$') ||
+        cidrhost(# + '/' + split(network.cidr_block ?? '10.5.0.0/16', '/')[1], 0) != cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
+        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 0) ||
+        # == cidrhost(network.cidr_block ?? '10.5.0.0/16', 1))
+    paths:
+      - hyperv_effective.unsupported
+    message: With both gateways on NodePort, each node address MUST be an IPv4 address in network.cidr_block other than the network address and the host's first address.
+  - when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (let addresses = filter(concat(map(1..int(cluster.controlplanes.count ?? 1), (get(cluster.controlplanes.nodes ?? {}, 'controlplane-' + string(#)) ?? {}).node ?? ''), (cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), (get(cluster.workers.nodes ?? {}, 'worker-' + string(#)) ?? {}).node ?? '')), # != ''); len(uniq(addresses)) != len(addresses))
+    paths:
+      - hyperv_effective.unsupported
+    message: With both gateways on NodePort, each node in cluster.controlplanes.nodes and cluster.workers.nodes MUST have its own address.
 
 # =============================================================================
 # Config — Hyper-V-specific Talos values
@@ -98,29 +126,34 @@ config:
     value:
       gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
 
-  # Per-VM derivation lists (NodePort): each node is individually addressable
-  # via a distinct bench-side port forward, all derived from count.
-  # NAT-subnet IPs: controlplane-N → .(10+N-1), worker-N → .(20+N-1).
-  # Talos API forwards: cp-N → bench:(40000+N-1), worker-N → bench:(40100+N-1),
-  # both → :50000 in-VM. Base 40000 stays below Windows' 49152 dynamic-port
-  # floor (Add-NetNatStaticMapping rejects above it); disjoint 100-port ranges
-  # keep growing one role from renumbering the other's saved NAT mappings.
-  # Each entry has two forms: for_config {hostname,node,address} bakes the
-  # static IP into CIDATA seeds; for_cluster {hostname,node,endpoint} gives
-  # talosctl a bench-side host:port to reach each node.
+  # Guest IPv4 per NAT node, by pool position, from nodes.<name>.node.
+  - name: hyperv_nat_nodes
+    when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
+    value:
+      controlplanes: >-
+        ${map(1..int(cluster.controlplanes.count ?? 1),
+          (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) ?? {}).node ?? '')}
+      workers: >-
+        ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count),
+          (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) ?? {}).node ?? '')}
+
+  # Per-VM lists (NodePort). Talos API forwards: cp-N → bench:(40000+N-1),
+  # worker-N → bench:(40100+N-1), both → :50000 in-VM.
+  # for_config {hostname,node,address} bakes the static IP into CIDATA seeds;
+  # for_cluster {hostname,node,endpoint} gives talosctl a bench-side host:port.
   - name: hyperv_controlplanes
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       for_config: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["hostname", "controlplane-" + string(#)],
-          ["node", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #)],
-          ["address", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #) + "/" + hyperv_effective.nat_prefix_length]
+          ["node", hyperv_nat_nodes.controlplanes[# - 1]],
+          ["address", hyperv_nat_nodes.controlplanes[# - 1] + "/" + hyperv_effective.nat_prefix_length]
         ]))}
       for_cluster: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["hostname", "controlplane-" + string(#)],
-          ["node", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #)],
+          ["node", hyperv_nat_nodes.controlplanes[# - 1]],
           ["endpoint", hyperv_effective.bench_ip + ":" + string(39999 + #)]
         ]))}
 
@@ -130,13 +163,13 @@ config:
       for_config: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count ?? 0), fromPairs([
           ["hostname", "worker-" + string(#)],
-          ["node", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #)],
-          ["address", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #) + "/" + hyperv_effective.nat_prefix_length]
+          ["node", hyperv_nat_nodes.workers[# - 1]],
+          ["address", hyperv_nat_nodes.workers[# - 1] + "/" + hyperv_effective.nat_prefix_length]
         ]))}
       for_cluster: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count ?? 0), fromPairs([
           ["hostname", "worker-" + string(#)],
-          ["node", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #)],
+          ["node", hyperv_nat_nodes.workers[# - 1]],
           ["endpoint", hyperv_effective.bench_ip + ":" + string(40099 + #)]
         ]))}
 
@@ -384,7 +417,7 @@ terraform:
       extra_port_forwards: "${hyperv_effective.nat == true ? (gateway.publish_ports ?? {}) : {}}"
       # Default target = cp-1; per-port overrides redirect each Talos API
       # forward (40000+i) to its own node.
-      port_forward_target_ip: "${hyperv_effective.nat == true ? cidrhost(hyperv_effective.nat_internal_prefix, 10) : null}"
+      port_forward_target_ip: "${hyperv_effective.nat == true ? hyperv_nat_nodes.controlplanes[0] : null}"
       port_forward_target_overrides: "${hyperv_effective.nat == true ? nat_effective.talos_api_targets : {}}"
       # 0.0.0.0 = any host NIC. Pinning a bench IP would need
       # Add-NetNatExternalAddress first; identical on a single-LAN-NIC bench.
@@ -392,7 +425,7 @@ terraform:
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       cluster_name: talos
-      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (hyperv_effective.dhcp ? '' : ('https://' + (hyperv_effective.nat == true ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) : hyperv_controlplanes.nodes[0].ipv4) + ':6443'))}"
+      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (hyperv_effective.dhcp ? '' : ('https://' + (hyperv_effective.nat == true ? hyperv_nat_nodes.controlplanes[0] : hyperv_controlplanes.nodes[0].ipv4) + ':6443'))}"
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}

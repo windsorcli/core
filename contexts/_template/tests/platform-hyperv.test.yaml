@@ -182,7 +182,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -222,7 +222,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -268,7 +268,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -307,7 +307,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -554,7 +554,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -607,14 +607,14 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 1
           nodes:
             worker-1:
               hostname: worker-1
               endpoint: 192.168.3.77:40100
-              node: 192.168.3.77
+              node: 10.20.0.20
     terraformOutputs:
       compute:
         controlplanes: []
@@ -651,12 +651,7 @@ cases:
                 node: 10.20.0.20
                 endpoint: 192.168.3.77:40100
 
-  # Custom network.cidr_block: when the operator pins a non-default cluster
-  # network (collision with another routed range on the bench), every derived
-  # NAT field — internal prefix, host vNIC IP, per-node IPs, address CIDRs,
-  # port-forward target_overrides — relocates to the new subnet. Same
-  # network.cidr_block field describes the bench LAN on LAN-bridged paths;
-  # NodePort just interprets it as the NetNat-routed subnet.
+  # Custom network.cidr_block moves the NAT prefix and host address with it.
   - name: NodePort with custom network cidr_block relocates the entire NAT subnet
     values:
       platform: hyperv
@@ -672,8 +667,16 @@ cases:
         endpoint: https://192.168.3.77:6443
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.99.0.10
         workers:
           count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.99.0.20
     terraformOutputs:
       compute:
         controlplanes: []
@@ -716,7 +719,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     expectError: true
@@ -739,7 +742,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -770,7 +773,7 @@ cases:
             controlplane-1:
               hostname: controlplane-1
               endpoint: 192.168.3.77:40000
-              node: 192.168.3.77
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -904,6 +907,10 @@ cases:
         endpoint: https://192.168.3.77:6443
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -925,6 +932,257 @@ cases:
             instances:
               - name: controlplane-1
                 ipv4: 10.20.0.10
+
+  # Behind NAT, each pool position reads its address from nodes.<name>.node.
+  - name: NodePort takes each node address from its nodes entry
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.50
+        workers:
+          count: 2
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.20.0.7
+            worker-2:
+              endpoint: 192.168.3.77:40101
+              node: 10.20.0.200
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            cluster_endpoint: https://192.168.3.77:6443
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.50
+              - name: worker-1
+                ipv4: 10.20.0.7
+              - name: worker-2
+                ipv4: 10.20.0.200
+            port_forward_target_ip: 10.20.0.50
+            port_forward_target_overrides:
+              "40000": 10.20.0.50
+              "40100": 10.20.0.7
+              "40101": 10.20.0.200
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            workers:
+              - hostname: worker-1
+                node: 10.20.0.7
+                endpoint: 192.168.3.77:40100
+              - hostname: worker-2
+                node: 10.20.0.200
+                endpoint: 192.168.3.77:40101
+
+  # Entries past count are ignored, so lowering count keeps the address list.
+  - name: NodePort ignores nodes entries past count
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.20.0.20
+            worker-2:
+              endpoint: 192.168.3.77:40101
+              node: 10.20.0.21
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
+              - name: worker-1
+                ipv4: 10.20.0.20
+            port_forward_target_overrides:
+              "40000": 10.20.0.10
+              "40100": 10.20.0.20
+
+  - name: NodePort without a control plane address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
+  - name: NodePort with a worker position missing its nodes entry fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
+        workers:
+          count: 2
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.20.0.20
+    expectError: true
+
+  - name: NodePort with a node address outside cidr_block fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.30.0.20
+    expectError: true
+
+  - name: NodePort with a node on the host address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.1
+        workers:
+          count: 0
+    expectError: true
+
+  - name: NodePort with a node on the network address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.0
+        workers:
+          count: 0
+    expectError: true
+
+  - name: NodePort with a hostname as a node address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: node1.example
+        workers:
+          count: 0
+    expectError: true
+
+  - name: NodePort with two nodes on one address fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: 10.20.0.0/24
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.77:40100
+              node: 10.20.0.10
+    expectError: true
 
   # Guest IPv4 from cluster.*.nodes; cidr_block and gateway stay the shared LAN.
   - name: declared node IPs override cidrhost offsets on a shared LAN
@@ -1263,6 +1521,10 @@ cases:
         endpoint: https://192.168.3.77:6443
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.77:40000
+              node: 10.20.0.10
         workers:
           count: 0
     terraformOutputs:
