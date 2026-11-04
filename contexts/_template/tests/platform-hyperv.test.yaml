@@ -114,6 +114,10 @@ cases:
           url: mirror.test
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
         workers:
           count: 0
     terraformOutputs:
