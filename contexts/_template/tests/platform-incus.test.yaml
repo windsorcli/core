@@ -43,9 +43,73 @@ x-defaults:
 
 
 cases:
-  # Minimal: Test default behavior with minimal required fields
-  # No cluster.controlplanes.nodes: composition must not index an empty node map
-  - name: composes with no controlplane nodes declared
+  # DHCP: the bridge leases each guest an address and no nodes map is needed.
+  - name: dhcp composes with no nodes declared
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+        workers:
+          count: 2
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+                config:
+                  user.hostname: controlplane-1
+              - name: worker-0
+                role: worker
+                count: 1
+                ipv4: null
+                config:
+                  user.hostname: worker-1
+              - name: worker-1
+                role: worker
+                count: 1
+                ipv4: null
+                config:
+                  user.hostname: worker-2
+
+  # Declared node addresses become one instance each, as static DHCP leases.
+  - name: declared node addresses become per-instance leases
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                ipv4: 10.5.0.10
+                config:
+                  user.hostname: controlplane-1
+              - name: worker
+                role: worker
+                ipv4: 10.5.0.20
+                config:
+                  user.hostname: worker-1
+
+  # Without DHCP, a pool with no declared addresses fails composition.
+  - name: nodes omitted without dhcp fails composition
     values:
       platform: incus
       gateway:
@@ -53,11 +117,27 @@ cases:
       network: *default-network
       cluster:
         driver: talos
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      terraform:
-        - name: compute
-          path: compute/incus
+    expectError: true
+
+  # Without DHCP, a worker missing from the nodes map fails composition.
+  - name: worker without address or dhcp fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+    expectError: true
 
   - name: cluster.vip passes the VIP interface to the cluster step
     values:
@@ -248,6 +328,12 @@ cases:
               endpoint: 10.10.0.10:50000
               node: 10.10.0.10
               hostname: cp-1
+            controlplane-2:
+              endpoint: 10.10.0.11:50000
+              node: 10.10.0.11
+            controlplane-3:
+              endpoint: 10.10.0.12:50000
+              node: 10.10.0.12
         workers:
           count: 2
           cpu: 8
@@ -259,6 +345,9 @@ cases:
               endpoint: 10.10.0.20:50000
               node: 10.10.0.20
               hostname: wk-1
+            worker-2:
+              endpoint: 10.10.0.21:50000
+              node: 10.10.0.21
         storage:
           local_base_path: /mnt/storage
     terraformOutputs:
@@ -498,6 +587,10 @@ cases:
           count: 1
           volumes:
             - /var/mnt/longhorn
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
         storage:
           driver: longhorn
           local_base_path: /var/mnt/longhorn

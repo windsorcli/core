@@ -1653,3 +1653,533 @@ cases:
             - name: external
               components:
                 - certificate
+
+
+  - name: LoadBalancer gateways admit ListenerSets from labeled namespaces
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
+                - allowed-listeners
+                - envoy/default-404
+            - name: internal
+              components:
+                - allowed-listeners
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - no-web-https
+            - name: internal
+              components:
+                - no-web-https
+
+  - name: NodePort gateways without node_ports admit no ListenerSets
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+
+  - name: an address without a domain provisions no gateway
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          ip: "10.5.1.11"
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+
+  - name: enabled external gateway without a domain gives up 443
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - allowed-listeners
+                - no-web-https
+                - envoy/parameters
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_domain: ""
+                gateway_loadbalancer_ip: "10.5.1.11"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
+                - envoy/default-404
+                - envoy/default-404/external-dns
+
+  - name: enabled internal gateway without a domain serves a supplied certificate and publishes no records
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        driver: envoy
+        external:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+        internal:
+          enabled: true
+          ip: "10.5.1.10"
+          tls:
+            cert: CERT
+            key: KEY
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - envoy/default-404
+              substitutions:
+                gateway_tls_secret: internal-supplied-tls
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+                - no-web-https
+                - envoy/default-404/external-dns
+                - dns
+
+  - name: a gateway with a domain drops its certificate when it gives up 443
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+          https: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - no-web-https
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - certificate
+                - envoy/default-404
+
+  - name: cilium gateway without a domain admits ListenerSets
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: cilium
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              dependsOn:
+                - cni-install
+              components:
+                - cilium
+                - cilium/fixed-ip
+                - allowed-listeners
+                - no-web-https
+
+  - name: a gateway without a domain and without a certificate source fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: a supplied certificate on a gateway without https fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+          https: false
+          tls:
+            cert: CERT
+            key: KEY
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: an issuer on a gateway without https fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        external:
+          ip: "10.5.1.11"
+          https: false
+          tls:
+            issuer: selfsigned
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: an enabled gateway without a domain on metal still needs an address
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        external:
+          enabled: true
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: disabling a gateway that has a domain fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          enabled: false
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: enabling the hetzner internal gateway fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      gateway:
+        internal:
+          enabled: true
+    expectError: true
+
+  - name: NodePort gateway with node_ports admits ListenerSets through a listeners Service
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30310
+            "993": 30993
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - allowed-listeners
+                - envoy/nodeport
+                - envoy/nodeport/listeners
+              substitutions:
+                gateway_listener_ports: >-
+                  [{"name": "tcp-3010","nodePort": 30310,"port": 3010,"protocol": "TCP","targetPort": 3010},{"name":
+                  "tcp-993","nodePort": 30993,"port": 993,"protocol": "TCP","targetPort": 10993}]
+
+  - name: docker-desktop publishes node_ports listener ports on the host
+    values:
+      platform: docker
+      dns:
+        private_domain: test
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          enabled: true
+          https: false
+          node_ports:
+            "3010": 30310
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                hostports:
+                  - 8080:30080/tcp
+                  - 8443:30443/tcp
+                  - 8081:30081/tcp
+                  - 8444:30444/tcp
+                  - 3010:30310/tcp
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - allowed-listeners
+                - envoy/nodeport
+                - envoy/nodeport/docker-desktop
+                - envoy/nodeport/listeners
+
+  - name: node_ports on a LoadBalancer gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+          node_ports:
+            "3010": 30310
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: node_ports on a cilium gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        driver: cilium
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30310
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: node_ports listing a port the gateway already serves fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "9292": 30310
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: node_ports reusing a core node port fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3010": 30081
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: node_ports reusing a custom gateway node_port fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          service_type: NodePort
+          node_port: 30500
+          node_ports:
+            "3010": 30500
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: one node port in both gateways' node_ports fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: test
+      gateway:
+        driver: envoy
+        external:
+          service_type: NodePort
+          tls:
+            issuer: selfsigned
+          node_ports:
+            "3010": 30310
+        internal:
+          service_type: NodePort
+          node_ports:
+            "3011": 30310
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: one listener port on both gateways on docker-desktop fails composition
+    values:
+      platform: docker
+      dns:
+        private_domain: test
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          enabled: true
+          https: false
+          node_ports:
+            "3010": 30310
+        internal:
+          node_ports:
+            "3010": 30311
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expectError: true

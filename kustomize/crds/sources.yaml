@@ -89,4 +89,4 @@ manifests:
       set:
         - providerRegex=^.+$
         - bypassDnsResolution=true
-    dest: terraform/cluster/talos/manifests/kubelet-csr-approver.yaml
+    dest: contexts/_template/manifests/kubelet-csr-approver.yaml

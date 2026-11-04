@@ -6,7 +6,12 @@ description: Gateway API implementation (Envoy Gateway or Cilium) and the cluste
 The cluster's traffic entrypoints, via the Kubernetes Gateway API. Two
 Gateways can exist: `external`, provisioned when `dns.public_domain` is
 set, and `internal`, provisioned when `dns.private_domain` is set
-(workstation and dev mode default it to `test`). Two driver options.
+(workstation and dev mode default it to `test`). A gateway also exists
+without its domain when `gateway.<name>.enabled` is `true`; it then
+publishes no DNS records. A LoadBalancer gateway admits `ListenerSet`
+resources from namespaces labeled `gateway.windsorcli.dev/<name>: "true"`. A
+NodePort gateway admits them too when `gateway.<name>.node_ports` maps each
+listener port to a node port. Two driver options.
 
 Envoy Gateway is the default: a dedicated control-plane and data-plane
 Envoy stack installed by Helm. It is heavier than Cilium's built-in path
@@ -145,7 +150,9 @@ flux:
 
 NodePort skips the LB controller and forwards via host ports. The
 `/dns` and `/flux-webhook` sub-overlays open the additional NodePort
-slots needed for in-cluster DNS and Flux push-mode webhooks.
+slots needed for in-cluster DNS and Flux push-mode webhooks. With
+`gateway.<name>.node_ports` set, `/listeners` adds a second NodePort
+Service for ListenerSet ports.
 
 ### Envoy on AWS (NLB)
 
@@ -246,7 +253,7 @@ flux:
 |---|---|---|
 | `gateway_name` | `gateway-resources-external` or `gateway-resources-internal` is composed | `external` or `internal` -- the Gateway/EnvoyProxy/Certificate name this resources variant renders. Every resource and patch in the resources tier is parameterized by this one substitution, so both gateways share the same files. |
 | `gateway_class_name` | always | Name of the `GatewayClass` the cluster Gateway references. Sourced from `gateway.driver` (`envoy` or `cilium`). |
-| `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal -- no fallback ladder, since each variant only composes when its own domain is set. |
+| `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal. Empty for a gateway that exists only to admit ListenerSets. |
 | `gateway_tls_secret` | `gateway-resources-external` or `gateway-resources-internal` is composed | Secret the HTTPS listener serves. `<name>-web-tls` from the `certificate` component, or `<name>-supplied-tls` when `gateway.<name>.tls.cert` supplies the certificate. |
 | `gateway_cert_issuer` | `certificate` is composed | TLS `ClusterIssuer` name: `public-acme`, `private-acme`, `private`, or `public-selfsigned`. The facet infers it per gateway unless `gateway.<name>.tls.issuer` sets it. |
 | `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `lb_effective.enabled`, empty otherwise. |
@@ -254,6 +261,7 @@ flux:
 | `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
 | `gateway_redirect_port` | `gateway-resources-external` or `gateway-resources-internal` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` internal, `8444` external). |
 | `gateway_nodeport_http / gateway_nodeport_https` | this gateway's service type is `NodePort` | NodePort numbers for this gateway's data-plane Service. Internal: 30080 and `gateway.internal.node_port` (default 30443). External: 30081 and `gateway.external.node_port` (default 30444). |
+| `gateway_listener_ports` | `gateway-resources-external` or `gateway-resources-internal` is composed | JSON array of Service ports for `gateway.<name>.node_ports`, sorted by listener port. Read only by `envoy/nodeport/listeners`. |
 
 ## Components — `gateway-install`
 
@@ -279,7 +287,7 @@ Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` cont
 
 ### `certificate`
 
-_Enabled unless `gateway.<name>.tls.cert` is set._
+_Enabled when this gateway serves `web-https` AND `gateway.<name>.tls.cert` is not set._
 
 cert-manager `Certificate` for `${gateway_domain}` and `*.${gateway_domain}` from `${gateway_cert_issuer}`, written to the `${gateway_name}-web-tls` Secret. With a supplied certificate the facet places a `kubernetes.io/tls` Secret named `${gateway_name}-supplied-tls` in `system-gateway` instead, and renewal is manual.
 
@@ -361,6 +369,12 @@ _Enabled when envoy/nodeport AND internal gateway AND `gitops.mode == 'push'`._
 
 Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Internal-only, since the webhook receiver is a utility surface.
 
+### `envoy/nodeport/listeners`
+
+_Enabled when envoy/nodeport AND `gateway.<name>.node_ports` is not empty._
+
+Adds the `${gateway_name}-listeners` NodePort Service, which selects this gateway's Envoy pods and takes its port list from `gateway_listener_ports`. Each `gateway.<name>.node_ports` entry becomes one TCP port. The target is Envoy's container port: the listener port itself from 1024 up, or the listener port plus 10000 below that. On docker-desktop each listener port is also published as a host port on the first node's container.
+
 ### `resources/cilium`
 
 _Enabled when `gateway.driver == 'cilium'` AND no cloud LB controller owns the IP._
@@ -387,19 +401,19 @@ Patches this Gateway's `spec.infrastructure.parametersRef` to point at its own `
 
 ### `envoy/default-404`
 
-_Enabled when envoy driver._
+_Enabled when envoy driver AND this gateway serves `web-https`._
 
 Catch-all `HTTPRoute` (`default-404-${gateway_name}`) returning a 404 directResponse for any request that doesn't match a real app's HTTPRoute, via a shared `HTTPRouteFilter` referenced by both gateways. Cilium clusters don't ship this (the Envoy-specific CRD isn't available there).
 
 ### `envoy/default-404/external-dns`
 
-_Enabled when envoy driver AND this gateway's own DNS zone exists._
+_Enabled when envoy driver AND this gateway serves `web-https` AND its domain is set._
 
 Adds the `external-dns.alpha.kubernetes.io/hostname` annotation to the 404 catch-all route so external-dns publishes the gateway hostname for the bare domain (not just per-app HTTPRoutes).
 
 ### `dns`
 
-_Enabled when internal gateway only._
+_Enabled when internal gateway AND `dns.private_domain` is set._
 
 Patches the internal Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure. Always internal -- CoreDNS is a utility surface, never internet-facing.
 
@@ -414,6 +428,18 @@ Patches this Gateway's `spec.addresses` to pin a fixed IPAddress (`${gateway_loa
 _Enabled when internal gateway AND `gitops.mode == 'push'`._
 
 Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters. Always internal -- the webhook receiver is a utility surface.
+
+### `allowed-listeners`
+
+_Enabled when this gateway's service type is `LoadBalancer`, or `gateway.<name>.node_ports` is not empty._
+
+Sets `spec.allowedListeners` to a `Selector` on the label `gateway.windsorcli.dev/${gateway_name}: "true"`, so `ListenerSet` resources in namespaces with that label attach their listeners to this Gateway's address. A NodePort gateway without `node_ports` does not get it, because no Service carries a ListenerSet port to its node ports.
+
+### `no-web-https`
+
+_Enabled when `gateway.<name>.https` is `false`._
+
+Removes the `web-https` listener so a `ListenerSet` can take port 443. `web-http` and its redirect stay.
 
 ## Dependencies
 
