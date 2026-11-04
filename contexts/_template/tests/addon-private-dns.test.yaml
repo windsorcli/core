@@ -52,7 +52,6 @@ cases:
               - coredns/prometheus
               - coredns/loadbalancer
               - coredns/cilium
-              - external-dns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
   - name: full config creates CoreDNS on Docker Desktop
@@ -89,7 +88,6 @@ cases:
               - coredns/etcd
               - coredns/prometheus
               - coredns/gateway
-              - external-dns
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
   # so dns depends on gateway-install (not cni) and gets coredns/gateway instead of coredns/loadbalancer.
@@ -127,7 +125,6 @@ cases:
               - coredns/etcd
               - coredns/prometheus
               - coredns/gateway
-              - external-dns
     exclude:
       flux:
         - name: cni
@@ -164,7 +161,6 @@ cases:
               - coredns/prometheus
               - coredns/loadbalancer
               - coredns/cilium
-              - external-dns
 
   # Edge: Envoy gateway path includes coredns/gateway for DNS routing through
   # the gateway, and external-dns/gateway-httproute so external-dns watches
@@ -199,7 +195,6 @@ cases:
               - coredns/etcd
               - coredns/prometheus
               - coredns/gateway
-              - external-dns
 
   # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-install (it doesn't exist).
   - name: private dns with gateway disabled does not depend on gateway-install

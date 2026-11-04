@@ -26,7 +26,7 @@ spec:
       version: 0.9.1
       sourceRef:
         kind: HelmRepository
-        name: hcloud
+        name: cert-manager-webhook-hetzner
   values:
     groupName: acme.hetzner.com
     certManager:

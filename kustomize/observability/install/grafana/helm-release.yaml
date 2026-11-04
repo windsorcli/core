@@ -15,14 +15,9 @@ spec:
   upgrade:
     remediation:
       retries: -1
-  chart:
-    spec:
-      chart: grafana
-      # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
-      version: 10.5.15
-      sourceRef:
-        kind: HelmRepository
-        name: grafana
+  chartRef:
+    kind: OCIRepository
+    name: grafana
   values:
     grafana.ini:
       date_formats:

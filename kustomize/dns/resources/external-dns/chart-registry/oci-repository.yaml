@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: ${external_dns_name}
+  namespace: system-dns
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/external-dns
+  ref:
+    # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
+    tag: 1.23.0
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

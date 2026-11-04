@@ -1,0 +1,10 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: cluster-tenant
+  namespace: system-object-store
+spec:
+  interval: 10m
+  timeout: 3m
+  url: https://operator.min.io/

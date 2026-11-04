@@ -116,6 +116,7 @@ flux:
         - longhorn
         - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
         - "${topology == 'ha' ? 'longhorn/ha' : ''}"
+        - "${chart_registry != '' ? 'longhorn/chart-registry' : ''}"
       timeout: 20m
       interval: 5m
     # longhorn/prometheus in resources, not install: avoids a csi-install <->

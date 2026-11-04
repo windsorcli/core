@@ -13,14 +13,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: fluent-operator
-      # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
-      version: 4.3.0
-      sourceRef:
-        kind: HelmRepository
-        name: fluent
+  chartRef:
+    kind: OCIRepository
+    name: fluent-operator
   values:
     operator:
       image:

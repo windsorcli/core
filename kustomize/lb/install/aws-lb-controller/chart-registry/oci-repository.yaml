@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: aws-load-balancer-controller
+  namespace: system-lb
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/aws-load-balancer-controller
+  ref:
+    # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
+    tag: 3.6.0
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

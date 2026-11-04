@@ -1,0 +1,196 @@
+---
+# Copies every Helm chart core installs into the registry set by charts.registry.
+apiVersion: mirror.plugin.fluxcd.io/v1beta1
+kind: Config
+charts:
+  - name: aws-load-balancer-controller
+    source: https://aws.github.io/eks-charts
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
+    version: 3.6.0
+  - name: cert-manager-webhook-hetzner
+    source: https://charts.hetzner.cloud
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=cert-manager-webhook-hetzner package=cert-manager-webhook-hetzner helmRepo=https://charts.hetzner.cloud
+    version: 0.9.1
+  - name: cluster-autoscaler
+    source: https://kubernetes.github.io/autoscaler
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=cluster-autoscaler package=cluster-autoscaler helmRepo=https://kubernetes.github.io/autoscaler
+    version: 9.59.0
+  - name: crossplane
+    source: https://charts.crossplane.io/stable
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=crossplane package=crossplane helmRepo=https://charts.crossplane.io/stable
+    version: 2.4.3
+  - name: elasticsearch
+    source: https://helm.elastic.co
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=elasticsearch package=elasticsearch helmRepo=https://helm.elastic.co
+    version: 8.5.1
+  - name: external-dns
+    source: https://kubernetes-sigs.github.io/external-dns
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
+    version: 1.23.0
+  - name: filebeat
+    source: https://helm.elastic.co
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=filebeat package=filebeat helmRepo=https://helm.elastic.co
+    version: 8.5.1
+  - name: hcloud-cloud-controller-manager
+    source: https://charts.hetzner.cloud
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=hcloud-cloud-controller-manager package=hcloud-cloud-controller-manager helmRepo=https://charts.hetzner.cloud
+    version: 1.39.2
+  - name: hcloud-csi
+    source: https://charts.hetzner.cloud
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=hcloud-csi package=hcloud-csi helmRepo=https://charts.hetzner.cloud
+    version: 2.24.0
+  - name: kibana
+    source: https://helm.elastic.co
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=kibana package=kibana helmRepo=https://helm.elastic.co
+    version: 8.5.1
+  - name: kube-vip
+    source: https://kube-vip.github.io/helm-charts
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=kube-vip package=kube-vip helmRepo=https://kube-vip.github.io/helm-charts
+    version: 0.11.2
+  - name: kube-vip-cloud-provider
+    source: https://kube-vip.github.io/helm-charts
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=kube-vip-cloud-provider package=kube-vip-cloud-provider helmRepo=https://kube-vip.github.io/helm-charts
+    version: 0.2.10
+  - name: longhorn
+    source: https://charts.longhorn.io
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
+    version: 1.13.0
+  - name: metrics-server
+    source: https://kubernetes-sigs.github.io/metrics-server
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=metrics-server package=metrics-server helmRepo=https://kubernetes-sigs.github.io/metrics-server/
+    version: 3.14.0
+  - name: operator
+    source: https://operator.min.io
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=minio-operator package=operator helmRepo=https://operator.min.io
+    version: 7.1.1
+  - name: quickwit
+    source: https://helm.quickwit.io
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=quickwit package=quickwit helmRepo=https://helm.quickwit.io
+    version: 0.8.17
+  - name: tenant
+    source: https://operator.min.io
+    destination: oci://${CHART_REGISTRY}
+    # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
+    version: 7.1.1
+artifacts:
+  - source: quay.io/jetstack/charts/cert-manager
+    destination: ${CHART_REGISTRY}/cert-manager
+    selector:
+      regex:
+        pattern: '^v'
+      # renovate: datasource=docker depName=quay.io/jetstack/charts/cert-manager package=quay.io/jetstack/charts/cert-manager
+      semver: v1.21.2
+  - source: quay.io/cilium/charts/cilium
+    destination: ${CHART_REGISTRY}/cilium
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
+      semver: 1.20.3
+  - source: ghcr.io/cloudnative-pg/charts/cloudnative-pg
+    destination: ${CHART_REGISTRY}/cloudnative-pg
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/charts/cloudnative-pg package=ghcr.io/cloudnative-pg/charts/cloudnative-pg
+      semver: 0.29.1
+  - source: ghcr.io/coredns/charts/coredns
+    destination: ${CHART_REGISTRY}/coredns
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/coredns/charts/coredns package=ghcr.io/coredns/charts/coredns
+      semver: 1.49.0
+  - source: ghcr.io/fluent/helm-charts/fluent-operator
+    destination: ${CHART_REGISTRY}/fluent-operator
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
+      semver: 4.3.0
+  - source: ghcr.io/controlplaneio-fluxcd/charts/flux-instance
+    destination: ${CHART_REGISTRY}/flux-instance
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
+      semver: 0.61.0
+  - source: ghcr.io/controlplaneio-fluxcd/charts/flux-operator
+    destination: ${CHART_REGISTRY}/flux-operator
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
+      semver: 0.61.0
+  - source: docker.io/envoyproxy/gateway-helm
+    destination: ${CHART_REGISTRY}/gateway-helm
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=envoyproxy/gateway-helm package=envoyproxy/gateway-helm
+      semver: 1.9.3
+  - source: ghcr.io/grafana-community/helm-charts/grafana
+    destination: ${CHART_REGISTRY}/grafana
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
+      semver: 10.5.15
+  - source: ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    destination: ${CHART_REGISTRY}/kube-prometheus-stack
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/prometheus-community/charts/kube-prometheus-stack package=ghcr.io/prometheus-community/charts/kube-prometheus-stack
+      semver: 88.6.5
+  - source: ghcr.io/kyverno/charts/kyverno
+    destination: ${CHART_REGISTRY}/kyverno
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
+      semver: 3.9.2
+  - source: quay.io/metallb/chart/metallb
+    destination: ${CHART_REGISTRY}/metallb
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
+      semver: 0.16.1
+  - source: ghcr.io/openebs/charts/openebs
+    destination: ${CHART_REGISTRY}/openebs
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=ghcr.io/openebs/charts/openebs package=ghcr.io/openebs/charts/openebs
+      semver: 4.6.2
+  - source: quay.io/jetstack/charts/trust-manager
+    destination: ${CHART_REGISTRY}/trust-manager
+    selector:
+      regex:
+        pattern: '^v'
+      # renovate: datasource=docker depName=quay.io/jetstack/charts/trust-manager package=quay.io/jetstack/charts/trust-manager
+      semver: v0.25.0
+  - source: quay.io/enix/charts/x509-certificate-exporter
+    destination: ${CHART_REGISTRY}/x509-certificate-exporter
+    selector:
+      regex:
+        pattern: '^[0-9]'
+      # renovate: datasource=docker depName=quay.io/enix/charts/x509-certificate-exporter package=quay.io/enix/charts/x509-certificate-exporter
+      semver: 4.2.3

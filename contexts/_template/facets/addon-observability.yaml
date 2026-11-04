@@ -63,6 +63,8 @@ flux:
         - prometheus/flux
         - filebeat
         - metrics-server
+        - "${chart_registry != '' ? 'filebeat/chart-registry' : ''}"
+        - "${chart_registry != '' ? 'metrics-server/chart-registry' : ''}"
       timeout: 30m
       interval: 10m
     resources:
@@ -174,6 +176,7 @@ flux:
         - quickwit/pvc
         - quickwit/prometheus
         - "${observability.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
+        - "${chart_registry != '' ? 'quickwit/chart-registry' : ''}"
     resources:
       - dependsOn:
           - telemetry-resources
@@ -196,6 +199,8 @@ flux:
       components:
         - elasticsearch
         - kibana
+        - "${chart_registry != '' ? 'elasticsearch/chart-registry' : ''}"
+        - "${chart_registry != '' ? 'kibana/chart-registry' : ''}"
     resources:
       - dependsOn:
           - gateway-resources-internal

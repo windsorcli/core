@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: hcloud-cloud-controller-manager
+  namespace: system-lb
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/hcloud-cloud-controller-manager
+  ref:
+    # renovate: datasource=helm depName=hcloud-cloud-controller-manager package=hcloud-cloud-controller-manager helmRepo=https://charts.hetzner.cloud
+    tag: 1.39.2
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

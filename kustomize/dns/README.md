@@ -23,9 +23,10 @@ selections.
 ## Recipes
 
 `external-dns` runs everywhere DNS publication is needed and watches
-Gateway / HTTPRoute resources. The install tier holds the HelmRepository. The resources tier holds the
-one ServiceAccount every instance shares (the `account` variant) and runs
-one instance per zone as a named variant (`public`, `private`). The
+Gateway / HTTPRoute resources. The install tier creates the `system-dns`
+namespace. The resources tier holds the one ServiceAccount every instance
+shares (the `account` variant) and runs one instance per zone as a named
+variant (`public`, `private`), each with its own HelmRepository. The
 provider component selects where each instance writes records. coredns and
 etcd only run when private DNS is opted in.
 
@@ -52,8 +53,7 @@ flowchart LR
 ```yaml
 - name: dns
   dependsOn: [policy-resources, gateway-install]
-  install:
-    components: [external-dns]
+  install: {}
   resources:
     - name: account
       components: [service-account]
@@ -95,8 +95,7 @@ flowchart LR
 ```yaml
 - name: dns
   dependsOn: [policy-resources, gateway-install]
-  install:
-    components: [external-dns]
+  install: {}
   resources:
     - name: account
       components:
@@ -151,7 +150,6 @@ flowchart LR
   dependsOn: [pki-install]
   install:
     components:
-      - external-dns
       - coredns
       - coredns/etcd
       - coredns/loadbalancer

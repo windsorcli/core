@@ -2,7 +2,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: hcloud
+  name: hcloud-csi
   namespace: system-csi
 spec:
   interval: 10m

@@ -333,9 +333,6 @@ cases:
                 acme_dns_zone: example.com
                 acme_dns_zone_project: windsor-test
         - name: dns
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:
@@ -376,9 +373,6 @@ cases:
     expect:
       flux:
         - name: dns
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:
@@ -517,9 +511,6 @@ cases:
     expect:
       flux:
         - name: dns
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:
@@ -553,9 +544,6 @@ cases:
     expect:
       flux:
         - name: dns
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:

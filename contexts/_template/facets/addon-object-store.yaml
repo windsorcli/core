@@ -21,5 +21,6 @@ flux:
     install:
       components:
         - minio
+        - "${chart_registry != '' ? 'minio/chart-registry' : ''}"
       timeout: 10m
       interval: 5m

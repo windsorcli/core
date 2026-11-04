@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: metrics-server
+  namespace: system-telemetry
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/metrics-server
+  ref:
+    # renovate: datasource=helm depName=metrics-server package=metrics-server helmRepo=https://kubernetes-sigs.github.io/metrics-server/
+    tag: 3.14.0
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

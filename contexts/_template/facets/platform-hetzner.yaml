@@ -299,6 +299,7 @@ flux:
     resources:
       - components:
           - "${pki_effective.issuer_component}"
+          - "${chart_registry != '' && pki_effective.issuer_component == 'public-issuer/acme/hetzner' ? 'public-issuer/acme/hetzner/chart-registry' : ''}"
         timeout: 5m
         interval: 5m
         substitutions:
@@ -339,6 +340,7 @@ flux:
     install:
       components:
         - hcloud-ccm
+        - "${chart_registry != '' ? 'hcloud-ccm/chart-registry' : ''}"
       substitutions:
         hcloud_location: "${hetzner.location ?? 'ash'}"
       timeout: 5m
@@ -357,6 +359,7 @@ flux:
     install:
       components:
         - hcloud-csi
+        - "${chart_registry != '' ? 'hcloud-csi/chart-registry' : ''}"
       timeout: 5m
       interval: 5m
 
@@ -368,8 +371,6 @@ flux:
         data:
           token: ${hetzner.token}
     install:
-      components:
-        - external-dns
       timeout: 5m
       interval: 5m
     resources:
@@ -385,6 +386,7 @@ flux:
           - external-dns
           - external-dns/providers/hetzner
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"

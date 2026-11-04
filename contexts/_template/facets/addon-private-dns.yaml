@@ -64,7 +64,6 @@ flux:
         - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"
         - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
-        - external-dns
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns.public_domain ?? ''}"
@@ -86,6 +85,7 @@ flux:
           - external-dns
           - external-dns/providers/coredns
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
@@ -98,6 +98,7 @@ flux:
           - external-dns
           - external-dns/providers/coredns
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-private
           external_dns_domain: ${dns.private_domain}

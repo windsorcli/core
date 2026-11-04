@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: cluster-autoscaler
+  namespace: system-compute
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/cluster-autoscaler
+  ref:
+    # renovate: datasource=helm depName=cluster-autoscaler package=cluster-autoscaler helmRepo=https://kubernetes.github.io/autoscaler
+    tag: 9.59.0
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

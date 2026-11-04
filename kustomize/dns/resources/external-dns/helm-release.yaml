@@ -21,7 +21,7 @@ spec:
       version: 1.23.0
       sourceRef: 
         kind: HelmRepository
-        name: external-dns
+        name: ${external_dns_name}
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:

@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: minio-operator
+  namespace: system-object-store
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/operator
+  ref:
+    # renovate: datasource=helm depName=minio-operator package=operator helmRepo=https://operator.min.io
+    tag: 7.1.1
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
