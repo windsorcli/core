@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=helm depName=kibana package=kibana helmRepo=https://helm.elastic.co
     tag: 8.5.1
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

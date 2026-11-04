@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=helm depName=metrics-server package=metrics-server helmRepo=https://kubernetes-sigs.github.io/metrics-server/
     tag: 3.14.0
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

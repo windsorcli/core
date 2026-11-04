@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=helm depName=quickwit package=quickwit helmRepo=https://helm.quickwit.io
     tag: 0.8.17
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

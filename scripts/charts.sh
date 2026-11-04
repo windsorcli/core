@@ -87,6 +87,12 @@ for entry in "cni/cilium cilium cilium_version" \
   fi
 done
 
+# shellcheck disable=SC2016
+while IFS= read -r file; do
+  [ "$(yq 'select(.kind == "OCIRepository") | .spec.insecure' "$file")" = '${chart_registry_insecure:=false}' ] ||
+    fail "$file: spec.insecure must be \${chart_registry_insecure:=false}"
+done < <(find "$KUSTOMIZE_DIR" -name oci-repository.yaml | sort)
+
 while IFS= read -r file; do
   fail "$file: HelmRepository type oci; use an OCIRepository"
 done < <(grep -rl --include='*.yaml' -E '^\s+type: oci\s*$' "$KUSTOMIZE_DIR" || true)

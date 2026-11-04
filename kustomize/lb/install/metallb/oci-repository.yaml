@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
     tag: 0.16.1
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

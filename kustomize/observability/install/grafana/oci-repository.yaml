@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
     tag: 10.5.15
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

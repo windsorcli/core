@@ -381,6 +381,13 @@ reference it through `secretRef`. Core does not create or copy the secret.
 `flux mirror secret` can write it from the same `hosts` credentials the sync
 uses.
 
+A workstation context can host the chart registry for local tests. When
+`charts.registry` names `<name>.<dns domain>`, the `workstation` facet adds a
+local registry called `<name>` and sets the `chart_registry_insecure`
+substitution, so every OCIRepository pulls over plain HTTP. Helm falls back to
+plain HTTP by itself, so the Terraform-installed charts need no setting. Every
+other context keeps TLS.
+
 ### 9. OCI charts pin a digest and verify the vendor's signature
 
 Each OCIRepository MUST set `ref.digest` next to `ref.tag`, so the cluster
