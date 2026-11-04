@@ -12,6 +12,10 @@ x-defaults:
     driver: talos
     controlplanes:
       count: 1
+      nodes: &default-cp-nodes
+        controlplane-1:
+          endpoint: 10.10.0.10:50000
+          node: 10.10.0.10
     workers:
       count: 0
 
@@ -93,6 +97,7 @@ cases:
         endpoint: https://10.10.0.5:6443
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 0
       proxmox: *default-proxmox
@@ -117,6 +122,7 @@ cases:
         endpoint: https://10.10.0.5:6443
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 0
       proxmox: *default-proxmox
@@ -149,8 +155,8 @@ cases:
                 config_patches: "machine: {}"
             workers: []
 
-  # Workers get cidrhost offset 20 and pool position names.
-  - name: proxmox workers get cidrhost offset 20 and pool names
+  # Workers take their declared addresses and pool position names.
+  - name: proxmox workers take declared addresses and pool names
     values:
       platform: proxmox
       gateway:
@@ -160,8 +166,16 @@ cases:
         driver: talos
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 2
+          nodes:
+            worker-1:
+              node: 10.10.0.20
+              endpoint: 10.10.0.20:50000
+            worker-2:
+              node: 10.10.0.21
+              endpoint: 10.10.0.21:50000
       proxmox: *default-proxmox
     expect:
       terraform:
@@ -180,8 +194,8 @@ cases:
                 role: worker
                 ipv4: 10.10.0.21
 
-  # Declared node IPs on a shared LAN override the cidrhost offsets.
-  - name: proxmox declared node IPs override cidrhost offsets
+  # Declared node IPs on a shared LAN become the guest addresses.
+  - name: proxmox declared node IPs become guest addresses
     values:
       platform: proxmox
       gateway:
@@ -219,8 +233,29 @@ cases:
           inputs:
             cluster_endpoint: https://10.10.0.51:6443
 
-  # A sparse nodes map keeps declared IPs and falls back to cidrhost for the rest.
-  - name: proxmox sparse nodes map falls back to cidrhost
+  # Without DHCP, a worker missing from the nodes map fails composition.
+  - name: proxmox sparse nodes map without dhcp fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes: *default-cp-nodes
+        workers:
+          count: 2
+          nodes:
+            worker-2:
+              node: 10.10.0.99
+              endpoint: 10.10.0.99:50000
+      proxmox: *default-proxmox
+    expectError: true
+
+  # Without DHCP, a control plane with no declared address fails composition.
+  - name: proxmox control plane without address or dhcp fails composition
     values:
       platform: proxmox
       gateway:
@@ -231,11 +266,30 @@ cases:
         controlplanes:
           count: 1
         workers:
-          count: 2
+          count: 0
+      proxmox: *default-proxmox
+    expectError: true
+
+  # A declared MAC flows to the guest NIC for a router reservation.
+  - name: proxmox declared mac_address flows to compute
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
           nodes:
-            worker-2:
-              node: 10.10.0.99
-              endpoint: 10.10.0.99:50000
+            controlplane-1:
+              node: 10.10.0.10
+              endpoint: 10.10.0.10:50000
+              mac_address: "BC:24:11:00:00:01"
+        workers:
+          count: 0
       proxmox: *default-proxmox
     expect:
       terraform:
@@ -243,11 +297,8 @@ cases:
           inputs:
             instances:
               - name: controlplane
-                ipv4: 10.10.0.10
-              - name: worker-1
-                ipv4: 10.10.0.20
-              - name: worker-2
-                ipv4: 10.10.0.99
+                ipv4: null
+                mac_address: "BC:24:11:00:00:01"
 
   # Optional proxmox keys flow through to the compute inputs.
   - name: proxmox optional settings flow through to compute inputs
@@ -323,9 +374,12 @@ cases:
       platform: proxmox
       gateway:
         enabled: false
-      network: *default-network
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
       cluster:
         driver: talos
+        endpoint: https://10.10.0.5:6443
         controlplanes:
           count: 3
         workers:
@@ -490,6 +544,7 @@ cases:
         endpoint: https://10.10.0.5:6443
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 0
       proxmox: *default-proxmox
@@ -536,6 +591,7 @@ cases:
           driver: flannel
         controlplanes:
           count: 1
+          nodes: *default-cp-nodes
         workers:
           count: 0
       proxmox: *default-proxmox
