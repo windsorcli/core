@@ -813,6 +813,8 @@ cases:
         workers: []
     expect:
       config:
+        talos_oidc:
+          public_ca: true
         talos_common:
           common_patch:
             cluster:
