@@ -1,0 +1,17 @@
+---
+# NodePort Service for this gateway's ListenerSet ports, one entry per gateway.<name>.node_ports pair.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${gateway_name}-listeners
+  namespace: system-gateway
+spec:
+  type: NodePort
+  externalTrafficPolicy: Cluster
+  selector:
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
+    gateway.envoyproxy.io/owning-gateway-name: ${gateway_name}
+    gateway.envoyproxy.io/owning-gateway-namespace: system-gateway
+  ports: ${gateway_listener_ports}

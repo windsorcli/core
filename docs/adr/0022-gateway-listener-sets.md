@@ -138,15 +138,52 @@ spec:
 A `TCP` listener carries one service per port. Several services MAY share a
 port only through `TLS` listeners with distinct hostnames, which needs DNS.
 
-### 2. NodePort gateways admit no ListenerSets
+### 2. `node_ports` admits ListenerSets on a NodePort gateway
 
-A NodePort Gateway gets no `allowedListeners`, and a ListenerSet that names it
-reports `NotAllowed`. Core writes a NodePort gateway's Service ports at compose
-time, each with a fixed node port, and a label carries no port. A later change
-MAY add `gateway.<name>.node_ports`, a map from listener port to node port in
-the format of `gateway.publish_ports`, before that gateway admits ListenerSets.
-It needs Envoy Gateway's container port for each listener port, and
-docker-desktop needs the port published from the VM.
+A NodePort gateway admits ListenerSets only when `gateway.<name>.node_ports` is
+set. The field maps each listener port to a node port, in the format of
+`gateway.publish_ports`:
+
+```yaml
+gateway:
+  external:
+    node_ports:
+      "3010": 30310
+```
+
+A label carries no port, and a NodePort Service needs a fixed node port for
+each one. A NodePort gateway without `node_ports` gets no `allowedListeners`,
+and a ListenerSet that names it reports `NotAllowed`.
+
+With `node_ports` set, the gateway gets the `allowed-listeners` component, and
+the `envoy/nodeport/listeners` component adds a second NodePort Service,
+`<gateway>-listeners`. That Service selects the gateway's Envoy pods and has one
+port per entry. Its target is Envoy's container port: Envoy Gateway v1.9.2 keeps
+a listener port of 1024 or above as the container port and adds 10000 to a
+lower one (`servicePortToContainerPort` in `internal/gatewayapi/listener.go`).
+`"3010": 30310` targets 3010, and `"993": 30993` targets 10993. The facet writes
+the port list as one JSON array in the `gateway_listener_ports` substitution.
+Flux substitutes it into the Service as a YAML flow sequence. A separate Service
+avoids patching Envoy's Service, whose port list the `envoy/nodeport` component
+and its sub-components build with a fixed number of entries.
+
+On docker-desktop the cluster runs in a container, so a node port is reachable
+from the host only when that container publishes it. Each entry also adds a
+`<listener>:<node port>/tcp` host port to the first node's container, after
+`cluster.<role>.hostports` or its default. Port 3010 on the host reaches the
+listener on 3010. Colima and Linux reach node ports at the node address, so they
+publish nothing.
+
+`requires` rules reject:
+
+- `node_ports` on a LoadBalancer gateway, or with `gateway.driver` `cilium`.
+- A listener port the gateway already serves: 80 and 443, and 53 and 9292 on
+  the internal gateway.
+- A node port core assigns: 30080, 30081, 30053, 30292, or either gateway's
+  `node_port`.
+- One node port in both gateways' maps, or twice in one map.
+- On docker-desktop, one listener port on both gateways, or a listener port of
+  8080, 8081, 8443, or 8444, since each is a host port there.
 
 ### 3. `https: false` removes `web-https`
 
@@ -186,7 +223,9 @@ carries `flux-webhook` on 9292 in push mode.
 ### 5. Driver support
 
 Both drivers support ListenerSet at the pinned versions, so no `requires` rule
-rejects the setting by driver.
+rejects a LoadBalancer gateway by driver. Core has no NodePort handling for
+Cilium gateways, so `gateway.<name>.node_ports` MUST NOT be set with the
+`cilium` driver, and a `requires` rule rejects it.
 
 ## Consequences
 
@@ -199,8 +238,11 @@ rejects the setting by driver.
 - A chart that takes 443 on a gateway with `https: false` owns every hostname on
   443 there. Core HTTPRoutes on that gateway, such as Keycloak's, attach only to
   `web-http`, whose redirect sends clients to the chart's listener.
-- `values.yaml` gains two fields per gateway. Existing contexts render the same
+- `values.yaml` gains three fields per gateway. Existing contexts render the same
   Gateway as before, plus `allowedListeners` on LoadBalancer gateways.
+- A NodePort gateway's ListenerSet ports go through a second Service, so
+  `kubectl get svc -n system-gateway` lists `<gateway>-listeners` beside the
+  Envoy Service.
 - Facets that need a gateway with a hostname keep testing the domain. The
   gateway facet tests the new `gateway_effective.external_enabled` and
   `gateway_effective.internal_enabled` values for whether a Gateway exists.

@@ -19,6 +19,50 @@ requires:
       - gateway_effective.unsupported
     message: gateway.<name>.node_port applies only to service_type NodePort.
   - when: >-
+      (len(gateway.external.node_ports ?? {}) > 0 && gateway_exposure.external == 'LoadBalancer') ||
+      (len(gateway.internal.node_ports ?? {}) > 0 && gateway_exposure.internal == 'LoadBalancer')
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.<name>.node_ports applies only to service_type NodePort.
+  - when: >-
+      gateway.driver == 'cilium' &&
+      (len(gateway.external.node_ports ?? {}) > 0 || len(gateway.internal.node_ports ?? {}) > 0)
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.<name>.node_ports needs gateway.driver envoy.
+  - when: >-
+      any(keys(gateway.external.node_ports ?? {}), # in ['80', '443']) ||
+      any(keys(gateway.internal.node_ports ?? {}), # in ['53', '80', '443', '9292'])
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      gateway.<name>.node_ports MUST NOT list a port the gateway already serves:
+      80 and 443, and 53 and 9292 on the internal gateway.
+  - when: >-
+      (let core = [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port,
+      gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port, 30053, 30292];
+      any(concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {})), # in core))
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      gateway.<name>.node_ports MUST NOT reuse a node port core assigns: 30080, 30081, 30053, 30292,
+      or either gateway's node_port.
+  - when: >-
+      (let ports = concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {}));
+      len(uniq(ports)) != len(ports))
+    paths:
+      - gateway_effective.unsupported
+    message: Each node port in gateway.<name>.node_ports MUST be unique across both gateways.
+  - when: >-
+      workstation.runtime == 'docker-desktop' &&
+      (let ports = concat(keys(gateway.external.node_ports ?? {}), keys(gateway.internal.node_ports ?? {}));
+      len(uniq(ports)) != len(ports) || any(ports, # in ['8080', '8081', '8443', '8444']))
+    paths:
+      - gateway_effective.unsupported
+    message: >-
+      On docker-desktop, each gateway.<name>.node_ports listener port is a host port. It MUST differ
+      across the two gateways and from 8080, 8081, 8443, and 8444.
+  - when: >-
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       ((gateway.external.ip ?? '') != '' || (gateway.internal.ip ?? '') != '')
     paths:
@@ -133,6 +177,20 @@ config:
         ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true)}
       external_https: ${gateway.external.https ?? true}
       internal_https: ${gateway.internal.https ?? true}
+      # Host port mappings that publish each gateway.<name>.node_ports listener port on docker-desktop.
+      listener_hostports: >-
+        ${concat(
+        map(sort(keys(gateway.external.node_ports ?? {})), # + ':' + string((gateway.external.node_ports ?? {})[#]) + '/tcp'),
+        map(sort(keys(gateway.internal.node_ports ?? {})), # + ':' + string((gateway.internal.node_ports ?? {})[#]) + '/tcp'))}
+      # Service ports for gateway.<name>.node_ports, as one-line JSON for the envoy/nodeport/listeners Service.
+      external_listener_ports: >-
+        ${replace(replace(toJSON(map(sort(keys(gateway.external.node_ports ?? {})), ({"name": "tcp-" + #, "protocol": "TCP",
+        "port": int(#), "targetPort": int(#) < 1024 ? int(#) + 10000 : int(#),
+        "nodePort": (gateway.external.node_ports ?? {})[#]}))), "\n", ""), "  ", "")}
+      internal_listener_ports: >-
+        ${replace(replace(toJSON(map(sort(keys(gateway.internal.node_ports ?? {})), ({"name": "tcp-" + #, "protocol": "TCP",
+        "port": int(#), "targetPort": int(#) < 1024 ? int(#) + 10000 : int(#),
+        "nodePort": (gateway.internal.node_ports ?? {})[#]}))), "\n", ""), "  ", "")}
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -181,8 +239,10 @@ flux:
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
           - "${gateway_effective.external_https == true && (gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway_effective.external_https != true ? 'no-web-https' : ''}"
-          # Admits ListenerSets from labeled namespaces on a LoadBalancer gateway.
-          - "${gateway_effective.external_mode == 'loadbalancer' ? 'allowed-listeners' : ''}"
+          # Admits ListenerSets from labeled namespaces on a LoadBalancer gateway, or a NodePort gateway with node_ports.
+          - >-
+            ${gateway_effective.external_mode == 'loadbalancer' || len(gateway.external.node_ports ?? {}) > 0 ?
+            'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
           - >-
@@ -199,6 +259,9 @@ flux:
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
+          - >-
+            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
+            len(gateway.external.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
@@ -224,6 +287,7 @@ flux:
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.external_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.external_node_port}
+          gateway_listener_ports: ${gateway_effective.external_listener_ports}
           gateway_host_http_port: 8081
           gateway_host_https_port: 8444
         timeout: 10m
@@ -240,7 +304,9 @@ flux:
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
           - "${gateway_effective.internal_https == true && (gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
           - "${gateway_effective.internal_https != true ? 'no-web-https' : ''}"
-          - "${gateway_effective.internal_mode == 'loadbalancer' ? 'allowed-listeners' : ''}"
+          - >-
+            ${gateway_effective.internal_mode == 'loadbalancer' || len(gateway.internal.node_ports ?? {}) > 0 ?
+            'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
           - >-
@@ -263,6 +329,9 @@ flux:
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
+          - >-
+            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            len(gateway.internal.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           - "${gateway.driver != 'cilium' && gateway_effective.internal_https == true ? 'envoy/default-404' : ''}"
           - >-
@@ -289,6 +358,7 @@ flux:
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.internal_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.internal_node_port}
+          gateway_listener_ports: ${gateway_effective.internal_listener_ports}
           gateway_host_http_port: 8080
           gateway_host_https_port: 8443
         timeout: 10m

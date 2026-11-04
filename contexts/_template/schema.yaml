@@ -1352,6 +1352,15 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+          node_ports:
+            type: object
+            propertyNames:
+              pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+            additionalProperties:
+              type: integer
+              minimum: 30000
+              maximum: 32767
+            description: Map of ListenerSet listener port to node port, such as "3010" to 30310. Admits ListenerSets on a NodePort gateway. On docker-desktop, each listener port is also published on the host.
           https:
             type: boolean
             default: true
@@ -1398,6 +1407,15 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+          node_ports:
+            type: object
+            propertyNames:
+              pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+            additionalProperties:
+              type: integer
+              minimum: 30000
+              maximum: 32767
+            description: Map of ListenerSet listener port to node port, such as "3010" to 30310. Admits ListenerSets on a NodePort gateway. On docker-desktop, each listener port is also published on the host.
           https:
             type: boolean
             default: true
