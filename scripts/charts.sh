@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fail when a Helm chart source breaks the charts.registry layout or flux-mirror.yaml misses a chart.
 #
-# A chart lives in charts.registry at <registry>/<chart name>:<chart version>. A base OCIRepository
+# A chart lives in charts.registry at <registry>/[<prefix>/]<chart name>:<chart version>, where the
+# prefix is the path after ${CHART_REGISTRY} in the chart's flux-mirror.yaml destination. A base OCIRepository
 # carries `${chart_registry:=<upstream base>}/<chart>`. An HTTP chart's HelmRelease carries a sibling
 # chart-registry/ component whose OCIRepository carries `${chart_registry}/<chart>`. flux-mirror.yaml MUST
 # list every chart and version the manifests and Terraform stacks pin, and nothing else.
@@ -15,6 +16,15 @@ errors=0
 fail() {
   echo "error: $*" >&2
   errors=$((errors + 1))
+}
+
+# Path after ${CHART_REGISTRY} in a chart's flux-mirror.yaml destination, with a trailing slash when set.
+mirror_prefix() {
+  local dest
+  dest=$(CHART="$1" yq -r '.charts[] | select(.name == strenv(CHART)) | .destination' "$MIRROR_CONFIG")
+  dest="${dest#'oci://${CHART_REGISTRY}'}"
+  dest="${dest#/}"
+  [ -z "$dest" ] || printf '%s/' "$dest"
 }
 
 # Rows of: chart<TAB>version<TAB>upstream. upstream is an oci:// chart reference, or an HTTP
@@ -63,7 +73,8 @@ while IFS= read -r file; do
     tag=$(yq 'select(.kind == "OCIRepository") | .spec.ref.tag' "$oci")
     [ "$oci_name" = "$name" ] || fail "$oci: OCIRepository is $oci_name, HelmRelease is $name"
     [ "$tag" = "$version" ] || fail "$oci: tag $tag does not match HelmRelease version $version"
-    [ "$url" = "\${chart_registry}/$chart" ] || fail "$oci: url must be \${chart_registry}/$chart, got $url"
+    want_url="\${chart_registry}/$(mirror_prefix "$chart")$chart"
+    [ "$url" = "$want_url" ] || fail "$oci: url must be $want_url, got $url"
     rows+=("$chart	$tag	${upstream_url%/} $chart")
   done < <(yq -r 'select(.kind == "HelmRelease" and .spec.chart.spec.sourceRef.kind == "HelmRepository") |
     [.metadata.name, .metadata.namespace, .spec.chart.spec.chart, .spec.chart.spec.version, .spec.chart.spec.sourceRef.name] | @tsv' "$file")
@@ -99,7 +110,8 @@ done < <(printf '%s\n' "${rows[@]}" | awk -F'\t' '{print $1 "\t" $3}' | sort -u 
 # flux-mirror.yaml entries, in the same row format.
 mirror_rows=()
 while IFS=$'\t' read -r name version source destination; do
-  [ "$destination" = "oci://\${CHART_REGISTRY}" ] || fail "$MIRROR_CONFIG: chart $name destination must be oci://\${CHART_REGISTRY}"
+  [[ "$destination" == 'oci://${CHART_REGISTRY}' || "$destination" == 'oci://${CHART_REGISTRY}/'* ]] ||
+    fail "$MIRROR_CONFIG: chart $name destination must start with oci://\${CHART_REGISTRY}"
   mirror_rows+=("$name	$version	${source%/} $name")
 done < <(yq -r '.charts[] | [.name, .version, .source, .destination] | @tsv' "$MIRROR_CONFIG")
 while IFS=$'\t' read -r source version pattern destination; do

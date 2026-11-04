@@ -32,7 +32,8 @@ CHART_REGISTRY="$REGISTRY" flux mirror sync "$MIRROR_CONFIG" "$@"
 
 # Rows of: chart<TAB>version, from both entry kinds.
 rows=$(
-  yq -r '.charts[] | [.name, .version] | @tsv' "$MIRROR_CONFIG"
+  yq -r '.charts[] | [.destination, .name, .version] | @tsv' "$MIRROR_CONFIG" |
+    awk -F'\t' '{ sub(/^oci:\/\/\$\{CHART_REGISTRY\}\/?/, "", $1); print ($1 == "" ? "" : $1 "/") $2 "\t" $3 }'
   yq -r '.artifacts[] | [(.source | split("/") | .[-1]), .selector.semver] | @tsv' "$MIRROR_CONFIG"
 )
 
@@ -44,7 +45,7 @@ while IFS=$'\t' read -r chart version; do
   fi
   name=$(yq '.name' <<<"$meta")
   chart_version=$(yq '.version' <<<"$meta")
-  [ "$name" = "$chart" ] || fail "$ref:$version: Chart.yaml name is $name"
+  [ "$name" = "${chart##*/}" ] || fail "$ref:$version: Chart.yaml name is $name"
   [ "$chart_version" = "$version" ] || fail "$ref:$version: Chart.yaml version is $chart_version"
   echo "ok $chart $version"
 done <<<"$rows"

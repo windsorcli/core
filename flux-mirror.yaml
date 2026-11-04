@@ -75,7 +75,7 @@ charts:
     version: 3.14.0
   - name: operator
     source: https://operator.min.io
-    destination: oci://${CHART_REGISTRY}
+    destination: oci://${CHART_REGISTRY}/minio
     # renovate: datasource=helm depName=minio-operator package=operator helmRepo=https://operator.min.io
     version: 7.1.1
   - name: quickwit
@@ -85,7 +85,7 @@ charts:
     version: 0.8.17
   - name: tenant
     source: https://operator.min.io
-    destination: oci://${CHART_REGISTRY}
+    destination: oci://${CHART_REGISTRY}/minio
     # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
     version: 7.1.1
 artifacts:
