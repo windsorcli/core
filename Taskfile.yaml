@@ -21,6 +21,11 @@ tasks:
     cmds:
       - scripts/charts.sh
 
+  charts:test:
+    desc: Copy every Helm chart into a local registry and pull each one back by name and version (needs docker and flux mirror)
+    cmds:
+      - scripts/charts-test.sh {{.CLI_ARGS}}
+
   charts:mirror:
     desc: Copy every Helm chart into a registry with flux mirror (set CHART_REGISTRY; pass flux mirror sync flags after --)
     requires:
