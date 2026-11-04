@@ -97,6 +97,10 @@ $defs:
             - $ref: '#/$defs/ipv4'
             - $ref: '#/$defs/dnsHostname'
           description: Node identifier — IPv4 dotted-quad (typical for static-node providers) or a DNS-labelled hostname. Used by talosctl and downstream facets to address the machine.
+        mac_address:
+          type: string
+          pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
+          description: Fixed guest NIC MAC address on Hyper-V and Proxmox, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -861,9 +865,10 @@ properties:
         type: boolean
         default: false
         description: >
-          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP and
-          compute reports the leased addresses. More than one control plane
-          requires cluster.endpoint, which MUST sit outside the DHCP scope;
+          When true, Hyper-V, vSphere, Proxmox, and Incus guests take IPv4 from DHCP and
+          compute reports the leased addresses. When false, every node MUST have an
+          address in cluster.controlplanes.nodes or cluster.workers.nodes. More than one
+          control plane requires cluster.endpoint, which MUST sit outside the DHCP scope;
           control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
       ntp_servers:
         type: array
@@ -946,9 +951,10 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named control plane node configurations. On Hyper-V, vSphere, and
-              Proxmox, node/endpoint IPv4 is the guest NIC address unless
-              network.dhcp is true; network.cidr_block and network.gateway stay the shared LAN.
+              Named control plane node configurations. On Hyper-V, vSphere, Proxmox,
+              and Incus, node/endpoint IPv4 is the guest NIC address unless
+              network.dhcp is true. Without DHCP, every control plane MUST have an
+              entry keyed controlplane-1 to controlplane-N.
               Hyper-V names guests by pool position (controlplane, or
               controlplane-N when count > 1) and ignores hostname, which keys
               the VM, its disk and its seed ISO.
@@ -967,9 +973,10 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named worker node configurations. On Hyper-V, vSphere, and Proxmox,
-              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
-              true. On Hyper-V, hostname is ignored the same way it is for
+              Named worker node configurations. On Hyper-V, vSphere, Proxmox, and
+              Incus, node/endpoint IPv4 is the guest NIC address unless network.dhcp
+              is true. Without DHCP, every worker MUST have an entry keyed worker-1
+              to worker-N. On Hyper-V, hostname is ignored the same way it is for
               control planes.
           volumes:
             type: array
