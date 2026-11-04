@@ -580,7 +580,12 @@ flux:
           private_acme_server: "${pki.acme.server ?? ''}"
           private_acme_email: "${email ?? ''}"
           private_acme_eab_key_id: "${pki.acme.eab.key_id ?? ''}"
-          private_acme_ca_bundle: "${(pki.acme.ca_bundle ?? '') != '' ? toBase64(pki.acme.ca_bundle) : ''}"
+          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
+          private_acme_ca_bundle: >-
+            ${(pki.acme.ca_bundle ?? '') == '' ? '' :
+            (hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
+            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
+            toBase64(pki.acme.ca_bundle))}
         timeout: 5m
         interval: 5m
 
