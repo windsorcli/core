@@ -79,7 +79,7 @@ spec:
 
 A chart published only over HTTP keeps a `helm-repository.yaml` HelmRepository, named after its HelmRelease and used by no other release, and `spec.chart` in its HelmRelease. Next to it, a `chart-registry/` component replaces the HelmRepository with an OCIRepository at `${chart_registry}/<chart name>` and switches the HelmRelease to `chartRef`. Its `ref.tag` MUST match the HelmRelease's `spec.chart.spec.version`, under the same renovate annotation. Facets add the component after the base component when `chart_registry != ''`.
 
-A chart lives in `charts.registry` at `<chart name>:<chart version>`, the reference `helm push` writes, so every pinned version MUST be the chart's `Chart.yaml` version. Every chart and version MUST also appear in `flux-mirror.yaml`, under the same renovate annotation. Run `task charts:mirror CHART_REGISTRY=<registry>` to fill a registry with Flux Mirror.
+A chart lives in `charts.registry` at `<chart name>:<chart version>`, the reference `helm push` writes, so every pinned version MUST be the chart's `Chart.yaml` version. An HTTP chart's `chart-registry/` OCIRepository MAY put the chart under a path prefix, `${chart_registry}/<prefix>/<chart>`, when the chart name is generic. To fill a registry for one context, run `windsor show artifacts --charts-to <registry> -o flux-mirror | flux mirror sync -`.
 
 ## Kustomization Configuration
 
