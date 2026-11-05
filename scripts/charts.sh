@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Fail when a Helm chart source breaks the charts.registry layout or flux-mirror.yaml misses a chart.
+# Fail when a Helm chart source breaks the charts.registry layout.
 #
-# A chart lives in charts.registry at <registry>/<chart name>:<chart version>. A base OCIRepository
+# A chart lives in charts.registry at <registry>/[<prefix>/]<chart name>:<chart version>. A base OCIRepository
 # carries `${chart_registry:=<upstream base>}/<chart>`. An HTTP chart's HelmRelease carries a sibling
-# chart-registry/ component whose OCIRepository carries `${chart_registry}/<chart>`. flux-mirror.yaml MUST
-# list every chart and version the manifests and Terraform stacks pin, and nothing else.
+# chart-registry/ component whose OCIRepository carries `${chart_registry}/[<prefix>/]<chart>`.
 
 set -euo pipefail
 
 KUSTOMIZE_DIR="kustomize"
-MIRROR_CONFIG="flux-mirror.yaml"
 
 errors=0
 fail() {
@@ -17,7 +15,7 @@ fail() {
   errors=$((errors + 1))
 }
 
-# Rows of: chart<TAB>version<TAB>upstream. upstream is an oci:// chart reference, or an HTTP
+# Rows of: chart<TAB>version<TAB>upstream<TAB>prefix. upstream is an oci:// chart reference, or an HTTP
 # repository URL followed by a space and the chart name.
 rows=()
 
@@ -26,7 +24,7 @@ while IFS= read -r file; do
   url=$(yq 'select(.kind == "OCIRepository") | .spec.url' "$file")
   tag=$(yq 'select(.kind == "OCIRepository") | .spec.ref.tag' "$file")
   if [[ "$url" =~ ^\$\{chart_registry:=(oci://[^}]+)\}/([^/]+)$ ]]; then
-    rows+=("${BASH_REMATCH[2]}	$tag	${BASH_REMATCH[1]}/${BASH_REMATCH[2]}")
+    rows+=("${BASH_REMATCH[2]}	$tag	${BASH_REMATCH[1]}/${BASH_REMATCH[2]}	")
   else
     fail "$file: url must be \${chart_registry:=<upstream base>}/<chart>, got $url"
   fi
@@ -63,8 +61,13 @@ while IFS= read -r file; do
     tag=$(yq 'select(.kind == "OCIRepository") | .spec.ref.tag' "$oci")
     [ "$oci_name" = "$name" ] || fail "$oci: OCIRepository is $oci_name, HelmRelease is $name"
     [ "$tag" = "$version" ] || fail "$oci: tag $tag does not match HelmRelease version $version"
-    [ "$url" = "\${chart_registry}/$chart" ] || fail "$oci: url must be \${chart_registry}/$chart, got $url"
-    rows+=("$chart	$tag	${upstream_url%/} $chart")
+    prefix=""
+    if [[ "$url" =~ ^\$\{chart_registry\}/(.*/)?${chart}$ ]]; then
+      prefix="${BASH_REMATCH[1]}"
+    else
+      fail "$oci: url must be \${chart_registry}/[<prefix>/]$chart, got $url"
+    fi
+    rows+=("$chart	$tag	${upstream_url%/} $chart	$prefix")
   done < <(yq -r 'select(.kind == "HelmRelease" and .spec.chart.spec.sourceRef.kind == "HelmRepository") |
     [.metadata.name, .metadata.namespace, .spec.chart.spec.chart, .spec.chart.spec.version, .spec.chart.spec.sourceRef.name] | @tsv' "$file")
 done < <(grep -rl --include='*.yaml' 'kind: HelmRelease' "$KUSTOMIZE_DIR" | sort)
@@ -81,7 +84,7 @@ for entry in "cni/cilium cilium cilium_version" \
   base=$(tf_default "$vars" chart_repository)
   version=$(tf_default "$vars" "$version_var")
   if [[ "$base" == oci://* && -n "$version" ]]; then
-    rows+=("$chart	$version	${base%/}/$chart")
+    rows+=("$chart	$version	${base%/}/$chart	")
   else
     fail "$vars: expected an oci:// chart_repository default and a $version_var default"
   fi
@@ -97,31 +100,10 @@ while IFS= read -r file; do
   fail "$file: HelmRepository type oci; use an OCIRepository"
 done < <(grep -rl --include='*.yaml' -E '^\s+type: oci\s*$' "$KUSTOMIZE_DIR" || true)
 
-# helm push names the reference after the chart, so two upstream charts MUST NOT share a name.
+# helm push names the reference after the chart, so two upstream charts MUST NOT share a prefix and name.
 while IFS= read -r dup; do
-  fail "chart name $dup comes from more than one upstream"
-done < <(printf '%s\n' "${rows[@]}" | awk -F'\t' '{print $1 "\t" $3}' | sort -u | cut -f1 | uniq -d)
-
-# flux-mirror.yaml entries, in the same row format.
-mirror_rows=()
-while IFS=$'\t' read -r name version source destination; do
-  [ "$destination" = "oci://\${CHART_REGISTRY}" ] || fail "$MIRROR_CONFIG: chart $name destination must be oci://\${CHART_REGISTRY}"
-  mirror_rows+=("$name	$version	${source%/} $name")
-done < <(yq -r '.charts[] | [.name, .version, .source, .destination] | @tsv' "$MIRROR_CONFIG")
-while IFS=$'\t' read -r source version pattern destination; do
-  chart="${source##*/}"
-  [ "$destination" = "\${CHART_REGISTRY}/$chart" ] || fail "$MIRROR_CONFIG: $source destination must be \${CHART_REGISTRY}/$chart"
-  if [[ "$version" == v* ]]; then want='^v'; else want='^[0-9]'; fi
-  [ "$pattern" = "$want" ] || fail "$MIRROR_CONFIG: $source selector.regex.pattern must be '$want' for tag $version"
-  mirror_rows+=("$chart	$version	oci://$source")
-done < <(yq -r '.artifacts[] | [.source, .selector.semver, .selector.regex.pattern, .destination] | @tsv' "$MIRROR_CONFIG")
-
-while IFS= read -r line; do
-  case "$line" in
-    "< "*) fail "$MIRROR_CONFIG: missing ${line#< }" ;;
-    "> "*) fail "$MIRROR_CONFIG: not pinned by any chart source: ${line#> }" ;;
-  esac
-done < <(diff <(printf '%s\n' "${rows[@]}" | sort -u) <(printf '%s\n' "${mirror_rows[@]}" | sort -u) || true)
+  fail "chart $dup comes from more than one upstream"
+done < <(printf '%s\n' "${rows[@]}" | awk -F'\t' '{print $4 $1 "\t" $3}' | sort -u | cut -f1 | uniq -d)
 
 if [ "$errors" -gt 0 ]; then
   echo "$errors chart source error(s)" >&2

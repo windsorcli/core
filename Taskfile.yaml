@@ -17,21 +17,9 @@ tasks:
       - scripts/vendor-crds.sh --check
 
   charts:check:
-    desc: Verify Helm chart sources follow the charts.registry layout and flux-mirror.yaml lists every chart (CI guard)
+    desc: Verify Helm chart sources follow the charts.registry layout (CI guard)
     cmds:
       - scripts/charts.sh
-
-  charts:test:
-    desc: Copy every Helm chart into a local registry and pull each one back by name and version (needs docker and flux mirror)
-    cmds:
-      - scripts/charts-test.sh {{.CLI_ARGS}}
-
-  charts:mirror:
-    desc: Copy every Helm chart into a registry with flux mirror (set CHART_REGISTRY; pass flux mirror sync flags after --)
-    requires:
-      vars: [CHART_REGISTRY]
-    cmds:
-      - CHART_REGISTRY={{trimPrefix "oci://" .CHART_REGISTRY | trimSuffix "/"}} flux mirror sync flux-mirror.yaml {{.CLI_ARGS}}
 
   scan:
     desc: Scan for security vulnerabilities

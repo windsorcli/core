@@ -297,13 +297,12 @@ overlay that patches the HelmRelease's `spec.chart`. No overlay does today.
 
 ### 5. One version per chart
 
-An HTTP chart's version appears three times: in the base HelmRelease's
-`spec.chart.spec.version`, in the registry OCIRepository's `spec.ref.tag`, and
-in `flux-mirror.yaml` (section 7). An OCI chart's version appears in its
-OCIRepository and in `flux-mirror.yaml`. Every copy MUST carry the same
-renovate annotation, so one renovate PR bumps all of them. `task charts:check`
-MUST fail when they differ, in the same way `task crds:check` guards vendored
-CRDs.
+An HTTP chart's version appears twice: in the base HelmRelease's
+`spec.chart.spec.version` and in the registry OCIRepository's `spec.ref.tag`.
+Both copies MUST carry the same renovate annotation, so one renovate PR bumps
+both. `task charts:check` MUST fail when they differ, in the same way
+`task crds:check` guards vendored CRDs. An OCI chart's version appears once, in
+its OCIRepository.
 
 ### 6. Terraform-installed charts read the same registry
 
@@ -321,53 +320,25 @@ upstream of flux-operator, flux-instance, and cilium from that value.
 
 ### 7. The site fills the registry with Flux Mirror
 
-Core does not publish or republish charts. The site copies them into its
-registry with [Flux Mirror](https://fluxcd.io/flux/cli-plugins/flux-mirror/),
-the Flux CLI plugin for registry relocation, from a config core ships at
-`flux-mirror.yaml`:
+Core does not publish or republish charts, and it keeps no list of them. The
+site copies them into its registry with
+[Flux Mirror](https://fluxcd.io/flux/cli-plugins/flux-mirror/), the Flux CLI
+plugin for registry relocation. `windsor show artifacts` writes the Flux Mirror
+config for one context from its composed blueprint:
 
 ```sh
 flux plugin install mirror
-task charts:mirror CHART_REGISTRY=registry.example.com/windsor
+windsor show artifacts --charts-to registry.example.com/windsor -o flux-mirror | flux mirror sync -
 ```
 
-`flux-mirror.yaml` lists every chart core installs at its pinned version, with
-`${CHART_REGISTRY}` in each destination:
-
-```yaml
-charts:
-  - name: longhorn
-    source: https://charts.longhorn.io
-    destination: oci://${CHART_REGISTRY}
-    # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
-    version: 1.13.0
-artifacts:
-  - source: ghcr.io/kyverno/charts/kyverno
-    destination: ${CHART_REGISTRY}/kyverno
-    selector:
-      regex:
-        pattern: '^[0-9]'
-      # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
-      semver: 3.9.2
-```
-
+The config lists every chart the context installs, at its pinned version.
 `charts` entries publish HTTP charts as OCI at `<destination>/<chart name>:<version>`.
 `artifacts` entries copy OCI charts byte for byte, so they keep their upstream
-digests. The `regex` prefilter keeps only tags with the pin's `v` prefix,
-because some vendors publish both `v0.25.0` and `0.25.0` and semver treats them
-as equal. Registry credentials come from the Docker config, or from the
-config's `hosts` section for workload identity on ECR, ACR, and GAR. Flags
-after `--`, such as `--dry-run`, pass through to `flux mirror sync`.
+digests. Registry credentials come from the Docker config, or from the
+config's `hosts` section for workload identity on ECR, ACR, and GAR.
 
 Flux Mirror re-runs skip tags already present and report upstream drift.
 The plugin is in preview, so its config API MAY change between releases.
-
-`flux-mirror.yaml` is maintained by hand and lists every chart core can
-install, not the charts one context uses. It stays until a Windsor CLI
-release with `windsor show artifacts` is core's minimum `cliVersion`. That
-command generates the same config for one context from the composed
-blueprint. Core then deletes `flux-mirror.yaml`, `task charts:mirror`, and
-the part of `task charts:check` that compares the file to the manifests.
 
 ### 8. Credentials come from cloud identity or a site-provided secret
 
@@ -562,15 +533,12 @@ CLI only supports patches per Kustomization today.
    `chartRef`. Verify with the fresh and upgrade integration runs.
 3. Add `chart-registry/` components for the HTTP-published charts and wire them into
    the facets.
-4. Add `flux-mirror.yaml`, `task charts:mirror`, and `task charts:check`, and
-   run the check in CI.
+4. Add `task charts:check` and run it in CI.
 5. Pass `chart_registry` to the Terraform `chart_repository` inputs.
 6. Add `provider` and `secretRef` to the OCIRepositories (section 8).
 7. Decide the fluentd GitRepository source (see open questions).
 8. Add `ref.digest` to the OCIRepositories with a renovate manager for the
    tag and digest pair, and `verify` to the six signed charts (section 9).
-9. Delete `flux-mirror.yaml` and `task charts:mirror` once the CLI generates
-   the config (section 7).
 
 ## Open questions
 
