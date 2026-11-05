@@ -18,7 +18,7 @@ config:
     when: workstation.runtime != 'colima'
     value:
       # renovate: datasource=github-releases depName=talos-container package=siderolabs/talos
-      talos_version: "1.13.11"
+      talos_version: "1.13.12"
       kubernetes_version: "1.36.5"
 
   # Node targets for post-cluster steps (e.g. extensions), from compute outputs.
