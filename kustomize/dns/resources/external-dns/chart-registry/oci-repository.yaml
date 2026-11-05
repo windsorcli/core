@@ -11,6 +11,7 @@ spec:
   ref:
     # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
     tag: 1.23.0
+  insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
