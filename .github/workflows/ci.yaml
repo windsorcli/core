@@ -339,7 +339,7 @@ jobs:
         run: |
           windsor apply terraform workstation
           flux plugin install mirror
-          export DEST="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' charts.test):5000/windsor"
+          export DEST="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000/windsor"
           windsor show artifacts --charts-to "$DEST" -o flux-mirror \
             | yq '.artifacts |= map(select(.destination | test("^" + strenv(DEST) + "/")))' \
             | flux mirror sync --no-progress -
