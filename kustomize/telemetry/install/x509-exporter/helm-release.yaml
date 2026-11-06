@@ -19,6 +19,8 @@ spec:
     name: x509-certificate-exporter
   values:
     image:
+      registry: quay.io
+      repository: enix/x509-certificate-exporter
       # artifact: type=image name=quay.io/enix/x509-certificate-exporter
       tag: 4.2.3@sha256:54663f4f49f849e43356747c08ed297772cfff9d150c637ab19d6835a63303b1
     secretsExporter:

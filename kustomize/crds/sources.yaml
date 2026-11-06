@@ -89,4 +89,9 @@ manifests:
       set:
         - providerRegex=^.+$
         - bypassDnsResolution=true
+      values:
+        image:
+          repository: ghcr.io/postfinance/kubelet-csr-approver
+          # artifact: type=image name=ghcr.io/postfinance/kubelet-csr-approver
+          tag: v1.2.15@sha256:6469ef517d2b6d3cb108fce8a913483533a48b1cd78b5d4af307fa09e04a7818
     dest: contexts/_template/manifests/kubelet-csr-approver.yaml

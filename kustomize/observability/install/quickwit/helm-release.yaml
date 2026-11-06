@@ -25,6 +25,7 @@ spec:
         name: quickwit
   values:
     image:
+      repository: docker.io/quickwit/quickwit
       # artifact: type=image name=docker.io/quickwit/quickwit
       tag: v0.9.2@sha256:1c249c579063830be4666523c4d95289683f98c5a584de8e67a8be3361fe1f72
     environment:
