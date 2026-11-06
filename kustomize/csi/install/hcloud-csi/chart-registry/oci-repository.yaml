@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/hcloud-csi
   ref:
-    # renovate: datasource=helm depName=hcloud-csi package=hcloud-csi helmRepo=https://charts.hetzner.cloud
+    # artifact: type=chart name=hcloud-csi repo=https://charts.hetzner.cloud
     tag: 2.24.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

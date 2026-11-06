@@ -17,7 +17,7 @@ spec:
         runAsGroup: 1000
       containers:
       - name: probe
-        # renovate: datasource=docker depName=kubectl package=alpine/k8s
+        # artifact: type=image name=docker.io/alpine/k8s
         image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
         command: ["/bin/sh", "-c"]
         args:

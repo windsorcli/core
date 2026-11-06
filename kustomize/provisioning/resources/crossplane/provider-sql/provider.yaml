@@ -4,7 +4,7 @@ kind: Provider
 metadata:
   name: provider-sql
 spec:
-  # renovate: datasource=docker depName=xpkg.upbound.io/crossplane-contrib/provider-sql package=xpkg.upbound.io/crossplane-contrib/provider-sql
+  # artifact: type=image name=xpkg.upbound.io/crossplane-contrib/provider-sql
   package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.16.2@sha256:9ab60d325504a11a22ba4dbab7c5d8f0944c58bdb817da711b35b808502a9dfa
   runtimeConfigRef:
     name: provider-sql

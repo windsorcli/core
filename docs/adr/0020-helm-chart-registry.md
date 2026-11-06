@@ -435,8 +435,9 @@ file from a GitHub release or a remote kustomize resource. Such a file goes
 into an image, or core vendors it. Kyverno cannot see these downloads, so
 review and the CI run in section 12 find them.
 
-Renovate reads each tag through one regex `customManagers` entry, with one
-pattern for each placement, so Renovate updates the same line the CLI reads:
+Renovate reads the tags through one regex `customManagers` entry for each row
+of this table, because an entry has one datasource. Each entry has one pattern
+for each placement, so Renovate updates the same line the CLI reads:
 
 | Tag | Renovate datasource | Package |
 |---|---|---|

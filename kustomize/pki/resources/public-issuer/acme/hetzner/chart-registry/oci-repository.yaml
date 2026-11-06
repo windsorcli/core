@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/cert-manager-webhook-hetzner
   ref:
-    # renovate: datasource=helm depName=cert-manager-webhook-hetzner package=cert-manager-webhook-hetzner helmRepo=https://charts.hetzner.cloud
+    # artifact: type=chart name=cert-manager-webhook-hetzner repo=https://charts.hetzner.cloud
     tag: 0.9.1
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

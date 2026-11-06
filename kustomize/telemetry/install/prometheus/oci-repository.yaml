@@ -9,7 +9,7 @@ spec:
   timeout: 5m
   url: ${chart_registry:=oci://ghcr.io/prometheus-community/charts}/kube-prometheus-stack
   ref:
-    # renovate: datasource=docker depName=ghcr.io/prometheus-community/charts/kube-prometheus-stack package=ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    # artifact: type=chart name=kube-prometheus-stack repo=oci://ghcr.io/prometheus-community/charts
     tag: 88.6.5
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

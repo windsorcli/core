@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry:=oci://ghcr.io/kyverno/charts}/kyverno
   ref:
-    # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
+    # artifact: type=chart name=kyverno repo=oci://ghcr.io/kyverno/charts
     tag: 3.9.2
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

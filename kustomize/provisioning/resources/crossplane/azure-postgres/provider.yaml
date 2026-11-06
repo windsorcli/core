@@ -4,7 +4,7 @@ kind: Provider
 metadata:
   name: provider-azure-dbforpostgresql
 spec:
-  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql package=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql
+  # artifact: type=image name=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql
   package: xpkg.upbound.io/upbound/provider-azure-dbforpostgresql:v2.8.2@sha256:a8fb3c6e2996fa9f6050cd8ad974c96f2f8cd042641d187c90fd773b72cc8d11
   # provider-family-azure.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true

@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/filebeat
   ref:
-    # renovate: datasource=helm depName=filebeat package=filebeat helmRepo=https://helm.elastic.co
+    # artifact: type=chart name=filebeat repo=https://helm.elastic.co
     tag: 8.5.1
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

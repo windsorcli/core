@@ -16,7 +16,7 @@ spec:
   chart:
     spec:
       chart: cluster-autoscaler
-      # renovate: datasource=helm depName=cluster-autoscaler package=cluster-autoscaler helmRepo=https://kubernetes.github.io/autoscaler
+      # artifact: type=chart name=cluster-autoscaler repo=https://kubernetes.github.io/autoscaler
       version: 9.59.0
       sourceRef:
         kind: HelmRepository
@@ -31,7 +31,7 @@ spec:
     awsRegion: "${aws_region:-}"
     image:
       repository: registry.k8s.io/autoscaling/cluster-autoscaler
-      # renovate: datasource=docker depName=cluster-autoscaler package=registry.k8s.io/autoscaling/cluster-autoscaler
+      # artifact: type=image name=registry.k8s.io/autoscaling/cluster-autoscaler
       tag: v1.36.1@sha256:461388d03eb5b55db58941ee7a81d9a619dd15302b01cbab9f5a9946715994b4
     rbac:
       serviceAccount:

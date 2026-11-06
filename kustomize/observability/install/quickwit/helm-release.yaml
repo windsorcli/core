@@ -18,14 +18,14 @@ spec:
   chart:
     spec:
       chart: quickwit
-      # renovate: datasource=helm depName=quickwit package=quickwit helmRepo=https://helm.quickwit.io
+      # artifact: type=chart name=quickwit repo=https://helm.quickwit.io
       version: 0.8.17
       sourceRef: 
         kind: HelmRepository
         name: quickwit
   values:
     image:
-      # renovate: datasource=docker depName=quickwit/quickwit package=quickwit/quickwit
+      # artifact: type=image name=docker.io/quickwit/quickwit
       tag: v0.9.2@sha256:1c249c579063830be4666523c4d95289683f98c5a584de8e67a8be3361fe1f72
     environment:
       # Disable ANSI color codes in log output

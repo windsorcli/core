@@ -11,7 +11,7 @@ spec:
     # Quickwit plugin installed via init container (not yet in Grafana catalog)
     extraInitContainers:
       - name: install-quickwit-plugin
-        # renovate: datasource=docker depName=alpine package=alpine
+        # artifact: type=image name=docker.io/library/alpine
         image: alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
         env:
           - name: PLUGIN_NAME

@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/metrics-server
   ref:
-    # renovate: datasource=helm depName=metrics-server package=metrics-server helmRepo=https://kubernetes-sigs.github.io/metrics-server/
+    # artifact: type=chart name=metrics-server repo=https://kubernetes-sigs.github.io/metrics-server/
     tag: 3.14.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

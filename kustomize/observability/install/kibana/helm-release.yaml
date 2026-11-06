@@ -15,13 +15,13 @@ spec:
   chart:
     spec:
       chart: kibana
-      # renovate: datasource=helm depName=kibana package=kibana helmRepo=https://helm.elastic.co
+      # artifact: type=chart name=kibana repo=https://helm.elastic.co
       version: "8.5.1"
       sourceRef:
         kind: HelmRepository
         name: kibana
   values:
-    # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
+    # artifact: type=image name=docker.elastic.co/kibana/kibana
     image: docker.elastic.co/kibana/kibana:9.5.5@sha256:13b72ce7222c36e4213229004ae62a87aeb32fd372ebfa6fb38f7a3285fdbb78
     kibanaConfig:
       kibana.yml: |

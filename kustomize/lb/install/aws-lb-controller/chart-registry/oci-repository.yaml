@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/aws-load-balancer-controller
   ref:
-    # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
+    # artifact: type=chart name=aws-load-balancer-controller repo=https://aws.github.io/eks-charts
     tag: 3.6.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

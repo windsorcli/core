@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/quickwit
   ref:
-    # renovate: datasource=helm depName=quickwit package=quickwit helmRepo=https://helm.quickwit.io
+    # artifact: type=chart name=quickwit repo=https://helm.quickwit.io
     tag: 0.8.17
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

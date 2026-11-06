@@ -16,7 +16,7 @@ spec:
       webhook:
         image:
           repository: docker.io/hetzner/external-dns-hetzner-webhook
-          # renovate: datasource=docker depName=docker.io/hetzner/external-dns-hetzner-webhook
+          # artifact: type=image name=docker.io/hetzner/external-dns-hetzner-webhook
           tag: v0.3.3@sha256:83303ad3532daf53a701160c5a3d7623d225e901dd87401ce6220ce1d3e00c7c
         env:
           - name: HETZNER_TOKEN
