@@ -47,7 +47,7 @@ variable "network_name" {
 }
 
 variable "network_cidr" {
-  description = "CIDR for the Docker network (e.g. 10.5.0.0/16). Service IPs are assigned sequentially from the lowest block: 1=gateway, 2=dns, 3=git, 4+=registries. Corefile, load balancer subnet, and webhook host are derived from this."
+  description = "CIDR for the Docker network (e.g. 10.5.0.0/16). Service IPs are assigned sequentially from the lowest block: 1=gateway, 2=dns, 3=git, 200..254=registries. Corefile, load balancer subnet, and webhook host are derived from this."
   type        = string
   default     = "10.5.0.0/16"
 }
@@ -101,17 +101,17 @@ variable "enable_git" {
 }
 
 variable "node_start_offset" {
-  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/docker start_ip). Registries fill the fixed reserved block [4, node_start_offset) so adding or removing a registry never shifts node IPs."
+  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/docker start_ip)."
   type        = number
-  default     = 20
+  default     = 10
   validation {
-    condition     = var.node_start_offset >= 5
-    error_message = "node_start_offset must be >= 5 to leave at least one registry slot (hosts 1=gateway, 2=dns, 3=git, 4+=registries)."
+    condition     = var.node_start_offset >= 4 && var.node_start_offset < 200
+    error_message = "node_start_offset must be between 4 and 199 (hosts 1=gateway, 2=dns, 3=git, 200..254=registries)."
   }
 }
 
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. Count must fit in the reserved block (node_start_offset - 4); raise node_start_offset if you need more."
+  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. At most 55 registries fit the reserved block (hosts 200..254)."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)

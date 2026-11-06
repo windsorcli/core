@@ -1,4 +1,4 @@
-# workstation/docker tests: minimal, full, conditional (disabled_services), complex edge (webhook/loadbalancer derivation), negative (validation).
+# workstation/docker tests: minimal, full, conditional (disabled_services), complex edge (webhook/loadbalancer derivation, registry capacity), negative (validation).
 mock_provider "docker" {
   mock_resource "docker_network" {}
   mock_resource "docker_image" {}
@@ -132,13 +132,13 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.service_ips["gcr.io"] == "10.20.0.4" && local.service_ips["ghcr.io"] == "10.20.0.5"
-    error_message = "Sequential IPs: first two registries at 4 and 5"
+    condition     = local.service_ips["gcr.io"] == "10.20.0.200" && local.service_ips["ghcr.io"] == "10.20.0.201"
+    error_message = "Sequential IPs: first two registries at 200 and 201"
   }
 
   assert {
-    condition     = output.next_ip == "10.20.0.20"
-    error_message = "next_ip should be fixed at node_start_offset (default 20), independent of registry count"
+    condition     = output.next_ip == "10.20.0.10"
+    error_message = "next_ip should be fixed at node_start_offset (default 10)"
   }
 
   assert {
@@ -357,5 +357,35 @@ run "extra_domain_zones_skip_domain_name" {
   assert {
     condition     = length(local.extra_domain_names) == 0
     error_message = "A domain equal to domain_name should add no extra zone"
+  }
+}
+
+# Complex: the default mirrors plus a local registry fit the reserved block without moving nodes.
+run "seven_registries_fit" {
+  command = plan
+
+  variables {
+    project_root = "/tmp/windsor-test"
+    context      = "test"
+    runtime      = "colima"
+    registries = {
+      "charts"               = {}
+      "gcr.io"               = { remote = "https://gcr.io" }
+      "ghcr.io"              = { remote = "https://ghcr.io" }
+      "quay.io"              = { remote = "https://quay.io" }
+      "reg.kyverno.io"       = { remote = "https://reg.kyverno.io" }
+      "registry-1.docker.io" = { remote = "https://registry-1.docker.io", local = "docker.io" }
+      "registry.k8s.io"      = { remote = "https://registry.k8s.io" }
+    }
+  }
+
+  assert {
+    condition     = local.service_ips["charts"] == "10.5.0.200" && local.service_ips["registry.k8s.io"] == "10.5.0.206"
+    error_message = "Registries fill hosts 200 and up in key order"
+  }
+
+  assert {
+    condition     = output.next_ip == "10.5.0.10"
+    error_message = "next_ip stays at host 10 with seven registries"
   }
 }

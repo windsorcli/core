@@ -203,12 +203,12 @@ terraform:
       public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
-      dns_forward_target: "${cidrhost(network.cidr_block, 20) + \":30053\"}"
-      webhook_host: "${cidrhost(network.cidr_block, 20)}"
+      dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
+      webhook_host: "${cidrhost(network.cidr_block, 10)}"
       webhook_port: 30292
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
       webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
-      primary_node_ip: "${cidrhost(network.cidr_block, 20)}"
+      primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
