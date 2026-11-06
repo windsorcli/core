@@ -21,7 +21,7 @@ spec:
     spec:
       chart: hcloud-csi
       # artifact: type=chart name=hcloud-csi repo=https://charts.hetzner.cloud
-      version: 2.24.0
+      version: 2.24.1
       sourceRef:
         kind: HelmRepository
         name: hcloud-csi
