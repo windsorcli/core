@@ -1,0 +1,35 @@
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-chart-registry
+  annotations:
+    policies.kyverno.io/title: Require Chart Registry
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: OCIRepository, HelmRepository
+    policies.kyverno.io/description: >-
+      Rejects each Helm chart source whose URL is not under the context's
+      chart registry, so the cluster pulls every chart from that registry.
+spec:
+  validationActions: [Deny]
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [source.toolkit.fluxcd.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [helmrepositories, ocirepositories]
+  matchConditions:
+    # An OCIRepository is a chart source only when it selects the Helm chart layer.
+    - name: chart-source
+      expression: >-
+        object.kind == 'HelmRepository' ||
+        object.spec.?layerSelector.?mediaType.orValue('') == 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
+  validations:
+    - expression: object.spec.url.startsWith('${chart_registry}/')
+      messageExpression: >-
+        object.kind + ' ' + object.metadata.namespace + '/' + object.metadata.name +
+        ' pulls from ' + object.spec.url + ', which is not under ${chart_registry}.'

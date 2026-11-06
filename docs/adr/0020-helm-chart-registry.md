@@ -309,6 +309,12 @@ keep their defaults. The stacks themselves do not change, and
 `task charts:check` reads their chart versions from the stacks' variable
 defaults.
 
+A workstation chart registry serves plain HTTP, and the Terraform Helm
+provider cannot pull over plain HTTP. When `charts.registry` names a
+workstation registry, the facets pass `null`, so Terraform pulls these charts
+from the vendor. The Flux HelmRelease that adopts Cilium still pulls from the
+registry.
+
 ### 7. The site fills the registry with Flux Mirror
 
 Core does not publish or republish charts, and it keeps no list of them. The
@@ -432,8 +438,8 @@ artifacts of a facet that the context does not enable.
 
 A cluster MUST NOT download any other kind of artifact at runtime, such as a
 file from a GitHub release or a remote kustomize resource. Such a file goes
-into an image, or core vendors it. Kyverno cannot see these downloads, so
-review and the CI run in section 12 find them.
+into an image, or core vendors it. Kyverno and the CI run in section 12
+cannot see these downloads, so review finds them.
 
 Renovate reads the tags through one regex `customManagers` entry for each row
 of this table, because an entry has one datasource. Each entry has one pattern
@@ -449,28 +455,30 @@ The `renovate:` annotation stays for each version a cluster does not pull: the
 CRDs and dashboards core vendors (`scripts/vendor-crds.sh`,
 `scripts/vendor-dashboards.sh`), and the tools of CI and development.
 
-### 12. A Kyverno policy and CI catch an untagged artifact
+### 12. A relocated context pulls only from its registries
 
-The `policy` facet adds a Kyverno policy that compares each Pod image and each
-chart source with the context's artifact list, and rejects a reference that is
-not in it. It compares the repository and the tag, and ignores a digest. The
-Windsor CLI writes the list as the ConfigMap `windsor-artifacts` in
-`system-policy`. A blueprint that uses core adds only tags, and no policy.
+In registry mode, the chart registry and the mirrors hold only the tagged
+artifacts that the site copied, so an untagged chart or image fails to pull.
+No artifact list goes into the cluster.
 
-The policy is in `Audit` mode by default, and a context MAY set it to
-`Enforce`. Core CI MUST bring up each test context in `Enforce` mode before a
-release, so an untagged chart or image fails CI with a Kyverno message that
-names it. The Kyverno images MUST be in the list, or the policy blocks its own
-install. Kyverno does not see the Talos node image, because it is not a Pod,
-so its tag is the only check for it.
+When a context sets `charts.registry`, the `policy` facet adds the Kyverno
+policy `require-chart-registry`. It rejects each HelmRepository, and each
+OCIRepository that selects the Helm chart layer, whose URL does not start
+with `charts.registry`. The rule covers core's chart sources and those of each
+blueprint that uses core. An OCIRepository for a blueprint has no chart layer,
+so the rule ignores it.
 
-When a context sets `charts.registry`, the policy MUST run in `Enforce` mode
-and MUST reject each OCIRepository and HelmRepository whose URL does not start
-with `charts.registry`. This covers core's sources and those of each blueprint
-that uses core. Kyverno cannot see where a node pulls an image from, because
-with containerd mirrors the Pod keeps the upstream name. So when a context
-sets a mirror in `docker.registries`, core MUST configure the Talos registry
-mirrors with `skipFallback: true`.
+Kyverno cannot see where a node pulls an image from, because with containerd
+mirrors the Pod keeps the upstream name. When a context sets a mirror in
+`docker.registries`, core MUST configure the Talos registry mirrors with
+`skipFallback: true`. A registry with no mirror still pulls from upstream.
+
+Core CI MUST bring up a test context in registry mode before a release. The
+`registry` integration run sets `charts.registry` to a workstation chart
+registry, copies the `windsor show artifacts` charts into it with Flux Mirror,
+and brings up the context. An untagged chart fails to pull, and the run
+fails. The workstation image mirrors are pull-through caches, so the run does
+not catch an untagged image.
 
 ## Consequences
 
@@ -497,9 +505,10 @@ sibling `chart-registry/` component.
 registry with static credentials needs a pull secret in each chart namespace.
 Cloud registries avoid this through `provider`.
 
-The artifact list is only as complete as the tags. Each new chart or image in
-core or in a blueprint needs a tag, and without one the policy rejects it in
-CI. The policy cannot find a missing tag on the Talos node image.
+The artifact list is only as complete as the tags. Each new chart in core or
+in a blueprint needs a tag, and without one it fails to pull in the CI
+registry run. A missing image tag goes unnoticed while the CI mirrors fall
+back to upstream. Nothing finds a missing tag on the Talos node image.
 
 ## Alternatives considered
 
@@ -613,7 +622,8 @@ context does not use, and covers only core's own charts.
 The CLI would render each Kustomization, evaluate Terraform, and read operator
 specs to find every chart and image. Rejected: it needs an extractor for each
 kind of source, and an image it cannot see is lost with no error. The tags
-give the same list from text, and the policy catches a missing tag.
+give the same list from text, and the CI registry run catches a missing
+chart tag.
 
 ### Blueprint-wide patch in the Windsor CLI
 
@@ -640,16 +650,13 @@ CLI only supports patches per Kustomization today.
    Talos node image, with the Renovate `customManagers` entry (section 11).
    Move the quickwit Grafana plugin download and the bookinfo demo's remote
    resource into an image or the repo.
-10. Add the Kyverno policy to the `policy` facet, with the registry-mode rule
-    and `skipFallback: true` on the Talos registry mirrors, and run each test
-    context in `Enforce` mode in CI (section 12). This needs the CLI's
-    `windsor-artifacts` ConfigMap.
+10. Add the `require-chart-registry` policy to the `policy` facet and the
+    `registry` integration run in CI (section 12).
+11. Set `skipFallback: true` on the Talos registry mirrors, and tag the images
+    that only charts pin (section 12).
 
 ## Open questions
 
-- The data keys and the line format of the `windsor-artifacts` ConfigMap are
-  not decided. The Windsor CLI does not write the ConfigMap yet, so slice 10
-  waits for it.
 - `secretRef` has to be absent when the registry allows anonymous pulls, but
   the 13 OCI-published charts have no chart-registry component to add it from. The
   `charts` field that signals a site-provided secret, and the mechanism that

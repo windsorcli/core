@@ -160,6 +160,12 @@ _Enabled when `policies.require_image_digest != 'disabled'`._
 
 ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned.
 
+### `kyverno/chart-registry`
+
+_Enabled when `charts.registry` is set._
+
+ValidatingPolicy `require-chart-registry` (Deny) that every HelmRepository, and every OCIRepository that selects the Helm chart layer, has a URL under `charts.registry`. Matches chart sources in every namespace.
+
 ### `kyverno (resources)`
 
 _Enabled when always._

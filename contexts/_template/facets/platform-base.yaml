@@ -399,6 +399,10 @@ config:
   - name: chart_registry
     value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(charts.registry, 'oci://'), '/') : ''}"
 
+  # chart_registry for the Terraform-installed charts, empty for a workstation registry.
+  - name: terraform_chart_registry
+    value: "${(workstation_chart_registry.key ?? '') != '' ? '' : chart_registry}"
+
 # =============================================================================
 # Global substitutions
 # =============================================================================
@@ -446,7 +450,7 @@ terraform:
       # topology: ha runs a standby replica of each default controller so
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
-      chart_repository: "${chart_registry != '' ? chart_registry : null}"
+      chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
   # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
   - name: pki
@@ -492,6 +496,7 @@ flux:
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
+          - "${chart_registry != '' ? 'kyverno/chart-registry' : ''}"
         healthChecks:
           - apiVersion: batch/v1
             kind: Job
