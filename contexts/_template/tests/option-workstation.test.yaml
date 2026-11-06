@@ -434,7 +434,7 @@ cases:
         - name: workstation
           path: workstation/docker
           inputs:
-            webhook_host: "10.5.0.10"
+            webhook_host: "10.5.0.20"
         - name: cluster
           path: cluster/talos
         - name: gitops

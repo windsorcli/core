@@ -101,9 +101,9 @@ variable "enable_git" {
 }
 
 variable "node_start_offset" {
-  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/docker start_ip). Registries fill the fixed reserved block [4, node_start_offset) so adding or removing a registry never shifts node IPs. Default 10 matches compute/docker's own sequential base for attached networks."
+  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/docker start_ip). Registries fill the fixed reserved block [4, node_start_offset) so adding or removing a registry never shifts node IPs."
   type        = number
-  default     = 10
+  default     = 20
   validation {
     condition     = var.node_start_offset >= 5
     error_message = "node_start_offset must be >= 5 to leave at least one registry slot (hosts 1=gateway, 2=dns, 3=git, 4+=registries)."

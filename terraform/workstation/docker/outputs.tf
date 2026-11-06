@@ -23,7 +23,7 @@ output "compose_project" {
 }
 
 output "next_ip" {
-  description = "First IP for sequential node assignment. Fixed at host index var.node_start_offset (default 10); stable across registry add/remove because registries fill the reserved block [4, node_start_offset). Use as compute/docker start_ip when attaching to this network."
+  description = "First IP for sequential node assignment. Fixed at host index var.node_start_offset (default 20); stable across registry add/remove because registries fill the reserved block [4, node_start_offset). Use as compute/docker start_ip when attaching to this network."
   value       = cidrhost(var.network_cidr, var.node_start_offset)
   precondition {
     condition     = length(local.registry_keys_sorted) <= local.registry_ip_capacity

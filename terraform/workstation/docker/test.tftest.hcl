@@ -137,8 +137,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = output.next_ip == "10.20.0.10"
-    error_message = "next_ip should be fixed at node_start_offset (default 10), independent of registry count"
+    condition     = output.next_ip == "10.20.0.20"
+    error_message = "next_ip should be fixed at node_start_offset (default 20), independent of registry count"
   }
 
   assert {
