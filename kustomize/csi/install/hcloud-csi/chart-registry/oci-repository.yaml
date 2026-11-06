@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry}/hcloud-csi
   ref:
     # artifact: type=chart name=hcloud-csi repo=https://charts.hetzner.cloud
-    tag: 2.24.0
+    tag: 2.24.1
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
