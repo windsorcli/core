@@ -279,6 +279,38 @@ cases:
               local_volume_path: /var/mnt/local
               local_volume_quota: "true"
 
+  - name: mayastor image tags default to the release pins
+    values:
+      platform: metal
+      workstation:
+        arch: amd64
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: mayastor
+    expect:
+      flux:
+        - <<: *csi-base
+          install:
+            substitutions:
+              mayastor_agent_core_tag: v2.11.1@sha256:f4f4b85b67b399cfb6452e139680cb35b788574f626ca27094bd7fda7fb8e6f3
+              mayastor_agent_ha_cluster_tag: v2.11.1@sha256:5007ae0a38bf52fa51744d845325038327fe03c626c3f95f954c98cd100aed9d
+              mayastor_agent_ha_node_tag: v2.11.1@sha256:27ea3280d3e71213f31e4815b7935f828ecc1cf0e8802e74aa2934b989ee5a43
+              mayastor_api_rest_tag: v2.11.1@sha256:2e60c6fc69970a4dccc2d9b0f0719e6d272858c63c3a1dc24c38abac5853d0ec
+              mayastor_csi_controller_tag: v2.11.1@sha256:f4f442d8ce7ea8b3e410c4cfe8540b1e8a3250ed91c025d83f1b870f119acb97
+              mayastor_csi_node_tag: v2.11.1@sha256:0946de2b2fd44275ec60bc146cdb7ca917ec5cabfde9b21b64c2bfe532f41dd4
+              mayastor_io_engine_tag: v2.11.1@sha256:b88de71674405f4fa0f755f0eb246e0eafc0d0f1473263852fd039e45e1b3553
+              mayastor_operator_diskpool_tag: v2.11.1@sha256:231020f43edb57a31d3fc9626f67251f8bd7e356d362aeddbcd675eee7adc417
+
   # Longhorn single-node: schedulable CP with no workers gets CP toleration component
   - name: longhorn single-node with schedulable CP adds single-node component
     values:
