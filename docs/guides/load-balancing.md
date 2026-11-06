@@ -8,7 +8,7 @@ On a cloud, a `LoadBalancer` Service gets an address from the load balancer of t
 
 The Kubernetes API has the same problem at a lower level. Clients need one address that answers while one or more control planes are up. Core solves both problems. Each address that Core uses is in `values.yaml`.
 
-This `values.yaml` is for a vSphere cluster with three control planes on a plant VLAN. It shows each address:
+This `values.yaml` is for a vSphere cluster with three control planes on one VLAN. It shows each address:
 
 ```yaml
 platform: vsphere

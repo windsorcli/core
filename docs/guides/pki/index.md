@@ -70,7 +70,7 @@ The deprecated `pki.public_issuer: selfsigned` has the same effect as `gateway.e
 
 ## Choosing a source on-prem
 
-A cluster on metal, vSphere, Hyper-V, Incus, or Proxmox has more choices. Its clients are often plant-floor devices that trust only the roots of the site. This list gives the options in order of preference. Each option needs more from the site than the next option. In return, clients need less work to trust the certificate.
+A cluster on metal, vSphere, Hyper-V, Incus, or Proxmox has more choices. Its clients are often managed devices that trust only the roots of the site. This list gives the options in order of preference. Each option needs more from the site than the next option. In return, clients need less work to trust the certificate.
 
 1. Public ACME on a subdomain. Core writes the public zone, and `dns.private_domain` is under `dns.public_domain`. Both gateways get Let's Encrypt certificates, and no client needs a private root. Core writes public zones only on AWS, Azure, GCP, and Hetzner. An on-prem cluster cannot use this option yet. See [ACME](acme.md#internal-gateway).
 2. Internal ACME. The site sets `pki.acme.server`, and cert-manager renews the gateway certificates from that server. The server must pre-authorize the gateway domains for the account. A server that challenges each order does not work yet. See [Internal ACME server](acme.md#internal-acme-server).
