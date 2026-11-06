@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry:=oci://docker.io/envoyproxy}/gateway-helm
   ref:
-    # artifact: type=chart name=gateway-helm repo=oci://envoyproxy
+    # artifact: type=chart name=gateway-helm repo=oci://docker.io/envoyproxy
     tag: 1.9.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
