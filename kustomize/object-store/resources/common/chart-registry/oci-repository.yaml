@@ -7,7 +7,7 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: ${chart_registry}/minio/tenant
+  url: ${chart_registry}/tenant
   ref:
     # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
     tag: 7.1.1

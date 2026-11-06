@@ -194,7 +194,7 @@ spec:
   interval: 10m
   url: ${chart_registry:=oci://ghcr.io/kyverno/charts}/kyverno
   ref:
-    # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
+    # artifact: type=chart name=kyverno repo=oci://ghcr.io/kyverno/charts
     tag: 3.9.2
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -204,11 +204,6 @@ spec:
 When the `chart_registry` substitution is empty, the `:=` default supplies the
 vendor's registry and path. `flux envsubst` treats an empty value the same as
 an unset one here.
-
-Every OCI chart source MUST write its URL as `${chart_registry:=<vendor URL>}`.
-The Windsor CLI renders a context with an empty `chart_registry` to list each
-chart's upstream, so a source with no vendor default has no upstream in that
-list.
 
 ### 4. HTTP-published charts carry a sibling chart-registry component
 
@@ -266,7 +261,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/longhorn
   ref:
-    # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
+    # artifact: type=chart name=longhorn repo=https://charts.longhorn.io
     tag: 1.13.0
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -299,8 +294,8 @@ overlay that patches the HelmRelease's `spec.chart`. No overlay does today.
 
 An HTTP chart's version appears twice: in the base HelmRelease's
 `spec.chart.spec.version` and in the registry OCIRepository's `spec.ref.tag`.
-Both copies MUST carry the same renovate annotation, so one renovate PR bumps
-both. `task charts:check` MUST fail when they differ, in the same way
+Both copies MUST carry the same `artifact` tag (section 11), so one Renovate PR
+bumps both. `task charts:check` MUST fail when they differ, in the same way
 `task crds:check` guards vendored CRDs. An OCI chart's version appears once, in
 its OCIRepository.
 
@@ -314,17 +309,14 @@ keep their defaults. The stacks themselves do not change, and
 `task charts:check` reads their chart versions from the stacks' variable
 defaults.
 
-The `chart_repository` default in each stack MUST stay the vendor URL. The
-Windsor CLI evaluates Terraform variables from their defaults, and reads the
-upstream of flux-operator, flux-instance, and cilium from that value.
-
 ### 7. The site fills the registry with Flux Mirror
 
 Core does not publish or republish charts, and it keeps no list of them. The
 site copies them into its registry with
 [Flux Mirror](https://fluxcd.io/flux/cli-plugins/flux-mirror/), the Flux CLI
-plugin for registry relocation. `windsor show artifacts` writes the Flux Mirror
-config for one context from its composed blueprint:
+plugin for registry relocation. `windsor show artifacts` lists the `artifact`
+tags (section 11) in every blueprint source of one context, and writes them as
+a Flux Mirror config:
 
 ```sh
 flux plugin install mirror
@@ -334,8 +326,9 @@ windsor show artifacts --charts-to registry.example.com/windsor -o flux-mirror |
 The config lists every chart the context installs, at its pinned version.
 `charts` entries publish HTTP charts as OCI at `<destination>/<chart name>:<version>`.
 `artifacts` entries copy OCI charts byte for byte, so they keep their upstream
-digests. Registry credentials come from the Docker config, or from the
-config's `hosts` section for workload identity on ECR, ACR, and GAR.
+digests. Flux Mirror reads registry credentials from the Docker config. The
+config has no `hosts` section, so a site that uses workload identity on ECR,
+ACR, or GAR adds its own.
 
 Flux Mirror re-runs skip tags already present and report upstream drift.
 The plugin is in preview, so its config API MAY change between releases.
@@ -362,8 +355,8 @@ other context keeps TLS.
 ### 9. OCI charts pin a digest and verify the vendor's signature
 
 Each OCIRepository MUST set `ref.digest` next to `ref.tag`, so the cluster
-pulls the same chart from the vendor and from the chart registry. The renovate
-annotation MUST cover both fields, so one PR bumps the tag and its digest
+pulls the same chart from the vendor and from the chart registry. The Renovate
+manager for the `artifact` tag MUST cover both fields, so one PR bumps the tag and its digest
 together. Where the vendor signs the chart (see Context), the OCIRepository
 MUST set `verify` with `provider: cosign` and the vendor's OIDC issuer and
 subject. Charts with no signature stay unverified rather than verified against
@@ -380,9 +373,8 @@ properties so that works without forking core:
 
 - Each chart MUST have exactly one source object, named after its
   HelmRelease, in the release's namespace (sections 3 and 4).
-- Every chart source MUST be an object that the Windsor CLI reads when it
-  renders a context: an OCIRepository, a HelmRepository that a HelmRelease
-  names in `spec.chart`, or a Terraform `helm_release`.
+- Every chart source MUST carry an `artifact` tag (section 11). An overlay
+  that replaces a chart tags the replacement in its own blueprint.
 
 An overlay replaces a chart with inline patches on core's Kustomization of
 the same name. The Windsor CLI appends patches from every facet that names a
@@ -391,6 +383,93 @@ URL, digest, `secretRef`, and `verify`, and replaces the HelmRelease values.
 An overlay cannot add a component from its own source to a core
 Kustomization, because a Kustomization resolves every component against its
 one source.
+
+### 11. An `artifact` tag names each chart and image
+
+A cluster pulls only images and charts. Core names each one with an
+`artifact` comment tag:
+
+```text
+# artifact: type=<image|chart> [name=<name>] [repo=<chart repository URL>]
+```
+
+For an image, `name` is the full repository with its registry, such as
+`ghcr.io/fluxcd/source-controller`. For a chart, `name` is the `Chart.yaml`
+name and `repo` is an HTTP Helm repository (`https://charts.jetstack.io`) or
+an OCI registry path (`oci://quay.io/jetstack/charts`).
+
+A tag on a comment line of its own applies to the next line that is not blank
+and not a comment. A tag at the end of a line applies to that line. The value
+is the last scalar on that line, without quotes: a tag, or for an image a full
+reference with a tag. An image tag MAY omit `name` when the value is a full
+reference. A digest on the value stays in the list.
+
+```yaml
+image: ghcr.io/fluxcd/source-controller:v1.6.0  # artifact: type=image
+
+chart:
+  spec:
+    chart: cert-manager
+    # artifact: type=chart name=cert-manager repo=https://charts.jetstack.io
+    version: v1.17.0
+```
+
+```hcl
+# artifact: type=chart name=cilium repo=oci://quay.io/cilium/charts
+version = "1.18.2"
+```
+
+The tag works in YAML and in HCL, after `#` or `//`. One tag names one
+artifact, so a line with two references MUST become two lines. Core MUST tag
+each chart and image it installs, and the Talos node image. The Windsor CLI
+lists the tags without rendering manifests or evaluating Terraform, and core
+keeps no hand-written list of its charts or images.
+
+The CLI reads the `.yaml`, `.yml`, and `.tf` files under `kustomize/`,
+`terraform/`, and `_template/` of each blueprint source, so a tag MAY go in a
+facet or a values file. It reads whole sources, so the list also has the
+artifacts of a facet that the context does not enable.
+
+A cluster MUST NOT download any other kind of artifact at runtime, such as a
+file from a GitHub release or a remote kustomize resource. Such a file goes
+into an image, or core vendors it. Kyverno cannot see these downloads, so
+review and the CI run in section 12 find them.
+
+Renovate reads each tag through one regex `customManagers` entry, with one
+pattern for each placement, so Renovate updates the same line the CLI reads:
+
+| Tag | Renovate datasource | Package |
+|---|---|---|
+| `type=image` | `docker` | `name` |
+| `type=chart`, `oci://` repo | `docker` | `<repo>/<name>`, without `oci://` |
+| `type=chart`, `https://` repo | `helm` | `name`, with `repo` as the registry URL |
+
+The `renovate:` annotation stays for each version a cluster does not pull: the
+CRDs and dashboards core vendors (`scripts/vendor-crds.sh`,
+`scripts/vendor-dashboards.sh`), and the tools of CI and development.
+
+### 12. A Kyverno policy and CI catch an untagged artifact
+
+The `policy` facet adds a Kyverno policy that compares each Pod image and each
+chart source with the context's artifact list, and rejects a reference that is
+not in it. It compares the repository and the tag, and ignores a digest. The
+Windsor CLI writes the list as the ConfigMap `windsor-artifacts` in
+`system-policy`. A blueprint that uses core adds only tags, and no policy.
+
+The policy is in `Audit` mode by default, and a context MAY set it to
+`Enforce`. Core CI MUST bring up each test context in `Enforce` mode before a
+release, so an untagged chart or image fails CI with a Kyverno message that
+names it. The Kyverno images MUST be in the list, or the policy blocks its own
+install. Kyverno does not see the Talos node image, because it is not a Pod,
+so its tag is the only check for it.
+
+When a context sets `charts.registry`, the policy MUST run in `Enforce` mode
+and MUST reject each OCIRepository and HelmRepository whose URL does not start
+with `charts.registry`. This covers core's sources and those of each blueprint
+that uses core. Kyverno cannot see where a node pulls an image from, because
+with containerd mirrors the Pod keeps the upstream name. So when a context
+sets a mirror in `docker.registries`, core MUST configure the Talos registry
+mirrors with `skipFallback: true`.
 
 ## Consequences
 
@@ -416,6 +495,10 @@ sibling `chart-registry/` component.
 `OCIRepository.spec.secretRef` only resolves in its own namespace, so a
 registry with static credentials needs a pull secret in each chart namespace.
 Cloud registries avoid this through `provider`.
+
+The artifact list is only as complete as the tags. Each new chart or image in
+core or in a blueprint needs a tag, and without one the policy rejects it in
+CI. The policy cannot find a missing tag on the Talos node image.
 
 ## Alternatives considered
 
@@ -518,6 +601,19 @@ values differ per vendor and per customer, so core would carry and test a
 second set of releases for each vendor. An overlay blueprint carries that set
 instead (section 10).
 
+### A hand-written artifact list in core
+
+A `flux-mirror.yaml` in core would list every chart and version core can
+install. Rejected: it repeats every pin in the manifests, lists charts a
+context does not use, and covers only core's own charts.
+
+### The CLI renders each context to find artifacts
+
+The CLI would render each Kustomization, evaluate Terraform, and read operator
+specs to find every chart and image. Rejected: it needs an extractor for each
+kind of source, and an image it cannot see is lost with no error. The tags
+give the same list from text, and the policy catches a missing tag.
+
 ### Blueprint-wide patch in the Windsor CLI
 
 The CLI would apply one patch to every Kustomization it generates, matching
@@ -539,9 +635,20 @@ CLI only supports patches per Kustomization today.
 7. Decide the fluentd GitRepository source (see open questions).
 8. Add `ref.digest` to the OCIRepositories with a renovate manager for the
    tag and digest pair, and `verify` to the six signed charts (section 9).
+9. Add `artifact` tags to every chart and image core installs and to the
+   Talos node image, with the Renovate `customManagers` entry (section 11).
+   Move the quickwit Grafana plugin download and the bookinfo demo's remote
+   resource into an image or the repo.
+10. Add the Kyverno policy to the `policy` facet, with the registry-mode rule
+    and `skipFallback: true` on the Talos registry mirrors, and run each test
+    context in `Enforce` mode in CI (section 12). This needs the CLI's
+    `windsor-artifacts` ConfigMap.
 
 ## Open questions
 
+- The data keys and the line format of the `windsor-artifacts` ConfigMap are
+  not decided. The Windsor CLI does not write the ConfigMap yet, so slice 10
+  waits for it.
 - `secretRef` has to be absent when the registry allows anonymous pulls, but
   the 13 OCI-published charts have no chart-registry component to add it from. The
   `charts` field that signals a site-provided secret, and the mechanism that
@@ -563,11 +670,8 @@ CLI only supports patches per Kustomization today.
   against the site's identity, which needs a `charts` setting for that
   identity. The alternative is to prefer a vendor's OCI chart whenever its
   tags equal its `Chart.yaml` versions.
-- A full air gap also needs container images, Terraform providers, and the
-  Talos node image, which this decision does not cover. The Windsor CLI finds
-  images in rendered manifests and through built-in extractors, and core
-  declares no image list. No manifest or extractor names the Talos node
-  image, so a site copies it without the CLI's list.
+- A full air gap also needs Terraform providers, which this decision does not
+  cover.
 
 ## References
 
