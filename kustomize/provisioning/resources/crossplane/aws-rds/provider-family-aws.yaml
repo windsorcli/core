@@ -6,5 +6,5 @@ kind: Provider
 metadata:
   name: provider-family-aws
 spec:
-  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-aws package=xpkg.upbound.io/upbound/provider-family-aws
+  # artifact: type=image name=xpkg.upbound.io/upbound/provider-family-aws
   package: xpkg.upbound.io/upbound/provider-family-aws:v2.9.2@sha256:1ff51f820a4f57ad0a171df2c149a3bb6b7386a8244705ff97e21df4ee84b2b3

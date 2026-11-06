@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/external-dns
   ref:
-    # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
+    # artifact: type=chart name=external-dns repo=https://kubernetes-sigs.github.io/external-dns/
     tag: 1.23.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

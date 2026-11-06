@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry:=oci://ghcr.io/fluent/helm-charts}/fluent-operator
   ref:
-    # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
+    # artifact: type=chart name=fluent-operator repo=oci://ghcr.io/fluent/helm-charts
     tag: 4.3.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

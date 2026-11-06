@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: crossplane
-      # renovate: datasource=helm depName=crossplane package=crossplane helmRepo=https://charts.crossplane.io/stable
+      # artifact: type=chart name=crossplane repo=https://charts.crossplane.io/stable
       version: "2.4.3"
       sourceRef:
         kind: HelmRepository
@@ -31,7 +31,7 @@ spec:
     args:
       - --enable-operations
     image:
-      # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane/crossplane package=xpkg.crossplane.io/crossplane/crossplane
+      # artifact: type=image name=xpkg.crossplane.io/crossplane/crossplane
       tag: v2.4.2@sha256:cfa88491dca479686747ccd0f0d1888ec8a7d1ee34629f19d45f509d6995148b
     # Chart defaults already cover most of PSA restricted; these two close
     # the rest (capabilities drop-all, seccompProfile) for system-provisioning.

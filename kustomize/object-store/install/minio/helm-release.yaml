@@ -17,7 +17,7 @@ spec:
   chart:
     spec:
       chart: operator
-      # renovate: datasource=helm depName=minio-operator package=operator helmRepo=https://operator.min.io
+      # artifact: type=chart name=minio-operator repo=https://operator.min.io
       version: 7.1.1
       sourceRef:
         kind: HelmRepository
@@ -25,7 +25,7 @@ spec:
   values:
     operator:
       image:
-        # renovate: datasource=docker depName=minio/operator package=minio/operator
+        # artifact: type=image name=docker.io/minio/operator
         tag: v7.1.1@sha256:cd587f60c43dab75799370ad7b6c55f53cfa2188e85f4c5eda939591f8769f47
       resources:
         requests:

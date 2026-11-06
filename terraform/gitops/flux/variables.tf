@@ -7,7 +7,7 @@ variable "flux_namespace" {
 variable "flux_operator_version" {
   description = "The version of the flux-operator and flux-instance Helm charts to install"
   type        = string
-  # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
+  # artifact: type=chart name=flux-operator repo=oci://ghcr.io/controlplaneio-fluxcd/charts
   default = "0.61.0"
 
   validation {
@@ -79,7 +79,7 @@ variable "distribution_artifact" {
 variable "ready_gate_image" {
   description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
   type        = string
-  # renovate: datasource=docker depName=kubectl package=alpine/k8s
+  # artifact: type=image name=docker.io/alpine/k8s
   default  = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
   nullable = false
 

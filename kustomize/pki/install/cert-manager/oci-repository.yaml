@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry:=oci://quay.io/jetstack/charts}/cert-manager
   ref:
-    # renovate: datasource=docker depName=quay.io/jetstack/charts/cert-manager package=quay.io/jetstack/charts/cert-manager
+    # artifact: type=chart name=cert-manager repo=oci://quay.io/jetstack/charts
     tag: v1.21.2
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry:=oci://quay.io/metallb/chart}/metallb
   ref:
-    # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
+    # artifact: type=chart name=metallb repo=oci://quay.io/metallb/chart
     tag: 0.16.1
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

@@ -13,33 +13,48 @@ when: cluster.driver == 'talos'
 # Config — Mayastor image tags
 # =============================================================================
 # Mayastor has no arm64 build on a released tag (openebs/mayastor#1107).
-# arm64 workstations override to the develop tag; the release pin stays in
-# the kustomize patch as each substitution's own default.
+# arm64 workstations override to the develop tag.
 config:
 
   - name: mayastor_images
     value:
-      tags: {}
+      tags:
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-core
+        agent_core: v2.11.1@sha256:f4f4b85b67b399cfb6452e139680cb35b788574f626ca27094bd7fda7fb8e6f3
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
+        agent_ha_cluster: v2.11.1@sha256:5007ae0a38bf52fa51744d845325038327fe03c626c3f95f954c98cd100aed9d
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
+        agent_ha_node: v2.11.1@sha256:27ea3280d3e71213f31e4815b7935f828ecc1cf0e8802e74aa2934b989ee5a43
+        # artifact: type=image name=docker.io/openebs/mayastor-api-rest
+        api_rest: v2.11.1@sha256:2e60c6fc69970a4dccc2d9b0f0719e6d272858c63c3a1dc24c38abac5853d0ec
+        # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
+        csi_controller: v2.11.1@sha256:f4f442d8ce7ea8b3e410c4cfe8540b1e8a3250ed91c025d83f1b870f119acb97
+        # artifact: type=image name=docker.io/openebs/mayastor-csi-node
+        csi_node: v2.11.1@sha256:0946de2b2fd44275ec60bc146cdb7ca917ec5cabfde9b21b64c2bfe532f41dd4
+        # artifact: type=image name=docker.io/openebs/mayastor-io-engine
+        io_engine: v2.11.1@sha256:b88de71674405f4fa0f755f0eb246e0eafc0d0f1473263852fd039e45e1b3553
+        # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
+        operator_diskpool: v2.11.1@sha256:231020f43edb57a31d3fc9626f67251f8bd7e356d362aeddbcd675eee7adc417
 
   - name: mayastor_images
     when: talos_common.storage_driver == 'mayastor' && (workstation.arch ?? 'amd64') == 'arm64'
     value:
       tags:
-        # renovate: datasource=docker depName=openebs/mayastor-agent-core package=openebs/mayastor-agent-core
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-core
         agent_core: develop@sha256:78c16714216259d6b43bf5f6fcdf91c01d3a86a21e28687583cdf5e64bf7fc4b
-        # renovate: datasource=docker depName=openebs/mayastor-agent-ha-cluster package=openebs/mayastor-agent-ha-cluster
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
         agent_ha_cluster: develop@sha256:72d834b68b030a0a0e4c89b33c14f7c79d8239ed8e0489aec80fc6f548148d5f
-        # renovate: datasource=docker depName=openebs/mayastor-agent-ha-node package=openebs/mayastor-agent-ha-node
+        # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
         agent_ha_node: develop@sha256:db92737946284dffcdf2a0c612368d0a42bde88f7b6cec154df0e85b02efafe1
-        # renovate: datasource=docker depName=openebs/mayastor-api-rest package=openebs/mayastor-api-rest
+        # artifact: type=image name=docker.io/openebs/mayastor-api-rest
         api_rest: develop@sha256:e23b11447e1093bff7bbfe866efffcfccd94783c5156d65ce09b2a7998a7cc45
-        # renovate: datasource=docker depName=openebs/mayastor-csi-controller package=openebs/mayastor-csi-controller
+        # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
         csi_controller: develop@sha256:bf5afb9770171a70c317cdd295758d67a0bfe74c343dc1ad0fdfb7f93984ed7a
-        # renovate: datasource=docker depName=openebs/mayastor-csi-node package=openebs/mayastor-csi-node
+        # artifact: type=image name=docker.io/openebs/mayastor-csi-node
         csi_node: develop@sha256:f09d6fd0aeb2400d95bd8c5b7d629e8dd3a4c53f8db92a68c7ff4452d30b1dac
-        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+        # artifact: type=image name=docker.io/openebs/mayastor-io-engine
         io_engine: develop@sha256:5d137d2245ebb3f8b0758032376d373e42193ad108b41e00cdc71ef284ba6841
-        # renovate: datasource=docker depName=openebs/mayastor-operator-diskpool package=openebs/mayastor-operator-diskpool
+        # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
         operator_diskpool: develop@sha256:733ef63d35fdc3b6401293325984418b4e49e81b6ce803a2c1fff3fd0138b0fa
 
   # DiskPool disks need a persistent devlink; Mayastor rejects /dev/sdb.

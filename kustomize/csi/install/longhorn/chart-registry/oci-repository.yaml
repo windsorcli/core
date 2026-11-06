@@ -9,7 +9,7 @@ spec:
   timeout: 5m
   url: ${chart_registry}/longhorn
   ref:
-    # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
+    # artifact: type=chart name=longhorn repo=https://charts.longhorn.io
     tag: 1.13.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

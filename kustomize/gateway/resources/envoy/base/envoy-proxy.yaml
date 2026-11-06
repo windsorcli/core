@@ -20,6 +20,6 @@ spec:
                 spec:
                   priorityClassName: windsorcli-platform-critical
                   containers:
-                    # renovate: datasource=docker depName=docker.io/envoyproxy/envoy package=docker.io/envoyproxy/envoy
                     - name: envoy
+                      # artifact: type=image name=docker.io/envoyproxy/envoy
                       image: docker.io/envoyproxy/envoy:distroless-v1.37.1@sha256:4d9226b9fd4d1449887de7cde785beb24b12e47d6e79021dec3c79e362609432

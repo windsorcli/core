@@ -131,6 +131,44 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
+        "/^.*\\.ya?ml$/",
+        "/^.*\\.tf$/"
+      ],
+      "description": "Parse artifact tags for images",
+      "matchStrings": [
+        "(?:#|//)[ \\t]*artifact:[ \\t]+type=image[ \\t]+name=(?<depName>\\S+)[^\\n]*\\n(?:[ \\t]*(?:(?:#|//)[^\\n]*)?\\n)*[^\\n]*?(?<currentValue>[^\\s@\"':,]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?[\"',]?[ \\t]*(?:\\n|$)",
+        "[\\s:='\"](?<depName>[a-z0-9][^\\s@\"':]*/[^\\s@\"']+):(?<currentValue>[^\\s@\"':,]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?[\"',]?[ \\t]*(?:#|//)[ \\t]*artifact:[ \\t]+type=image[ \\t]*(?:\\n|$)"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/",
+        "/^.*\\.tf$/"
+      ],
+      "description": "Parse artifact tags for OCI charts",
+      "matchStrings": [
+        "(?:#|//)[ \\t]*artifact:[ \\t]+type=chart[ \\t]+name=(?<depName>\\S+)[ \\t]+repo=oci://(?<repo>\\S+)[^\\n]*\\n(?:[ \\t]*(?:(?:#|//)[^\\n]*)?\\n)*[^\\n]*?(?<currentValue>[^\\s@\"':,]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?[\"',]?[ \\t]*(?:\\n|$)"
+      ],
+      "datasourceTemplate": "docker",
+      "packageNameTemplate": "{{repo}}/{{depName}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/",
+        "/^.*\\.tf$/"
+      ],
+      "description": "Parse artifact tags for HTTP charts",
+      "matchStrings": [
+        "(?:#|//)[ \\t]*artifact:[ \\t]+type=chart[ \\t]+name=(?<depName>\\S+)[ \\t]+repo=(?<registryUrl>https?://\\S+)[^\\n]*\\n(?:[ \\t]*(?:(?:#|//)[^\\n]*)?\\n)*[^\\n]*?(?<currentValue>[^\\s@\"':,]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?[\"',]?[ \\t]*(?:\\n|$)"
+      ],
+      "datasourceTemplate": "helm"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
         "/^\\.github/workflows/ci\\.yaml$/"
       ],
       "datasourceTemplate": "github-commits",

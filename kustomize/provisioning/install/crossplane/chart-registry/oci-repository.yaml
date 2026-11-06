@@ -9,7 +9,7 @@ spec:
   timeout: 3m
   url: ${chart_registry}/crossplane
   ref:
-    # renovate: datasource=helm depName=crossplane package=crossplane helmRepo=https://charts.crossplane.io/stable
+    # artifact: type=chart name=crossplane repo=https://charts.crossplane.io/stable
     tag: 2.4.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

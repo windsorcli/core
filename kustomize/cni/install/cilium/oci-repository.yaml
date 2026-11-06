@@ -9,7 +9,7 @@ spec:
   timeout: 5m
   url: ${chart_registry:=oci://quay.io/cilium/charts}/cilium
   ref:
-    # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
+    # artifact: type=chart name=cilium repo=oci://quay.io/cilium/charts
     tag: 1.20.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:

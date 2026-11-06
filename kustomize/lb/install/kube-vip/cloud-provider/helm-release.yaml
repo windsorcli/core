@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: kube-vip-cloud-provider
-      # renovate: datasource=helm depName=kube-vip-cloud-provider package=kube-vip-cloud-provider helmRepo=https://kube-vip.github.io/helm-charts
+      # artifact: type=chart name=kube-vip-cloud-provider repo=https://kube-vip.github.io/helm-charts
       version: 0.2.10
       sourceRef:
         kind: HelmRepository
@@ -18,7 +18,7 @@ spec:
   values:
     image:
       repository: kubevip/kube-vip-cloud-provider
-      # renovate: datasource=docker depName=kubevip/kube-vip-cloud-provider package=kubevip/kube-vip-cloud-provider
+      # artifact: type=image name=docker.io/kubevip/kube-vip-cloud-provider
       tag: v0.0.13@sha256:b8b6a5180e678b410e2c5dba86b87fa8099ada16e2f067d83f04e749f8ea54ab
     cm:
       data:

@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: tenant
-      # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
+      # artifact: type=chart name=minio-tenant repo=https://operator.min.io/
       version: 7.1.1
       sourceRef:
         kind: HelmRepository

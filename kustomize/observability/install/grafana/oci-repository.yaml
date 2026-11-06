@@ -9,7 +9,7 @@ spec:
   timeout: 5m
   url: ${chart_registry:=oci://ghcr.io/grafana-community/helm-charts}/grafana
   ref:
-    # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
+    # artifact: type=chart name=grafana repo=oci://ghcr.io/grafana-community/helm-charts
     tag: 10.5.15
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
