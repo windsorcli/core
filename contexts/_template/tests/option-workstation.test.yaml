@@ -851,6 +851,7 @@ cases:
       config:
         workstation_chart_registry:
           key: charts
+        terraform_chart_registry: ""
       terraform:
         - name: workstation
           inputs:
@@ -871,7 +872,7 @@ cases:
                 remote: https://registry.k8s.io
         - name: gitops
           inputs:
-            chart_repository: oci://charts.test.local:5000/windsor
+            chart_repository: null
 
   # A chart registry outside the workstation domain adds no local registry.
   - name: workstation leaves an external chart registry alone

@@ -15,6 +15,13 @@ fail() {
   errors=$((errors + 1))
 }
 
+# Fails unless the first chart artifact tag in a file names the chart and its upstream repository.
+check_tag() {
+  local got
+  got=$(sed -n -E 's/.*artifact: type=chart name=([^ ]+) repo=([^ ]+).*/\1 \2/p' "$1" | head -n1)
+  [ "${got%/}" = "$2 ${3%/}" ] || fail "$1: artifact tag must be name=$2 repo=${3%/}, got ${got:-no tag}"
+}
+
 # Rows of: chart<TAB>version<TAB>upstream. upstream is an oci:// chart reference, or an HTTP
 # repository URL followed by a space and the chart name.
 rows=()
@@ -25,6 +32,7 @@ while IFS= read -r file; do
   tag=$(yq 'select(.kind == "OCIRepository") | .spec.ref.tag' "$file")
   if [[ "$url" =~ ^\$\{chart_registry:=(oci://[^}]+)\}/([^/]+)$ ]]; then
     rows+=("${BASH_REMATCH[2]}	$tag	${BASH_REMATCH[1]}/${BASH_REMATCH[2]}")
+    check_tag "$file" "${BASH_REMATCH[2]}" "${BASH_REMATCH[1]}"
   else
     fail "$file: url must be \${chart_registry:=<upstream base>}/<chart>, got $url"
   fi
@@ -63,6 +71,8 @@ while IFS= read -r file; do
     [ "$tag" = "$version" ] || fail "$oci: tag $tag does not match HelmRelease version $version"
     [ "$url" = "\${chart_registry}/$chart" ] || fail "$oci: url must be \${chart_registry}/$chart, got $url"
     rows+=("$chart	$tag	${upstream_url%/} $chart")
+    check_tag "$file" "$chart" "$upstream_url"
+    check_tag "$oci" "$chart" "$upstream_url"
   done < <(yq -r 'select(.kind == "HelmRelease" and .spec.chart.spec.sourceRef.kind == "HelmRepository") |
     [.metadata.name, .metadata.namespace, .spec.chart.spec.chart, .spec.chart.spec.version, .spec.chart.spec.sourceRef.name] | @tsv' "$file")
 done < <(grep -rl --include='*.yaml' 'kind: HelmRelease' "$KUSTOMIZE_DIR" | sort)
@@ -80,6 +90,7 @@ for entry in "cni/cilium cilium cilium_version" \
   version=$(tf_default "$vars" "$version_var")
   if [[ "$base" == oci://* && -n "$version" ]]; then
     rows+=("$chart	$version	${base%/}/$chart")
+    [ "$chart" = flux-instance ] || check_tag "$vars" "$chart" "$base"
   else
     fail "$vars: expected an oci:// chart_repository default and a $version_var default"
   fi

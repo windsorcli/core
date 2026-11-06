@@ -1312,6 +1312,16 @@ cases:
     expect:
       config:
         chart_registry: oci://registry.example.com/windsor
+        terraform_chart_registry: oci://registry.example.com/windsor
+      flux:
+        - name: policy
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+                - kyverno/external-dns-ttl
+                - kyverno/chart-registry
+                - kyverno
       terraform:
         - name: cni
           inputs:

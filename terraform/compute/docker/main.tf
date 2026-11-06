@@ -171,7 +171,7 @@ locals {
   network_prefix_len = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : null
   gateway            = var.create_network && var.network_cidr != null ? cidrhost(var.network_cidr, 1) : null
   start_index = (var.start_ip != null && var.network_cidr != null) ? try(
-    [for i in range(0, 2048) : i if cidrhost(var.network_cidr, i) == var.start_ip][0],
+    [for i in range(0, 1024) : i if cidrhost(var.network_cidr, i) == var.start_ip][0],
     null
   ) : null
   _sequential_base = (var.start_ip != null && var.network_cidr != null && local.start_index != null) ? local.start_index : (

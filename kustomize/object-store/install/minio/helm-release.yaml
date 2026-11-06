@@ -17,7 +17,7 @@ spec:
   chart:
     spec:
       chart: operator
-      # artifact: type=chart name=minio-operator repo=https://operator.min.io
+      # artifact: type=chart name=operator repo=https://operator.min.io
       version: 7.1.1
       sourceRef:
         kind: HelmRepository

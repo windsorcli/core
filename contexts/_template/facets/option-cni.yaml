@@ -30,7 +30,7 @@ terraform:
       cgroup_auto_mount: false
       # Match the Flux HelmRelease's replicas so `windsor up` re-runs don't flap.
       operator_replicas: "${topology == 'single-node' ? 1 : 2}"
-      chart_repository: "${chart_registry != '' ? chart_registry : null}"
+      chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
   - name: gitops
     when: "talos_provisioned"

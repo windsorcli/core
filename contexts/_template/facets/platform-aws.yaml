@@ -140,7 +140,7 @@ terraform:
       # Endpoint exists only after cluster applies; pull from output by default.
       # Explicit cluster.endpoint still wins (proxied / air-gapped).
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
-      chart_repository: "${chart_registry != '' ? chart_registry : null}"
+      chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
   # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
   # With Cilium: wait for the `cni` step so pod networking is healthy first.
