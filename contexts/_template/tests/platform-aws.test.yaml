@@ -283,9 +283,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-          install:
-            components:
-              - external-dns
           resources:
             - name: public
               components:
@@ -715,9 +712,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-          install:
-            components:
-              - external-dns
           resources:
             - name: public
               components:
@@ -753,9 +747,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-          install:
-            components:
-              - external-dns
           resources:
             - name: private
               components:

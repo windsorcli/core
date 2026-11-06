@@ -395,6 +395,10 @@ config:
     value:
       metrics_server_enabled: true
 
+  # charts.registry as an oci:// URL with no trailing slash, empty when unset.
+  - name: chart_registry
+    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(charts.registry, 'oci://'), '/') : ''}"
+
 # =============================================================================
 # Global substitutions
 # =============================================================================
@@ -407,6 +411,9 @@ substitutions:
 
   # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
+
+  # Empty without charts.registry, so each chart source keeps its vendor URL.
+  chart_registry: "${chart_registry}"
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -439,6 +446,7 @@ terraform:
       # topology: ha runs a standby replica of each default controller so
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
+      chart_repository: "${chart_registry != '' ? chart_registry : null}"
 
   # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
   - name: pki
@@ -502,6 +510,8 @@ flux:
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
         - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
@@ -537,6 +547,7 @@ flux:
         - "${telemetry.metrics.enabled ? 'x509-exporter' : ''}"
         - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
         - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
+        - "${chart_registry != '' && telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server/chart-registry' : ''}"
       timeout: 30m
       interval: 10m
     resources:

@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kube-vip-cloud-provider
+  namespace: system-lb
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/kube-vip-cloud-provider
+  ref:
+    # renovate: datasource=helm depName=kube-vip-cloud-provider package=kube-vip-cloud-provider helmRepo=https://kube-vip.github.io/helm-charts
+    tag: 0.2.10
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

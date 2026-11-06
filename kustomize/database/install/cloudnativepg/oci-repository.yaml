@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: cloudnativepg
+  namespace: system-database
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry:=oci://ghcr.io/cloudnative-pg/charts}/cloudnative-pg
+  ref:
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/charts/cloudnative-pg package=ghcr.io/cloudnative-pg/charts/cloudnative-pg
+    tag: 0.29.1
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

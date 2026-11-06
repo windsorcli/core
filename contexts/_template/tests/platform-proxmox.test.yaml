@@ -605,6 +605,42 @@ cases:
             substitutions:
               loadbalancer_ip_range: 10.10.0.110-10.10.0.120
 
+  # charts.registry adds the kube-vip registry components after their base components.
+  - name: proxmox kube-vip pulls from the chart registry
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.10.0.110"
+          end: "10.10.0.120"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+          nodes: *default-cp-nodes
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+      charts:
+        registry: registry.example.com/windsor
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+              - kube-vip/cloud-provider
+              - kube-vip/chart-registry
+              - kube-vip/cloud-provider/chart-registry
+
   # Gateway and nameservers default from cidr_block for static guests.
   - name: proxmox network gateway and nameservers default from cidr_block
     values:

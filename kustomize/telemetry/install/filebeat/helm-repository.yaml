@@ -1,7 +1,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: elastic-filebeat
+  name: filebeat
   namespace: system-telemetry
 spec:
   interval: 10m

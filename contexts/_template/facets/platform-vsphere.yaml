@@ -338,6 +338,8 @@ flux:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m

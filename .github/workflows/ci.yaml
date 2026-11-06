@@ -61,7 +61,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: terraform,task,yq,helm
+          tools: terraform,task,yq,helm,kustomize
 
       - name: Run yamllint
         run: |
@@ -98,6 +98,10 @@ jobs:
       # Fail if kustomize/crds/ has drifted from crds/sources.yaml.
       - name: Validate vendored CRDs
         run: task crds:check
+
+      # Fail if a Helm chart source breaks the charts.registry layout.
+      - name: Validate chart sources
+        run: task charts:check
 
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index

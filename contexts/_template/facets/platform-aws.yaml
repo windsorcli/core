@@ -140,6 +140,7 @@ terraform:
       # Endpoint exists only after cluster applies; pull from output by default.
       # Explicit cluster.endpoint still wins (proxied / air-gapped).
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
+      chart_repository: "${chart_registry != '' ? chart_registry : null}"
 
   # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
   # With Cilium: wait for the `cni` step so pod networking is healthy first.
@@ -222,6 +223,7 @@ flux:
     install:
       components:
         - aws-lb-controller
+        - "${chart_registry != '' ? 'aws-lb-controller/chart-registry' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
@@ -236,6 +238,7 @@ flux:
     install:
       components:
         - cluster-autoscaler
+        - "${chart_registry != '' ? 'cluster-autoscaler/chart-registry' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
@@ -258,8 +261,6 @@ flux:
   - name: dns
     when: "dns_zone_effective.enabled == true || dns.private.driver == 'cloud'"
     install:
-      components:
-        - external-dns
       timeout: 5m
       interval: 5m
     # One instance per zone. The HTTPRoute source needs the gateway CRDs.
@@ -277,6 +278,7 @@ flux:
           - external-dns
           - external-dns/providers/route53
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
@@ -294,6 +296,7 @@ flux:
           - external-dns
           - external-dns/providers/route53
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-private
           external_dns_domain: "${dns.private_domain ?? ''}"

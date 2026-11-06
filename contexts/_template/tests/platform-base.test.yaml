@@ -1272,3 +1272,80 @@ cases:
               node: 10.5.0.10
               hostname: controlplane-1
     expectError: true
+
+  # Without charts.registry every chart source keeps its vendor URL.
+  - name: charts pull from vendors without a chart registry
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        chart_registry: ""
+
+  # An empty charts.registry pulls each chart from its vendor.
+  - name: empty chart registry pulls from vendors
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: ""
+    expect:
+      config:
+        chart_registry: ""
+
+  # charts.registry sources Flux charts and the Terraform-installed charts.
+  - name: chart registry sources flux and terraform charts
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: registry.example.com/windsor
+    expect:
+      config:
+        chart_registry: oci://registry.example.com/windsor
+      terraform:
+        - name: cni
+          inputs:
+            chart_repository: oci://registry.example.com/windsor
+        - name: gitops
+          inputs:
+            chart_repository: oci://registry.example.com/windsor
+
+  # An oci:// scheme and a trailing slash in charts.registry normalize to the same URL.
+  - name: chart registry normalizes scheme and trailing slash
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: oci://registry.example.com:5000/windsor/
+    expect:
+      config:
+        chart_registry: oci://registry.example.com:5000/windsor
+      terraform:
+        - name: gitops
+          inputs:
+            chart_repository: oci://registry.example.com:5000/windsor
+
+  # charts.registry accepts only an OCI registry.
+  - name: chart registry rejects an https scheme
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: https://registry.example.com/windsor
+    expectError: true

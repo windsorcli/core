@@ -1310,6 +1310,16 @@ properties:
         description: Override the CPU/memory-derived Flux controller --concurrent value. For constrained hosts (e.g. CI runners) where the control-plane container's quota is a small slice of the whole host, not just of a roomy dev machine.
     additionalProperties: false
 
+  # Helm chart sources
+  charts:
+    type: object
+    properties:
+      registry:
+        type: string
+        pattern: '^$|^(oci://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
+        description: OCI registry, with optional oci:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). Unset or empty pulls each chart from its vendor.
+    additionalProperties: false
+
   # Gateway configuration
   gateway:
     type: object

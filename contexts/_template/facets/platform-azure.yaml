@@ -185,8 +185,6 @@ flux:
   - name: dns
     when: "dns_zone_effective.enabled == true || dns.private.driver == 'cloud'"
     install:
-      components:
-        - external-dns
       timeout: 5m
       interval: 5m
     resources:
@@ -207,6 +205,7 @@ flux:
           - external-dns
           - external-dns/providers/azure
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
@@ -225,6 +224,7 @@ flux:
           - external-dns
           - external-dns/providers/azure
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-private
           external_dns_domain: "${dns.private_domain ?? ''}"
