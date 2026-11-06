@@ -440,3 +440,40 @@ run "invalid_distribution" {
     }
   }
 }
+
+# Attached network: nodes take sequential IPs from start_ip.
+run "start_ip_sets_first_node_ip" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    network_name   = "windsor-test"
+    create_network = false
+    start_ip       = "10.5.0.20"
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 2
+        memory    = 2
+        volumes   = []
+        hostports = []
+      }
+      workers = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 2
+        memory    = 2
+        volumes   = []
+        hostports = []
+      }
+    }
+  }
+
+  assert {
+    condition     = local.container_ipv4["controlplane-1"] == "10.5.0.20/16" && local.container_ipv4["worker-1"] == "10.5.0.21/16"
+    error_message = "Nodes must take sequential IPs from start_ip"
+  }
+}
