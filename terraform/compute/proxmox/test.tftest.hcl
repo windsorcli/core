@@ -1,4 +1,14 @@
 mock_provider "proxmox" {
+  mock_data "proxmox_virtual_environment_pools" {
+    defaults = {
+      pool_ids = ["windsor"]
+    }
+  }
+  mock_resource "proxmox_virtual_environment_pool" {
+    defaults = {
+      pool_id = "windsor"
+    }
+  }
   mock_data "proxmox_virtual_environment_vms" {
     defaults = {
       vms = []
@@ -607,4 +617,60 @@ run "skips_guest_listing_without_vm_id" {
     condition     = length(data.proxmox_virtual_environment_vms.existing) == 0
     error_message = "no guest listing expected when no instance pins vm_id"
   }
+}
+
+# A missing existing pool fails at plan time.
+run "rejects_missing_pool" {
+  command = plan
+
+  variables {
+    pool_id = "absent"
+  }
+
+  expect_failures = [data.proxmox_virtual_environment_pools.existing]
+}
+
+# An existing pool passes the check and is not created.
+run "existing_pool_not_created" {
+  command = plan
+
+  variables {
+    pool_id = "windsor"
+  }
+
+  assert {
+    condition     = length(proxmox_virtual_environment_pool.windsor) == 0
+    error_message = "The module must not create the pool when create_pool is false"
+  }
+}
+
+# create_pool creates the pool and skips the existence check.
+run "create_pool" {
+  command = plan
+
+  variables {
+    pool_id     = "fresh"
+    create_pool = true
+  }
+
+  assert {
+    condition     = length(proxmox_virtual_environment_pool.windsor) == 1
+    error_message = "The module must create the pool when create_pool is true"
+  }
+
+  assert {
+    condition     = length(data.proxmox_virtual_environment_pools.existing) == 0
+    error_message = "The pool check must be skipped when the module creates the pool"
+  }
+}
+
+# create_pool without a pool_id is rejected.
+run "rejects_create_pool_without_pool_id" {
+  command = plan
+
+  variables {
+    create_pool = true
+  }
+
+  expect_failures = [var.create_pool]
 }

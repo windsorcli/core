@@ -50,6 +50,7 @@ cases:
             node_name: pve
             datastore_id: local-lvm
             image_datastore_id: local
+            create_pool: false
             network_bridge: vmbr0
             arch: amd64
             bios: seabios
@@ -404,6 +405,25 @@ cases:
                 vm_id: 9010
               - name: worker-2
                 vm_id: 9011
+
+  # create_pool flows through to the compute input.
+  - name: proxmox create_pool flows through to compute inputs
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        pool: windsor
+        create_pool: true
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            pool_id: windsor
+            create_pool: true
 
   # Schema: a VM ID start below the Proxmox minimum fails validation.
   - name: proxmox vm_id_start below 100 fails validation
