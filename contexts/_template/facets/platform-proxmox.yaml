@@ -8,9 +8,12 @@ metadata:
 when: "platform == 'proxmox' && cluster.driver == 'talos'"
 
 requires:
-  - paths:
+  - when: (proxmox.node ?? '') == '' && len(proxmox.nodes ?? []) == 0
+    paths:
       - proxmox.node
-    message: Proxmox VE node name is required (e.g. "pve").
+    message: Set proxmox.node, or proxmox.nodes for several nodes of one cluster (e.g. "pve").
+  - when: (proxmox.node ?? '') != '' && (proxmox.nodes ?? null) != null
+    message: Set proxmox.node or proxmox.nodes, not both.
   - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
     paths:
       - cluster.endpoint
@@ -32,9 +35,11 @@ config:
   # Image Factory schematic ce4c9805 holds siderolabs/qemu-guest-agent only.
   - name: proxmox_effective
     value:
-      node: "${proxmox.node}"
+      node: "${(proxmox.nodes ?? [proxmox.node])[0]}"
+      nodes: ${proxmox.nodes ?? [proxmox.node]}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
+      image_datastore_shared: ${proxmox.image_datastore_shared ?? false}
       bridge: "${proxmox.bridge ?? 'vmbr0'}"
       vlan_id: ${proxmox.vlan_id ?? null}
       arch: "${proxmox.arch ?? 'amd64'}"
@@ -53,23 +58,25 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC and VM ID per control plane.
+  # Node, guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC and VM ID per control plane.
   - name: proxmox_controlplanes
     value:
       nodes: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
+          ["node_name", (cluster.controlplanes.nodes ?? {})["controlplane-" + string(#)]?.proxmox_node ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
         ]))}
 
-  # Guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC and VM ID per worker.
+  # Node, guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC and VM ID per worker.
   - name: proxmox_workers
     value:
       nodes: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
+          ["node_name", (cluster.workers.nodes ?? {})["worker-" + string(#)]?.proxmox_node ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.workers[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
@@ -140,8 +147,10 @@ terraform:
     path: compute/proxmox
     inputs:
       node_name: "${proxmox_effective.node}"
+      nodes: ${proxmox_effective.nodes}
       datastore_id: "${proxmox_effective.datastore}"
       image_datastore_id: "${proxmox_effective.image_datastore}"
+      image_datastore_shared: ${proxmox_effective.image_datastore_shared}
       network_bridge: "${proxmox_effective.bridge}"
       vlan_id: ${proxmox_effective.vlan_id}
       arch: "${proxmox_effective.arch}"
@@ -159,6 +168,7 @@ terraform:
         ${concat(
           map(proxmox_controlplanes.nodes, fromPairs([
             ["name", get(#, "name")],
+            ["node_name", get(#, "node_name")],
             ["role", "controlplane"],
             ["image", "talos"],
             ["count", 1],
@@ -172,6 +182,7 @@ terraform:
           ])),
           map(proxmox_workers.nodes, fromPairs([
             ["name", get(#, "name")],
+            ["node_name", get(#, "node_name")],
             ["role", "worker"],
             ["image", "talos"],
             ["count", 1],

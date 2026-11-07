@@ -101,6 +101,9 @@ $defs:
           type: string
           pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
           description: Fixed guest NIC MAC address on Hyper-V and Proxmox, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
+        proxmox_node:
+          type: string
+          description: Proxmox VE node that hosts this VM. Unset follows the round-robin placement over proxmox.nodes.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -445,7 +448,14 @@ properties:
     properties:
       node:
         type: string
-        description: Proxmox VE node that hosts the Talos VMs (e.g. "pve"). Required.
+        description: Proxmox VE node that hosts the Talos VMs (e.g. "pve"). Set this or nodes.
+      nodes:
+        type: array
+        items:
+          type: string
+          minLength: 1
+        minItems: 1
+        description: Nodes of one Proxmox VE cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Set this or node. Repeating a name gives that node more VMs.
       datastore:
         type: string
         default: local-lvm
@@ -454,6 +464,10 @@ properties:
         type: string
         default: local
         description: Datastore that receives the Talos disk image. It must allow the import content type (Proxmox VE 8.4 or later).
+      image_datastore_shared:
+        type: boolean
+        default: false
+        description: Set to true when image_datastore is shared storage that every node sees. The image is then downloaded once. False downloads it on every node that gets a VM.
       bridge:
         type: string
         default: vmbr0
