@@ -128,11 +128,21 @@ locals {
     [
       for name in local.flux_components : {
         target = { kind = "Deployment", name = name }
-        patch = yamlencode([{
-          op    = "replace"
-          path  = "/spec/template/spec/containers/0/image"
-          value = "${var.distribution_registry}/${name}:${var.controller_image_tags[name]}"
-        }])
+        patch = yamlencode({
+          apiVersion = "apps/v1"
+          kind       = "Deployment"
+          metadata   = { name = name }
+          spec = {
+            template = {
+              spec = {
+                containers = [{
+                  name  = "manager"
+                  image = "${var.distribution_registry}/${name}:${var.controller_image_tags[name]}"
+                }]
+              }
+            }
+          }
+        })
       }
     ],
     [
