@@ -21,8 +21,9 @@ spec:
         kind: HelmRepository
         name: kibana
   values:
+    image: docker.elastic.co/kibana/kibana
     # artifact: type=image name=docker.elastic.co/kibana/kibana
-    image: docker.elastic.co/kibana/kibana:9.5.5@sha256:13b72ce7222c36e4213229004ae62a87aeb32fd372ebfa6fb38f7a3285fdbb78
+    imageTag: 9.5.5@sha256:13b72ce7222c36e4213229004ae62a87aeb32fd372ebfa6fb38f7a3285fdbb78
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]

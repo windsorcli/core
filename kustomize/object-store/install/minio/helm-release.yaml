@@ -25,7 +25,8 @@ spec:
   values:
     operator:
       image:
-        # artifact: type=image name=docker.io/minio/operator
+        repository: quay.io/minio/operator
+        # artifact: type=image name=quay.io/minio/operator
         tag: v7.1.1@sha256:cd587f60c43dab75799370ad7b6c55f53cfa2188e85f4c5eda939591f8769f47
       resources:
         requests:

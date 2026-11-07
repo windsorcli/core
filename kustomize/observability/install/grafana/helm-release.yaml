@@ -31,18 +31,26 @@ spec:
       default:
         timezone: ${timezone:-utc}
     image:
+      registry: docker.io
+      repository: grafana/grafana
       # artifact: type=image name=docker.io/grafana/grafana
       tag: 13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
     initChownData:
       image:
+        registry: docker.io
+        repository: library/busybox
         # artifact: type=image name=docker.io/library/busybox
         tag: 1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
     downloadDashboardsImage:
+      registry: docker.io
+      repository: curlimages/curl
       # artifact: type=image name=docker.io/curlimages/curl
       tag: 8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
     sidecar:
       image:
-        # artifact: type=image name=docker.io/kiwigrid/k8s-sidecar
+        registry: quay.io
+        repository: kiwigrid/k8s-sidecar
+        # artifact: type=image name=quay.io/kiwigrid/k8s-sidecar
         tag: 2.14.1@sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7
       dashboards:
         enabled: true

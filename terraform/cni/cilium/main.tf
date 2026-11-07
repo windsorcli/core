@@ -59,22 +59,30 @@ resource "helm_release" "cilium" {
         # The chart appends a cloud suffix (e.g. -generic) to this repository.
         image = {
           repository = "${var.image_registry}/operator"
+          tag        = var.image_tags.operator
+          useDigest  = false
         }
       }
 
       # Image repositories follow var.image_registry so a mirror registry can serve every
-      # image the bootstrap install pulls. Tags and digests stay chart-pinned.
+      # image the bootstrap install pulls. Each tag carries its digest.
       image = {
         repository = "${var.image_registry}/cilium"
+        tag        = var.image_tags.cilium
+        useDigest  = false
       }
       envoy = {
         image = {
           repository = "${var.image_registry}/cilium-envoy"
+          tag        = var.image_tags.envoy
+          useDigest  = false
         }
       }
       certgen = {
         image = {
           repository = "${var.image_registry}/certgen"
+          tag        = var.image_tags.certgen
+          useDigest  = false
         }
       }
 

@@ -54,6 +54,7 @@ run "full_configuration" {
   variables {
     flux_namespace        = "custom-gitops"
     flux_operator_version = "0.51.0"
+    flux_instance_version = "0.52.0"
     flux_version          = "2.6.0"
     ssh_private_key       = "PRIVATEKEY" # checkov:skip=CKV_SECRET_6: Test file, secrets are not real
     ssh_public_key        = "PUBLICKEY"
@@ -75,7 +76,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = helm_release.flux_instance.version == var.flux_operator_version
+    condition     = helm_release.flux_instance.version == var.flux_instance_version
     error_message = "Instance chart version should match input variable"
   }
 
@@ -485,6 +486,19 @@ run "mirror_locations" {
   assert {
     condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.registry == "registry.example.com/fluxcd"
     error_message = "Flux controller registry should follow distribution_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_operator.values[0]).image.tag == var.operator_image_tag
+    error_message = "flux-operator image tag should follow operator_image_tag"
+  }
+
+  assert {
+    condition = anytrue([
+      for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+      p.target.name == "source-controller" && strcontains(p.patch, "registry.example.com/fluxcd/source-controller:${var.controller_image_tags["source-controller"]}")
+    ])
+    error_message = "Flux controller images should follow distribution_registry and controller_image_tags"
   }
 
   assert {

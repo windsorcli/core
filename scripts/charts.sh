@@ -22,6 +22,14 @@ check_tag() {
   [ "${got%/}" = "$2 ${3%/}" ] || fail "$1: artifact tag must be name=$2 repo=${3%/}, got ${got:-no tag}"
 }
 
+# Fails unless the chart artifact tag in a Terraform variable block names the chart and its upstream repository.
+check_var_tag() {
+  local got
+  got=$(awk -v v="variable \"$2\"" '$0 ~ v {f=1} f && /^}/ {exit} f' "$1" |
+    sed -n -E 's/.*artifact: type=chart name=([^ ]+) repo=([^ ]+).*/\1 \2/p' | head -n1)
+  [ "${got%/}" = "$3 ${4%/}" ] || fail "$1: variable $2: artifact tag must be name=$3 repo=${4%/}, got ${got:-no tag}"
+}
+
 # Rows of: chart<TAB>version<TAB>upstream. upstream is an oci:// chart reference, or an HTTP
 # repository URL followed by a space and the chart name.
 rows=()
@@ -83,14 +91,14 @@ tf_default() {
 }
 for entry in "cni/cilium cilium cilium_version" \
   "gitops/flux flux-operator flux_operator_version" \
-  "gitops/flux flux-instance flux_operator_version"; do
+  "gitops/flux flux-instance flux_instance_version"; do
   read -r stack chart version_var <<<"$entry"
   vars="terraform/$stack/variables.tf"
   base=$(tf_default "$vars" chart_repository)
   version=$(tf_default "$vars" "$version_var")
   if [[ "$base" == oci://* && -n "$version" ]]; then
     rows+=("$chart	$version	${base%/}/$chart")
-    [ "$chart" = flux-instance ] || check_tag "$vars" "$chart" "$base"
+    check_var_tag "$vars" "$version_var" "$chart" "$base"
   else
     fail "$vars: expected an oci:// chart_repository default and a $version_var default"
   fi

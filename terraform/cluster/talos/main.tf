@@ -146,7 +146,7 @@ module "controlplane_bootstrap" {
   extra_kernel_args         = lookup(var.controlplanes[0], "extra_kernel_args", [])
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
-  kubernetes_version        = var.kubernetes_version
+  kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
   endpoint                  = var.controlplanes[0].endpoint
@@ -178,7 +178,7 @@ module "controlplanes" {
   extra_kernel_args         = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
-  kubernetes_version        = var.kubernetes_version
+  kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
   endpoint                  = var.controlplanes[count.index + 1].endpoint
@@ -214,7 +214,7 @@ module "workers" {
   extra_kernel_args         = lookup(var.workers[count.index], "extra_kernel_args", [])
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
-  kubernetes_version        = var.kubernetes_version
+  kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "worker"
   endpoint                  = var.workers[count.index].endpoint

@@ -46,9 +46,33 @@ spec:
     # two on multi-node/ha for controller redundancy. Set by the facet from the topology value.
     operator:
       replicas: ${operator_replicas:=1}
+      image:
+        # The chart appends -generic to the repository.
+        repository: quay.io/cilium/operator
+        # artifact: type=image name=quay.io/cilium/operator-generic
+        tag: v1.20.3@sha256:efdd8d89d6d8f63d21a065fa2f9e17614a2b3ac9371b221af9355f63829e2dbc
+        useDigest: false
+
+    image:
+      repository: quay.io/cilium/cilium
+      # artifact: type=image name=quay.io/cilium/cilium
+      tag: v1.20.3@sha256:95cfa5c2427cc6b452c00908778d0566311f572589284af949d06a013db1a849
+      useDigest: false
+
+    certgen:
+      image:
+        repository: quay.io/cilium/certgen
+        # artifact: type=image name=quay.io/cilium/certgen
+        tag: v0.4.11@sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0
+        useDigest: false
 
     # Bounds the per-node Envoy that serves gateway traffic.
     envoy:
+      image:
+        repository: quay.io/cilium/cilium-envoy
+        # artifact: type=image name=quay.io/cilium/cilium-envoy
+        tag: v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f@sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef
+        useDigest: false
       resources:
         requests:
           cpu: 50m

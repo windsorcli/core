@@ -5,13 +5,16 @@ variable "context_path" {
 }
 
 variable "kubernetes_version" {
-  description = "The kubernetes version to deploy."
+  description = "The kubernetes version to deploy, with or without a leading v. The v form is the tag of the Kubernetes images."
   type        = string
-  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.37.2"
+  # artifact: type=image name=registry.k8s.io/kube-apiserver
+  # artifact: type=image name=registry.k8s.io/kube-controller-manager
+  # artifact: type=image name=registry.k8s.io/kube-scheduler
+  # artifact: type=image name=ghcr.io/siderolabs/kubelet
+  default = "v1.37.2"
   validation {
-    condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
-    error_message = "The Kubernetes version should be in semantic version format like '1.30.3'."
+    condition     = can(regex("^v?1\\.\\d+\\.\\d+$", var.kubernetes_version))
+    error_message = "The Kubernetes version should be in semantic version format like '1.30.3' or 'v1.30.3'."
   }
 }
 

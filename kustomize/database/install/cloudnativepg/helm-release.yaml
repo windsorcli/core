@@ -37,6 +37,7 @@ spec:
     config:
       clusterWide: true
     image:
+      repository: ghcr.io/cloudnative-pg/cloudnative-pg
       # artifact: type=image name=ghcr.io/cloudnative-pg/cloudnative-pg
       tag: 1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
     resources:
