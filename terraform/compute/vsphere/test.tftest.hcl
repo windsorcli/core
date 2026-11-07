@@ -179,6 +179,52 @@ run "controlplane_vip_baked" {
   }
 }
 
+# Registry mirrors and credentials bake into every machineconfig as RegistryMirrorConfig and RegistryAuthConfig documents
+run "registry_mirrors_and_auths_baked" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.5:6443"
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, image = "talos", ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, image = "talos", ipv4 = "10.5.0.20" },
+    ]
+    registry_mirrors = {
+      "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }] }
+    }
+    registry_auths = {
+      "package.copia.io" = { username = "robot", password = "secret" }
+    }
+  }
+
+  assert {
+    condition     = yamldecode(local.registry_mirror_docs[0]).kind == "RegistryMirrorConfig" && yamldecode(local.registry_mirror_docs[0]).endpoints[0].overridePath == true
+    error_message = "docker.io should render as a RegistryMirrorConfig document with overridePath"
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for k, v in data.talos_machine_configuration.controlplane : contains(v.config_patches, local.registry_mirror_docs[0])],
+      [for k, v in data.talos_machine_configuration.worker : contains(v.config_patches, local.registry_mirror_docs[0])],
+    ))
+    error_message = "Every machineconfig should carry the RegistryMirrorConfig document"
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for k, v in data.talos_machine_configuration.controlplane : contains(v.config_patches, local.registry_auth_docs[0])],
+      [for k, v in data.talos_machine_configuration.worker : contains(v.config_patches, local.registry_auth_docs[0])],
+    ))
+    error_message = "Every machineconfig should carry the RegistryAuthConfig document"
+  }
+}
+
 # controlplane_vip with an endpoint that is a control-plane IP fails the plan
 run "controlplane_vip_rejects_node_ip" {
   command = plan
