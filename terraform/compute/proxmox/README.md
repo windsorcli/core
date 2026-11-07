@@ -58,13 +58,13 @@ create, refresh, and destroy:
 | Path | Privileges |
 |------|------------|
 | `/pool/<pool_id>` | `Pool.Audit VM.Allocate VM.Audit VM.PowerMgmt VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options` |
-| `/pool` | `Pool.Allocate` (only when `create_pool` is true) |
+| `/pool` (propagate) | `Pool.Allocate`, plus the `/pool/<pool_id>` privileges (only when `create_pool` is true) |
 | `/storage/<datastore_id>` | `Datastore.AllocateSpace Datastore.Audit` |
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
 | `/nodes/<node_name>` | `Sys.AccessNetwork` |
 
-`Pool.Allocate` applies to `/pool`, not `/pool/<pool_id>`, because the pool does not exist before the module creates it. Leave it out when `create_pool` is false.
+With `create_pool`, grant `Pool.Allocate` on `/pool` with propagation: Proxmox checks it on `/pool/<pool_id>`, which does not exist yet. A new pool has no ACLs, so the user also needs the `/pool/<pool_id>` role above on `/pool` with propagation, which covers every pool. Leave both out when `create_pool` is false and scope the user to the one pool.
 
 Plan reads the datastore list (`Datastore.Audit`) and, when `create_pool` is false, the pool list (`Pool.Audit`). It fails when `image_datastore_id` or `datastore_id` is missing, when `image_datastore_id` lacks the `import` content type, or when `pool_id` does not exist.
 
