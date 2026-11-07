@@ -143,7 +143,10 @@ No modules.
 | Name | Type |
 |------|------|
 | [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
+| [proxmox_virtual_environment_pool.windsor](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_pool) | resource |
 | [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm) | resource |
+| [proxmox_datastores.node](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
+| [proxmox_virtual_environment_pools.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_pools) | data source |
 | [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
 
 ## Inputs
@@ -156,6 +159,7 @@ No modules.
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_cpu_type"></a> [cpu\_type](#input\_cpu\_type) | QEMU CPU type. Null selects x86-64-v2-AES on amd64 and host on arm64. | `string` | `null` | no |
+| <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool\_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_datastore_id"></a> [datastore\_id](#input\_datastore\_id) | Datastore for VM disks, EFI disks, and cloud-init drives (e.g. 'local-lvm'). | `string` | `"local-lvm"` | no |
 | <a name="input_image_datastore_id"></a> [image\_datastore\_id](#input\_image\_datastore\_id) | Datastore that receives downloaded images. It must allow the 'import' content type. | `string` | `"local"` | no |
 | <a name="input_images"></a> [images](#input\_images) | Map of disk images the node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |
@@ -166,7 +170,6 @@ No modules.
 | <a name="input_network_gateway"></a> [network\_gateway](#input\_network\_gateway) | IPv4 default gateway written to static guests. | `string` | `null` | no |
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to guests. | `list(string)` | `[]` | no |
 | <a name="input_node_name"></a> [node\_name](#input\_node\_name) | Proxmox VE node that hosts the VMs (e.g. 'pve'). | `string` | n/a | yes |
-| <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_pool_id"></a> [pool\_id](#input\_pool\_id) | Resource pool the VMs join. Null leaves them outside any pool. | `string` | `null` | no |
 | <a name="input_vlan_id"></a> [vlan\_id](#input\_vlan\_id) | VLAN tag for the VM NIC. Null leaves the NIC untagged. | `number` | `null` | no |
 
