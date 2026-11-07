@@ -30,6 +30,62 @@ locals {
 }
 
 # =============================================================================
+# Datastore and Pool Checks
+# =============================================================================
+
+# The proxmox_datastores lists the datastores the caller can see on the node.
+data "proxmox_datastores" "node" {
+  node_name = var.node_name
+
+  lifecycle {
+    postcondition {
+      condition     = self.datastores == null || length(var.images) == 0 || contains([for d in self.datastores : d.id], var.image_datastore_id)
+      error_message = "Image datastore '${var.image_datastore_id}' does not exist on node '${var.node_name}', or the user lacks Datastore.Audit on it. Create it or set proxmox.image_datastore to an existing datastore."
+    }
+
+    postcondition {
+      condition = self.datastores == null || length(var.images) == 0 || !contains([for d in self.datastores : d.id], var.image_datastore_id) || anytrue([
+        for d in self.datastores : contains(d.content_types, "import") if d.id == var.image_datastore_id
+      ])
+      error_message = "Image datastore '${var.image_datastore_id}' on node '${var.node_name}' does not allow the 'import' content type. Add 'import' to its content types."
+    }
+
+    postcondition {
+      condition     = self.datastores == null || length(var.instances) == 0 || contains([for d in self.datastores : d.id], var.datastore_id)
+      error_message = "VM datastore '${var.datastore_id}' does not exist on node '${var.node_name}', or the user lacks Datastore.Audit on it. Create it or set proxmox.datastore to an existing datastore."
+    }
+  }
+}
+
+# The proxmox_virtual_environment_pools lists the pools the caller can see when the module does not create the pool.
+data "proxmox_virtual_environment_pools" "existing" {
+  count = var.pool_id != null && !var.create_pool ? 1 : 0
+
+  lifecycle {
+    postcondition {
+      condition     = contains(self.pool_ids, var.pool_id)
+      error_message = "Resource pool '${var.pool_id}' does not exist, or the user lacks Pool.Audit on it. Create it with 'pveum pool add ${var.pool_id}' or set proxmox.create_pool to true."
+    }
+  }
+}
+
+# =============================================================================
+# Pool Resources
+# =============================================================================
+
+# The proxmox_virtual_environment_pool is the resource pool the VMs join when create_pool is set.
+resource "proxmox_virtual_environment_pool" "windsor" {
+  count = var.pool_id != null && var.create_pool ? 1 : 0
+
+  pool_id = var.pool_id
+  comment = "Managed by Windsor (${var.context_id})"
+}
+
+locals {
+  vm_pool_id = var.pool_id == null ? null : try(proxmox_virtual_environment_pool.windsor[0].pool_id, var.pool_id)
+}
+
+# =============================================================================
 # Image Resources
 # =============================================================================
 
@@ -107,7 +163,7 @@ resource "proxmox_virtual_environment_vm" "instances" {
   name        = "${each.value.name}${var.name_suffix}"
   node_name   = var.node_name
   vm_id       = each.value.vm_id
-  pool_id     = var.pool_id
+  pool_id     = local.vm_pool_id
   description = each.value.notes
 
   machine                              = local.machine

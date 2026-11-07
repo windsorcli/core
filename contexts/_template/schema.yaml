@@ -483,7 +483,11 @@ properties:
       pool:
         type: string
         pattern: "^[A-Za-z0-9_-]+$"
-        description: Existing resource pool the VMs join. Unset leaves them outside any pool.
+        description: Resource pool the VMs join. Unset leaves them outside any pool.
+      create_pool:
+        type: boolean
+        default: false
+        description: Create the pool named in pool (needs Pool.Allocate on /pool). False uses an existing pool.
       vm_id_start:
         type: integer
         minimum: 100

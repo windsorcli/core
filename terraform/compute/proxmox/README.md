@@ -44,7 +44,7 @@ The following must already exist:
   `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`;
 - a Linux bridge for the VM NICs (`network_bridge`, default `vmbr0`), on the LAN
   that `network_cidr` describes;
-- the resource pool named in `pool_id`, if set: `pveum pool add windsor`.
+- the resource pool named in `pool_id`, if set: `pveum pool add windsor`. With `create_pool` the module creates it instead.
 
 The node must reach `factory.talos.dev` over HTTPS to download the image.
 
@@ -58,10 +58,15 @@ create, refresh, and destroy:
 | Path | Privileges |
 |------|------------|
 | `/pool/<pool_id>` | `Pool.Audit VM.Allocate VM.Audit VM.PowerMgmt VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options` |
+| `/pool` | `Pool.Allocate` (only when `create_pool` is true) |
 | `/storage/<datastore_id>` | `Datastore.AllocateSpace Datastore.Audit` |
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
 | `/nodes/<node_name>` | `Sys.AccessNetwork` |
+
+`Pool.Allocate` applies to `/pool`, not `/pool/<pool_id>`, because the pool does not exist before the module creates it. Leave it out when `create_pool` is false.
+
+Plan reads the datastore list (`Datastore.Audit`) and, when `create_pool` is false, the pool list (`Pool.Audit`). It fails when `image_datastore_id` or `datastore_id` is missing, when `image_datastore_id` lacks the `import` content type, or when `pool_id` does not exist.
 
 DHCP instances also need the guest agent read on the pool: `VM.GuestAgent.Audit`
 on Proxmox VE 9, `VM.Monitor` on 8.4. A tagged NIC needs `SDN.Use` on
@@ -161,6 +166,7 @@ No modules.
 | <a name="input_network_gateway"></a> [network\_gateway](#input\_network\_gateway) | IPv4 default gateway written to static guests. | `string` | `null` | no |
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to guests. | `list(string)` | `[]` | no |
 | <a name="input_node_name"></a> [node\_name](#input\_node\_name) | Proxmox VE node that hosts the VMs (e.g. 'pve'). | `string` | n/a | yes |
+| <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_pool_id"></a> [pool\_id](#input\_pool\_id) | Resource pool the VMs join. Null leaves them outside any pool. | `string` | `null` | no |
 | <a name="input_vlan_id"></a> [vlan\_id](#input\_vlan\_id) | VLAN tag for the VM NIC. Null leaves the NIC untagged. | `number` | `null` | no |
 
