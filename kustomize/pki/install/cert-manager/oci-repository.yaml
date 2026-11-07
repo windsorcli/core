@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://quay.io/jetstack/charts}/cert-manager
   ref:
     # artifact: type=chart name=cert-manager repo=oci://quay.io/jetstack/charts
-    tag: v1.21.2
+    tag: v1.21.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
