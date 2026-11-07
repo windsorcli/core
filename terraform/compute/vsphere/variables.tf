@@ -112,6 +112,19 @@ variable "worker_config_patches" {
   default     = ""
 }
 
+variable "registry_mirrors" {
+  description = "Registry mirrors keyed by the image registry host (e.g. docker.io). Each entry renders a RegistryMirrorConfig document in every baked machineconfig."
+  type = map(object({
+    endpoints = list(string)
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for m in values(var.registry_mirrors) : length(m.endpoints) > 0 && alltrue([for e in m.endpoints : can(regex("^https?://", e))])])
+    error_message = "Each registry mirror must list at least one endpoint, and every endpoint must start with http:// or https://."
+  }
+}
+
 variable "per_node_config_patches" {
   description = "Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos_machine_configuration config_patches."
   type        = map(string)
@@ -156,4 +169,14 @@ variable "instances" {
     ])
     error_message = "instances: ipv4 starting octet plus (count - 1) must not exceed 255"
   }
+}
+
+variable "registry_auths" {
+  description = "Registry credentials keyed by mirror hostname (e.g. registry.example.com). Each entry renders a RegistryAuthConfig document in every baked machineconfig."
+  type = map(object({
+    username = string
+    password = string
+  }))
+  default   = {}
+  sensitive = true
 }

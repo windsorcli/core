@@ -16,6 +16,12 @@ requires:
     paths:
       - identity_effective.gateway_reachable
     message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+  # Fails composition through talos_effective.unsupported, a path that is never set.
+  - when: >-
+      any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))
+    paths:
+      - talos_effective.unsupported
+    message: A docker.registries entry that sets username or password needs both.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -95,6 +101,23 @@ config:
           - siderolabs/nvme-cli
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
+
+      # RegistryMirrorConfig entries keyed by image host: the workstation caches, else each docker.registries entry with a hostname.
+      registry_mirrors: >-
+        ${talos_registry_mirrors.mirrors ?? fromPairs(map(
+          filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'hostname') ?? '') != ''),
+          [
+            ((get(get(#, 1), 'local') ?? '') != '' ? get(get(#, 1), 'local') : get(#, 0)),
+            { endpoints: ['https://' + get(get(#, 1), 'hostname')] }
+          ]
+        ))}
+
+      # RegistryAuthConfig entries keyed by mirror hostname, off a workstation.
+      registry_auths: >-
+        ${talos_registry_mirrors.mirrors != null ? {} : fromPairs(map(
+          filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''),
+          [get(#, 'hostname'), { username: get(#, 'username'), password: get(#, 'password') }]
+        ))}
 
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.

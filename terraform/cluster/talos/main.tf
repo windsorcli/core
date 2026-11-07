@@ -130,6 +130,16 @@ locals {
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
   ]]
+
+  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryMirrorConfig", name = name,
+    endpoints  = [for e in m.endpoints : { url = e }]
+  })]
+
+  registry_auth_docs = [for name in nonsensitive(keys(var.registry_auths)) : sensitive(yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryAuthConfig", name = name,
+    username   = var.registry_auths[name].username, password = var.registry_auths[name].password
+  }))]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -156,13 +166,13 @@ module "controlplane_bootstrap" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[0].instance_id
-  config_patches = [for p in compact(concat([
+  config_patches = concat([for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
-  ], local.controlplane_block_docs[0])) : p if p != "null"]
+  ], local.controlplane_block_docs[0], local.registry_mirror_docs)) : p if p != "null"], local.registry_auth_docs)
 }
 
 module "controlplanes" {
@@ -188,13 +198,13 @@ module "controlplanes" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[count.index + 1].instance_id
-  config_patches = [for p in compact(concat([
+  config_patches = concat([for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
-  ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]
+  ], local.controlplane_block_docs[count.index + 1], local.registry_mirror_docs)) : p if p != "null"], local.registry_auth_docs)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -223,12 +233,12 @@ module "workers" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.workers[count.index].instance_id
-  config_patches = [for p in compact(concat([
+  config_patches = concat([for p in compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
     local.worker_extra_mounts_patch,
     lookup(var.workers[count.index], "config_patches", []),
-  ], local.worker_block_docs[count.index])) : p if p != "null"]
+  ], local.worker_block_docs[count.index], local.registry_mirror_docs)) : p if p != "null"], local.registry_auth_docs)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
