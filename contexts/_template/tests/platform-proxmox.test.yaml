@@ -438,6 +438,7 @@ cases:
       terraform:
         - name: compute
           path: compute/proxmox
+          dependsOn: []
     exclude:
       terraform:
         - name: host
