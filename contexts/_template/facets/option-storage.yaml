@@ -55,7 +55,7 @@ config:
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
         io_engine: develop@sha256:5d137d2245ebb3f8b0758032376d373e42193ad108b41e00cdc71ef284ba6841
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
-        operator_diskpool: develop@sha256:733ef63d35fdc3b6401293325984418b4e49e81b6ce803a2c1fff3fd0138b0fa
+        operator_diskpool: develop@sha256:aa8d1370f7a419f76327abd03e05aad3a08e22c94c30eaca59906505cac05305
 
   # DiskPool disks need a persistent devlink; Mayastor rejects /dev/sdb.
   # incus derives its QEMU by-id path here. Other platforms set
