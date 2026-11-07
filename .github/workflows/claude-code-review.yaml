@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
-      - uses: anthropics/claude-code-action@c0949c50a78c1ec8ce2647db36629b870e715d0c # v1.0.268
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -173,7 +173,7 @@ jobs:
           fi
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ steps.pr.outputs.base_ref }}
-      - uses: anthropics/claude-code-action@c0949c50a78c1ec8ce2647db36629b870e715d0c # v1.0.268
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         env:
           PR_NUMBER: ${{ github.event.issue.number }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
@@ -341,7 +341,7 @@ jobs:
             echo "::error::PR head moved after the /review comment. Comment /review again to review it."
             exit 1
           fi
-      - uses: anthropics/claude-code-action@c0949c50a78c1ec8ce2647db36629b870e715d0c # v1.0.268
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         if: steps.check.outputs.count != '0'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
