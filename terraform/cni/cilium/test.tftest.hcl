@@ -248,6 +248,16 @@ run "default_image_registry" {
     condition     = yamldecode(helm_release.cilium.values[0]).operator.image.repository == "quay.io/cilium/operator"
     error_message = "Operator image should default to quay.io/cilium/operator"
   }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).image.tag == var.image_tags.cilium && yamldecode(helm_release.cilium.values[0]).image.useDigest == false
+    error_message = "Agent image tag should follow image_tags, with the digest in the tag"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).operator.image.tag == var.image_tags.operator
+    error_message = "Operator image tag should follow image_tags"
+  }
 }
 
 run "custom_chart_repository_and_image_registry" {

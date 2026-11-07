@@ -148,7 +148,7 @@ data "talos_machine_configuration" "controlplane" {
   machine_type       = "controlplane"
   machine_secrets    = talos_machine_secrets.this[0].machine_secrets
   talos_version      = "v${var.talos_version}"
-  kubernetes_version = var.kubernetes_version
+  kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
   config_patches = compact([
     var.common_config_patches,
@@ -173,7 +173,7 @@ data "talos_machine_configuration" "worker" {
   machine_type       = "worker"
   machine_secrets    = talos_machine_secrets.this[0].machine_secrets
   talos_version      = "v${var.talos_version}"
-  kubernetes_version = var.kubernetes_version
+  kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
   config_patches = compact([
     var.common_config_patches,

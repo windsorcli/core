@@ -128,6 +128,26 @@ locals {
     [
       for name in local.flux_components : {
         target = { kind = "Deployment", name = name }
+        patch = yamlencode({
+          apiVersion = "apps/v1"
+          kind       = "Deployment"
+          metadata   = { name = name }
+          spec = {
+            template = {
+              spec = {
+                containers = [{
+                  name  = "manager"
+                  image = "${var.distribution_registry}/${name}:${var.controller_image_tags[name]}"
+                }]
+              }
+            }
+          }
+        })
+      }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
         patch = yamlencode([{
           op    = "add"
           path  = "/spec/template/spec/priorityClassName"
@@ -244,6 +264,7 @@ resource "helm_release" "flux_operator" {
   values = [yamlencode({
     image = {
       repository = var.operator_image_repository
+      tag        = var.operator_image_tag
     }
   })]
 }
@@ -255,7 +276,7 @@ resource "helm_release" "flux_instance" {
   repository       = var.chart_repository
   chart            = "flux-instance"
   name             = "flux"
-  version          = var.flux_operator_version
+  version          = var.flux_instance_version
   namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
   create_namespace = false
   wait             = true
@@ -400,7 +421,7 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
   ]
   lifecycle {
     # Re-run the gate only when the flux-instance release actually changes
-    # (e.g. a flux_version or flux_operator_version bump bumps the release
+    # (e.g. a flux_version or flux_instance_version bump bumps the release
     # revision), not on every apply.
     replace_triggered_by = [helm_release.flux_instance.metadata.revision]
   }

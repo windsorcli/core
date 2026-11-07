@@ -30,8 +30,15 @@
     },
     {
       "description": "Keep the container-mode Talos pin on the 1.13 line; 1.14 hides Docker's /etc/hostname and /etc/resolv.conf behind its /etc overlay",
-      "matchDepNames": ["talos-container"],
-      "allowedVersions": "<1.14"
+      "matchFileNames": ["contexts/_template/facets/platform-docker.yaml", "contexts/_template/facets/config-talos.yaml"],
+      "matchDepNames": ["ghcr.io/siderolabs/talos"],
+      "allowedVersions": "/^v1\\.13\\./"
+    },
+    {
+      "description": "Keep the container-mode Kubernetes pin on the 1.36 line, the newest that Talos 1.13 supports",
+      "matchFileNames": ["contexts/_template/facets/platform-docker.yaml", "contexts/_template/facets/config-talos.yaml"],
+      "matchDepNames": ["registry.k8s.io/kube-apiserver"],
+      "allowedVersions": "/^v1\\.36\\./"
     },
     {
       "description": "Provider 0.12.0 generates Talos 1.14 documents that conflict with the v1alpha1 patches in core",

@@ -317,10 +317,13 @@ variable "talos_version" {
 }
 
 variable "kubernetes_version" {
-  description = "Kubernetes version to install."
+  description = "Kubernetes version to install, with or without a leading v. The v form is the tag of the Kubernetes images."
   type        = string
-  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.37.2"
+  # artifact: type=image name=registry.k8s.io/kube-apiserver
+  # artifact: type=image name=registry.k8s.io/kube-controller-manager
+  # artifact: type=image name=registry.k8s.io/kube-scheduler
+  # artifact: type=image name=ghcr.io/siderolabs/kubelet
+  default = "v1.37.2"
 }
 
 variable "common_config_patches" {

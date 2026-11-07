@@ -45,10 +45,15 @@ spec:
           enabled: false
         initContainers:
           image:
+            registry: docker.io
+            namespace: openebs
+            name: alpine-sh
             # artifact: type=image name=docker.io/openebs/alpine-sh
             tag: 4.6.0@sha256:640c187dccdaa305ce96deba8b57387aeab15e3456deff2efc0470e38f355369
       csi:
         image:
+          registry: registry.k8s.io
+          repo: sig-storage
           # artifact: type=image name=registry.k8s.io/sig-storage/csi-provisioner
           provisionerTag: v5.3.0@sha256:bb057f866177d5f4139a1527e594499cbe0feeb67b63aaca8679dfdf0a6016f9
           # artifact: type=image name=registry.k8s.io/sig-storage/csi-attacher
@@ -63,10 +68,14 @@ spec:
           resizerTag: v1.14.0@sha256:5e7cbb63fd497fa913caa21fee1a69f727c220c6fa83c5f8bb0995e2ad73a474
       etcd:
         image:
+          registry: docker.io
+          repository: openebs/etcd
           # artifact: type=image name=docker.io/openebs/etcd
           tag: 3.6.4-debian-12-r0@sha256:c86c06f1ce6a08b6df21eb7a9655b1818778b64c85b5cbb8413ebf7534789730
         volumePermissions:
           image:
+            registry: docker.io
+            repository: openebs/alpine-bash
             # artifact: type=image name=docker.io/openebs/alpine-bash
             tag: 4.6.0@sha256:366d6c5f18c3ea9d54f5ddb4fd4e305ae40339137ba24818d86fbd0d0b590dbc
         # Reuse our own local class instead of the chart's own hostpath
@@ -79,6 +88,8 @@ spec:
           storageClass: local
       preUpgradeHook:
         image:
+          registry: docker.io
+          repo: openebs/kubectl
           # artifact: type=image name=docker.io/openebs/kubectl
           tag: 1.32.4@sha256:9524faf8e3cefb47fa28244a5d15f95ec21a73d963273798e593e61f80712333
       eventing:

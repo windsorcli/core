@@ -17,7 +17,7 @@ spec:
         name: kube-vip-cloud-provider
   values:
     image:
-      repository: kubevip/kube-vip-cloud-provider
+      repository: docker.io/kubevip/kube-vip-cloud-provider
       # artifact: type=image name=docker.io/kubevip/kube-vip-cloud-provider
       tag: v0.0.13@sha256:b8b6a5180e678b410e2c5dba86b87fa8099ada16e2f067d83f04e749f8ea54ab
     cm:

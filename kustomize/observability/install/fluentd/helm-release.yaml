@@ -27,11 +27,13 @@ spec:
         name: fluent-operator
         namespace: system-gitops
   values:
-    image:
-      # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-operator
-      tag: 3.10.1@sha256:be978534f9fc1b998dc822c5eaa95b4e88e6a853a9739fd84fe10b44fcb9a97b
     containerRuntime: containerd
     operator:
+      image:
+        registry: ghcr.io
+        repository: fluent/fluent-operator/fluent-operator
+        # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-operator
+        tag: 3.10.1@sha256:be978534f9fc1b998dc822c5eaa95b4e88e6a853a9739fd84fe10b44fcb9a97b
       tolerations:
         - key: CriticalAddonsOnly
           operator: Exists
@@ -49,12 +51,16 @@ spec:
       priorityClassName: windsorcli-platform-critical
     fluentd:
       image:
+        registry: ghcr.io
+        repository: fluent/fluent-operator/fluentd
         # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluentd
         tag: v1.19.2@sha256:fef9f961b919a56c7f11b0d6edcd55693150cc72d9728aac4b7a95937336774f
       enable: true
       crdsEnable: false
     fluentbit:
       image:
+        registry: ghcr.io
+        repository: fluent/fluent-operator/fluent-bit
         # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-bit
         tag: v5.1.5@sha256:d797e6be1c8dadcff67c50950f0800d228bb7d70e21bc6df2fdf807c2005dd71
       enable: true

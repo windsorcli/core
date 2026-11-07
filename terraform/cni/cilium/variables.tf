@@ -31,6 +31,27 @@ variable "image_registry" {
   }
 }
 
+variable "image_tags" {
+  description = "Tag of each Cilium image the bootstrap install pulls, with its digest. Each tag MUST match the Flux HelmRelease."
+  type = object({
+    cilium   = string
+    operator = string
+    envoy    = string
+    certgen  = string
+  })
+  default = {
+    # artifact: type=image name=quay.io/cilium/cilium
+    cilium = "v1.20.3@sha256:95cfa5c2427cc6b452c00908778d0566311f572589284af949d06a013db1a849"
+    # artifact: type=image name=quay.io/cilium/operator-generic
+    operator = "v1.20.3@sha256:efdd8d89d6d8f63d21a065fa2f9e17614a2b3ac9371b221af9355f63829e2dbc"
+    # artifact: type=image name=quay.io/cilium/cilium-envoy
+    envoy = "v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f@sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef"
+    # artifact: type=image name=quay.io/cilium/certgen
+    certgen = "v0.4.11@sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0"
+  }
+  nullable = false
+}
+
 variable "k8s_service_host" {
   description = "API server host Cilium reaches before its eBPF service rules are active. Required when kube_proxy_replacement is true."
   type        = string
