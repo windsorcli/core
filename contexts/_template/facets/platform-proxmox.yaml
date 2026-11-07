@@ -33,6 +33,7 @@ config:
   - name: proxmox_effective
     value:
       node: "${proxmox.node}"
+      nodes: ${[proxmox.node]}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
       bridge: "${proxmox.bridge ?? 'vmbr0'}"
@@ -42,6 +43,7 @@ config:
       bios: "${proxmox.bios ?? 'seabios'}"
       pool: ${proxmox.pool ?? null}
       create_pool: ${proxmox.create_pool ?? false}
+      manage_image_datastore: ${proxmox.manage_image_datastore ?? false}
       vm_id_start: ${proxmox.vm_id_start ?? null}
       name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
@@ -138,6 +140,8 @@ terraform:
   # Talos nocloud VMs with each node's network config on a cloud-init drive.
   - name: compute
     path: compute/proxmox
+    dependsOn:
+      - "${proxmox_effective.manage_image_datastore ? 'host' : ''}"
     inputs:
       node_name: "${proxmox_effective.node}"
       datastore_id: "${proxmox_effective.datastore}"
