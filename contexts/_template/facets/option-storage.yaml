@@ -53,7 +53,7 @@ config:
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
         csi_node: develop@sha256:656c118ace6407f64d0df7cf43895367f8e66eb00ad37ad8dd77190af5cc5e33
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
-        io_engine: develop@sha256:5d137d2245ebb3f8b0758032376d373e42193ad108b41e00cdc71ef284ba6841
+        io_engine: develop@sha256:6f0fa4ed294b2ad47ffd915f1cc5c3621df715ccf1a485c51a50f5ab4c3724b2
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
         operator_diskpool: develop@sha256:733ef63d35fdc3b6401293325984418b4e49e81b6ce803a2c1fff3fd0138b0fa
 
