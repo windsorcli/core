@@ -9,8 +9,6 @@ when: "platform == 'hyperv' && cluster.driver == 'talos'"
 
 requires:
   - when: cluster.vip == true && (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
-    paths:
-      - hyperv_effective.unsupported
     message: With both Hyper-V gateways on NodePort, the API is reached through the host's address, so cluster.vip does not apply.
   - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
     paths:
