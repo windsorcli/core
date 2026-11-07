@@ -78,12 +78,13 @@ proxmox:
 ```
 
 `proxmox.node` stays and means `nodes: [node]`. A context MUST set one of the
-two. A context that sets both fails composition. The `requires` message
-accepts either value.
+two. A `requires` rule accepts either value. A second `requires` rule, with a
+`when` condition on both values, fails composition when a context sets both.
 
 The facet reads the list as `proxmox.nodes ?? [proxmox.node]` and sets it in
-`proxmox_effective`. An empty list fails composition. A name MAY appear more than once; see
-section 3.
+`proxmox_effective`. The expression alone prefers `proxmox.nodes`, so the second
+rule enforces the exclusion. An empty list fails composition. A name MAY appear
+more than once; see section 3.
 
 ### 3. Placement
 
