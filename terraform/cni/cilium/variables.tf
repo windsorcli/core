@@ -2,7 +2,7 @@ variable "cilium_version" {
   description = "Version of the Cilium Helm chart to install."
   type        = string
   # artifact: type=chart name=cilium repo=oci://quay.io/cilium/charts
-  default = "1.20.3"
+  default = "1.20.4"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.cilium_version))
     error_message = "cilium_version must be in X.Y.Z format."
