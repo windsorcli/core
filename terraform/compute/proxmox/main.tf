@@ -53,7 +53,7 @@ data "proxmox_datastores" "node" {
 
     precondition {
       condition     = !contains(data.proxmox_virtual_environment_nodes.cluster.names, var.node_name) || try(data.proxmox_virtual_environment_nodes.cluster.online[index(data.proxmox_virtual_environment_nodes.cluster.names, var.node_name)], false)
-      error_message = "Node '${var.node_name}' is offline. Start it or remove it from proxmox.nodes."
+      error_message = "Node '${var.node_name}' is offline. Start it, or set proxmox.node or proxmox.nodes to an online node."
     }
 
     postcondition {
