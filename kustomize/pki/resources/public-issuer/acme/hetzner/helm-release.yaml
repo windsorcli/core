@@ -22,11 +22,11 @@ spec:
   chart:
     spec:
       chart: cert-manager-webhook-hetzner
-      # renovate: datasource=helm depName=cert-manager-webhook-hetzner package=cert-manager-webhook-hetzner helmRepo=https://charts.hetzner.cloud
+      # artifact: type=chart name=cert-manager-webhook-hetzner repo=https://charts.hetzner.cloud
       version: 0.9.1
       sourceRef:
         kind: HelmRepository
-        name: hcloud
+        name: cert-manager-webhook-hetzner
   values:
     groupName: acme.hetzner.com
     certManager:
@@ -34,5 +34,5 @@ spec:
       serviceAccountName: cert-manager
     image:
       repository: docker.io/hetzner/cert-manager-webhook-hetzner
-      # renovate: datasource=docker depName=docker.io/hetzner/cert-manager-webhook-hetzner
+      # artifact: type=image name=docker.io/hetzner/cert-manager-webhook-hetzner
       tag: v0.8.0@sha256:5b0ec20d4d43a8ac76d2855a0cdd3866d8e1f75dc6052b604ceefa4a412dae0f

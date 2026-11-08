@@ -82,6 +82,10 @@ cases:
         vip: true
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -133,11 +137,7 @@ cases:
           count: 0
     expectError: true
 
-  # An unset cidr_block must still compose. The schema default does not reach
-  # facet expressions, so every read carries its own fallback; a site that
-  # misses one fails composition with "cidrhost() ... got <nil>". Assert the
-  # bootstrap-critical cluster_endpoint alongside network_cidr, since it comes
-  # from cidrhost(cidr, 10).
+  # An unset cidr_block composes from the per-usage default.
   - name: unset cidr_block composes from the per-usage default
     values:
       platform: hyperv
@@ -149,6 +149,10 @@ cases:
         driver: talos
         controlplanes:
           count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
         workers:
           count: 0
     terraformOutputs:
@@ -927,7 +931,7 @@ cases:
                 ipv4: 10.20.0.10
 
   # Guest IPv4 from cluster.*.nodes; cidr_block and gateway stay the shared LAN.
-  - name: declared node IPs override cidrhost offsets on a shared LAN
+  - name: declared node IPs become guest addresses on a shared LAN
     values:
       platform: hyperv
       gateway:
@@ -989,56 +993,84 @@ cases:
                 count: 1
                 ipv4: 10.41.0.40
 
-  # Omitted nodes map uses cidrhost offsets (.10 / .20).
-  - name: cidrhost offsets when nodes are omitted
+  # Without DHCP, a pool with no declared addresses fails composition.
+  - name: nodes omitted without dhcp fails composition
     values:
       platform: hyperv
       gateway:
         enabled: false
       network:
         cidr_block: 10.10.0.0/24
-        loadbalancer_ips:
-          start: "10.10.0.110"
-          end: "10.10.0.120"
       cluster:
         driver: talos
         controlplanes:
           count: 1
         workers:
           count: 1
+    expectError: true
+
+  # Without DHCP, a worker missing from the nodes map fails composition.
+  - name: worker without address or dhcp fails composition
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+        workers:
+          count: 1
+    expectError: true
+
+  # A declared MAC on an External switch flows to the guest NIC for a router reservation.
+  - name: dhcp on an External switch passes a declared mac_address
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      hyperv:
+        net_adapter:
+          - Ethernet
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              mac_address: "00:15:5D:00:00:01"
+        workers:
+          count: 1
     terraformOutputs:
       compute:
-        controlplanes:
-          - endpoint: 10.10.0.10:50000
-            node: 10.10.0.10
-            hostname: controlplane
-        workers:
-          - endpoint: 10.10.0.20:50000
-            node: 10.10.0.20
-            hostname: worker
+        controlplanes: []
+        workers: []
     expect:
-      config:
-        hyperv_controlplanes:
-          nodes:
-            - name: controlplane
-              ipv4: 10.10.0.10
-        hyperv_workers:
-          nodes:
-            - name: worker
-              ipv4: 10.10.0.20
       terraform:
         - name: compute
           path: compute/hyperv
           inputs:
+            switch_type: External
+            network_dhcp: true
             instances:
               - name: controlplane
                 role: controlplane
-                count: 1
-                ipv4: 10.10.0.10
+                ipv4: null
+                mac_address: "00:15:5D:00:00:01"
               - name: worker
                 role: worker
-                count: 1
-                ipv4: 10.10.0.20
+                ipv4: null
+                mac_address: null
 
   # DHCP guests omit static ipv4; cluster.endpoint is the API URL.
   - name: dhcp guests omit static ipv4 and use cluster.endpoint

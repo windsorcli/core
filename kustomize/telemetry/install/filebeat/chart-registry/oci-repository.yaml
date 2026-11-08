@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: filebeat
+  namespace: system-telemetry
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/filebeat
+  ref:
+    # artifact: type=chart name=filebeat repo=https://helm.elastic.co
+    tag: 8.5.1
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

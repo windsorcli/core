@@ -43,8 +43,6 @@ requires:
       - cluster.endpoint
     message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
   - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
-    paths:
-      - cluster_effective.unsupported
     message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
   - when: lb_effective.driver == 'metallb'
     paths:
@@ -91,6 +89,36 @@ config:
     value:
       controlplanes: "${max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))}"
       workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
+
+  # Nodes-map entry per pool position, keyed controlplane-N and worker-N; null when undeclared.
+  - name: cluster_node_entries
+    value:
+      controlplanes: >-
+        ${map(
+          1..int(cluster.controlplanes.count ?? 1),
+          get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
+        )}
+      workers: >-
+        ${map(
+          1..int(cluster.workers.count ?? 0),
+          get(cluster.workers.nodes ?? {}, "worker-" + string(#))
+        )}
+
+  # Declared guest IPv4 and MAC per pool position, and whether any position lacks an entry.
+  - name: cluster_node_addresses
+    value:
+      controlplanes: >-
+        ${map(cluster_node_entries.controlplanes, fromPairs([
+          ["ipv4", # == null ? null : (#.node ?? split(#.endpoint, ":")[0])],
+          ["mac_address", # == null ? null : #.mac_address]
+        ]))}
+      workers: >-
+        ${map(cluster_node_entries.workers, fromPairs([
+          ["ipv4", # == null ? null : (#.node ?? split(#.endpoint, ":")[0])],
+          ["mac_address", # == null ? null : #.mac_address]
+        ]))}
+      controlplanes_missing: "${any(cluster_node_entries.controlplanes, # == null)}"
+      workers_missing: "${any(cluster_node_entries.workers, # == null)}"
 
   # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
   # azure→aks, gcp→gke); else talos. Talos defaults CNI to cilium; managed
@@ -365,6 +393,14 @@ config:
     value:
       metrics_server_enabled: true
 
+  # charts.registry as an oci:// URL with no trailing slash, empty when unset.
+  - name: chart_registry
+    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(charts.registry, 'oci://'), '/') : ''}"
+
+  # chart_registry for the Terraform-installed charts, empty for a workstation registry.
+  - name: terraform_chart_registry
+    value: "${(workstation_chart_registry.key ?? '') != '' ? '' : chart_registry}"
+
 # =============================================================================
 # Global substitutions
 # =============================================================================
@@ -377,6 +413,9 @@ substitutions:
 
   # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
+
+  # Empty without charts.registry, so each chart source keeps its vendor URL.
+  chart_registry: "${chart_registry}"
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -409,6 +448,7 @@ terraform:
       # topology: ha runs a standby replica of each default controller so
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
+      chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
   # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
   - name: pki
@@ -454,6 +494,7 @@ flux:
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
+          - "${chart_registry != '' ? 'kyverno/chart-registry' : ''}"
         healthChecks:
           - apiVersion: batch/v1
             kind: Job
@@ -472,6 +513,8 @@ flux:
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
         - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
@@ -480,11 +523,11 @@ flux:
       - components:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
           - >-
-            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal == true &&
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal_enabled == true &&
             gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
           - >-
-            ${lb_effective.driver == 'metallb' && gateway.enabled == true && (dns.public_domain ?? '') != '' &&
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.external_enabled == true &&
             gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/external-gateway' : ''}
         substitutions:
@@ -507,6 +550,7 @@ flux:
         - "${telemetry.metrics.enabled ? 'x509-exporter' : ''}"
         - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
         - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
+        - "${chart_registry != '' && telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server/chart-registry' : ''}"
       timeout: 30m
       interval: 10m
     resources:

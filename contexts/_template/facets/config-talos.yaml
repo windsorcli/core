@@ -331,5 +331,12 @@ config:
     when: platform == 'docker' && workstation.runtime == 'colima'
     value:
       # Remove once Colima's VM image is Ubuntu 26.04 or newer.
-      talos_version: "1.13.11"
-      kubernetes_version: "1.36.5"
+      # artifact: type=image name=ghcr.io/siderolabs/talos
+      talos_image_tag: "v1.13.11"
+      talos_version: "${trimPrefix(talos.talos_image_tag, 'v')}"
+      # artifact: type=image name=registry.k8s.io/kube-apiserver
+      # artifact: type=image name=registry.k8s.io/kube-controller-manager
+      # artifact: type=image name=registry.k8s.io/kube-scheduler
+      # artifact: type=image name=ghcr.io/siderolabs/kubelet
+      kubernetes_image_tag: "v1.36.5"
+      kubernetes_version: "${trimPrefix(talos.kubernetes_image_tag, 'v')}"

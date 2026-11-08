@@ -812,27 +812,24 @@ cases:
             hostname: controlplane-1
         workers: []
     expect:
-      terraform:
-        - name: cluster
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-client-id: kubernetes
-                    oidc-groups-claim: groups
-                    oidc-issuer-url: https://keycloak.example.com/realms/platform
-                    oidc-username-claim: sub
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  nodeIP:
-                    validSubnets:
-                    - 10.5.0.0/16
+      config:
+        talos_oidc:
+          public_ca: true
+        talos_common:
+          common_patch:
+            cluster:
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://keycloak.example.com/realms/platform
+                  oidc-username-claim: sub
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              apiServer:
+                extraArgs:
+                  oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+                extraVolumes: []

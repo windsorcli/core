@@ -44,7 +44,7 @@ The following must already exist:
   `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`;
 - a Linux bridge for the VM NICs (`network_bridge`, default `vmbr0`), on the LAN
   that `network_cidr` describes;
-- the resource pool named in `pool_id`, if set: `pveum pool add windsor`.
+- the resource pool named in `pool_id`, if set: `pveum pool add windsor`. With `create_pool` the module creates it instead.
 
 The node must reach `factory.talos.dev` over HTTPS to download the image.
 
@@ -58,10 +58,15 @@ create, refresh, and destroy:
 | Path | Privileges |
 |------|------------|
 | `/pool/<pool_id>` | `Pool.Audit VM.Allocate VM.Audit VM.PowerMgmt VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options` |
+| `/pool` (propagate) | `Pool.Allocate`, plus the `/pool/<pool_id>` privileges (only when `create_pool` is true) |
 | `/storage/<datastore_id>` | `Datastore.AllocateSpace Datastore.Audit` |
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
 | `/nodes/<node_name>` | `Sys.AccessNetwork` |
+
+With `create_pool`, grant `Pool.Allocate` on `/pool` with propagation: Proxmox checks it on `/pool/<pool_id>`, which does not exist yet. A new pool has no ACLs, so the user also needs the `/pool/<pool_id>` role above on `/pool` with propagation, which covers every pool. Leave both out when `create_pool` is false and scope the user to the one pool.
+
+Plan reads the datastore list (`Datastore.Audit`) and, when `create_pool` is false, the pool list (`Pool.Audit`). It fails when `image_datastore_id` or `datastore_id` is missing, when `image_datastore_id` lacks the `import` content type, or when `pool_id` does not exist.
 
 DHCP instances also need the guest agent read on the pool: `VM.GuestAgent.Audit`
 on Proxmox VE 9, `VM.Monitor` on 8.4. A tagged NIC needs `SDN.Use` on
@@ -138,7 +143,10 @@ No modules.
 | Name | Type |
 |------|------|
 | [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
+| [proxmox_virtual_environment_pool.windsor](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_pool) | resource |
 | [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm) | resource |
+| [proxmox_datastores.node](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
+| [proxmox_virtual_environment_pools.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_pools) | data source |
 | [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
 
 ## Inputs
@@ -151,6 +159,7 @@ No modules.
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_cpu_type"></a> [cpu\_type](#input\_cpu\_type) | QEMU CPU type. Null selects x86-64-v2-AES on amd64 and host on arm64. | `string` | `null` | no |
+| <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool\_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_datastore_id"></a> [datastore\_id](#input\_datastore\_id) | Datastore for VM disks, EFI disks, and cloud-init drives (e.g. 'local-lvm'). | `string` | `"local-lvm"` | no |
 | <a name="input_image_datastore_id"></a> [image\_datastore\_id](#input\_image\_datastore\_id) | Datastore that receives downloaded images. It must allow the 'import' content type. | `string` | `"local"` | no |
 | <a name="input_images"></a> [images](#input\_images) | Map of disk images the node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |

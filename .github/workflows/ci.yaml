@@ -61,7 +61,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: terraform,task,yq,helm
+          tools: terraform,task,yq,helm,kustomize
 
       - name: Run yamllint
         run: |
@@ -98,6 +98,10 @@ jobs:
       # Fail if kustomize/crds/ has drifted from crds/sources.yaml.
       - name: Validate vendored CRDs
         run: task crds:check
+
+      # Fail if a Helm chart source breaks the charts.registry layout.
+      - name: Validate chart sources
+        run: task charts:check
 
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index
@@ -171,7 +175,8 @@ jobs:
   # Integration (fresh | upgrade)
   # ===========================================================================
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
-  # then applies HEAD on top without reinit.
+  # then applies HEAD on top without reinit. registry runs fresh with every
+  # chart pulled from a workstation chart registry.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
@@ -179,7 +184,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON(github.event_name == 'pull_request' && '["fresh","upgrade"]' || '["fresh"]') }}
+        mode: ${{ fromJSON(github.event_name == 'pull_request' && '["fresh","upgrade","registry"]' || '["fresh","registry"]') }}
     steps:
 
       # -----------------------------------------------------------------------
@@ -228,7 +233,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: terraform,kubectl,support-bundle,flux
+          tools: terraform,kubectl,support-bundle,flux,yq
 
       - name: Create bundle directory
         run: mkdir -p support-bundles
@@ -316,16 +321,32 @@ jobs:
 
       # CPU/memory are pinned to the runner's capacity.
       - name: Windsor Init
-        if: matrix.mode == 'fresh'
-        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
+        if: matrix.mode != 'upgrade'
+        run: >-
+          windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
+          ${{ matrix.mode == 'registry' && '--set charts.registry=charts.test:5000/windsor' || '' }}
 
       - name: Show blueprint
-        if: matrix.mode == 'fresh'
+        if: matrix.mode != 'upgrade'
         run: windsor show blueprint
+
+      # Copies each tagged chart into the workstation chart registry, so an untagged chart fails to pull.
+      - name: Fill chart registry
+        id: chart_registry
+        if: matrix.mode == 'registry'
+        timeout-minutes: 15
+        # Flux Mirror pushes over plain HTTP to a private IP, which reaches the same registry as charts.test:5000.
+        run: |
+          windsor apply terraform workstation
+          flux plugin install mirror
+          export DEST="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000/windsor"
+          windsor show artifacts --charts-to "$DEST" -o flux-mirror \
+            | yq '.artifacts |= map(select(.destination | test("^" + strenv(DEST) + "/")))' \
+            | flux mirror sync --no-progress -
 
       - name: Windsor Up
         id: windsor_up
-        if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
+        if: matrix.mode != 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 20
         run: windsor up --verbose
 
@@ -374,7 +395,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.chart_registry.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
@@ -454,7 +475,7 @@ jobs:
 
       - name: Investigate failure with Claude
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}

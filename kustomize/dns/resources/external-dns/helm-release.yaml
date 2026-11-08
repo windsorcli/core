@@ -17,11 +17,11 @@ spec:
   chart:
     spec:
       chart: external-dns
-      # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
+      # artifact: type=chart name=external-dns repo=https://kubernetes-sigs.github.io/external-dns/
       version: 1.23.0
       sourceRef: 
         kind: HelmRepository
-        name: external-dns
+        name: ${external_dns_name}
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:
@@ -39,7 +39,8 @@ spec:
                   values:
                     - system
     image:
-      # renovate: datasource=docker depName=registry.k8s.io/external-dns/external-dns package=registry.k8s.io/external-dns/external-dns
+      repository: registry.k8s.io/external-dns/external-dns
+      # artifact: type=image name=registry.k8s.io/external-dns/external-dns
       tag: v0.23.0@sha256:1854499e2b08cee47c40a08e356bff20dcb192dbcfde8378fc3f900f12cad5a3
     env: []
     extraVolumes: []

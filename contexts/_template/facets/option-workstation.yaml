@@ -8,6 +8,10 @@ metadata:
 # set — the single switch enabling DNS, registry mirrors, and git livereload.
 when: "(platform == 'docker' || platform == 'incus') && workstation.runtime != null && workstation.runtime != ''"
 
+# Chart sources skip TLS when charts.registry is a workstation registry.
+substitutions:
+  chart_registry_insecure: "${workstation_chart_registry.key != ''}"
+
 # =============================================================================
 # Config — workstation + Talos patch values
 # =============================================================================
@@ -57,14 +61,23 @@ config:
   - name: workstation_registries
     value:
       registries: |
-        ${(workstation.services.registries ?? true) == false ? {} : (docker.registries ?? {
+        ${(workstation.services.registries ?? true) == false ? {} : fromPairs(concat(toPairs(docker.registries ?? {
           "gcr.io": { "remote": "https://gcr.io" },
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },
           "reg.kyverno.io": { "remote": "https://reg.kyverno.io" },
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
-        })}
+        }), workstation_chart_registry.key != '' ? [[workstation_chart_registry.key, {}]] : []))}
+
+  # Local registry key when charts.registry names <key>.<workstation domain>, else empty.
+  - name: workstation_chart_registry
+    value:
+      key: >-
+        ${(split(split(trimPrefix(charts.registry ?? '', 'oci://'), '/')[0], ':')[0] endsWith ('.' + ((dns.domain ?? '') != '' ? dns.domain : dns.private_domain)))
+          && !(trimSuffix(split(split(trimPrefix(charts.registry ?? '', 'oci://'), '/')[0], ':')[0], '.' + ((dns.domain ?? '') != '' ? dns.domain : dns.private_domain)) contains '.')
+          ? trimSuffix(split(split(trimPrefix(charts.registry ?? '', 'oci://'), '/')[0], ':')[0], '.' + ((dns.domain ?? '') != '' ? dns.domain : dns.private_domain))
+          : ''}
 
   # Map workstation TF output to Talos machine.registries.mirrors. Only entries
   # with both `remote` and `hostname` are kept; `local` overrides the mirror key.
@@ -328,14 +341,20 @@ terraform:
           image: ${cluster.controlplanes.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.controlplanes.cpu}
           memory: ${cluster_resources_effective.controlplanes.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
+          hostports: >-
+            ${workstation.runtime == "docker-desktop" ? concat(
+            cluster.controlplanes.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
+            gateway_effective.listener_hostports ?? []) : []}
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
           image: ${cluster.workers.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.workers.cpu}
           memory: ${cluster_resources_effective.workers.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
+          hostports: >-
+            ${workstation.runtime == "docker-desktop" ? concat(
+            cluster.workers.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
+            gateway_effective.listener_hostports ?? []) : []}
           volumes: ${cluster.workers.volumes ?? []}
 
   # cluster — Talos bootstrap/apply

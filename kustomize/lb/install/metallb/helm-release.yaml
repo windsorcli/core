@@ -14,14 +14,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: metallb
-      # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
-      version: 0.16.1
-      sourceRef:
-        kind: HelmRepository
-        name: metallb
+  chartRef:
+    kind: OCIRepository
+    name: metallb
   values:
     controller:
       priorityClassName: windsorcli-platform-critical
@@ -40,7 +35,8 @@ spec:
                     values:
                       - system
       image:
-        # renovate: datasource=docker depName=quay.io/metallb/controller package=quay.io/metallb/controller
+        repository: quay.io/metallb/controller
+        # artifact: type=image name=quay.io/metallb/controller
         tag: v0.16.1@sha256:f51ab515de9ccd20dc3dccb093e48df8adddac019326c456f449e55ba91b6420
     speaker:
       priorityClassName: windsorcli-platform-critical
@@ -51,11 +47,13 @@ spec:
           operator: Exists
           effect: NoSchedule
       image:
-        # renovate: datasource=docker depName=quay.io/metallb/speaker package=quay.io/metallb/speaker
+        repository: quay.io/metallb/speaker
+        # artifact: type=image name=quay.io/metallb/speaker
         tag: v0.16.1@sha256:16561e96531e1852d5c229ad7fae6e994dcfa983ff7f4de6b6208b34a4e2ddbc
       frr:
         image:
-          # renovate: datasource=docker depName=quay.io/frrouting/frr package=quay.io/frrouting/frr
+          repository: quay.io/frrouting/frr
+          # artifact: type=image name=quay.io/frrouting/frr
           tag: 10.7.1@sha256:e995beaa50fdc9edb35eadcfefa29b7f062cc06f2b812613789b68fa541554d2
     # frr-k8s BGP backend, unused in L2 mode.
     frrk8s:

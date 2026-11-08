@@ -832,3 +832,99 @@ cases:
       terraform:
         - name: cluster
           path: cluster/talos
+
+  # charts.registry under the workstation domain adds a local registry for the charts.
+  - name: workstation hosts the chart registry under its domain
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: charts.test.local:5000/windsor
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        workstation_chart_registry:
+          key: charts
+        terraform_chart_registry: ""
+      terraform:
+        - name: workstation
+          inputs:
+            registries:
+              charts: {}
+              gcr.io:
+                remote: https://gcr.io
+              ghcr.io:
+                remote: https://ghcr.io
+              quay.io:
+                remote: https://quay.io
+              reg.kyverno.io:
+                remote: https://reg.kyverno.io
+              registry-1.docker.io:
+                remote: https://registry-1.docker.io
+                local: docker.io
+              registry.k8s.io:
+                remote: https://registry.k8s.io
+        - name: gitops
+          inputs:
+            chart_repository: null
+
+  # A chart registry outside the workstation domain adds no local registry.
+  - name: workstation leaves an external chart registry alone
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: registry.example.com/windsor
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        workstation_chart_registry:
+          key: ""
+      terraform:
+        - name: workstation
+          inputs:
+            registries:
+              gcr.io:
+                remote: https://gcr.io
+              ghcr.io:
+                remote: https://ghcr.io
+              quay.io:
+                remote: https://quay.io
+              reg.kyverno.io:
+                remote: https://reg.kyverno.io
+              registry-1.docker.io:
+                remote: https://registry-1.docker.io
+                local: docker.io
+              registry.k8s.io:
+                remote: https://registry.k8s.io
+
+  # A nested host under the workstation domain is not a workstation registry.
+  - name: workstation ignores a nested host under its domain
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: a.charts.test.local:5000/windsor
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        workstation_chart_registry:
+          key: ""

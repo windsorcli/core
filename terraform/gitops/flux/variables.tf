@@ -5,13 +5,25 @@ variable "flux_namespace" {
 }
 
 variable "flux_operator_version" {
-  description = "The version of the flux-operator and flux-instance Helm charts to install"
+  description = "The version of the flux-operator Helm chart to install"
   type        = string
-  # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
+  # artifact: type=chart name=flux-operator repo=oci://ghcr.io/controlplaneio-fluxcd/charts
   default = "0.61.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
+    error_message = "The version must be in the format 'X.Y.Z'"
+  }
+}
+
+variable "flux_instance_version" {
+  description = "The version of the flux-instance Helm chart to install"
+  type        = string
+  # artifact: type=chart name=flux-instance repo=oci://ghcr.io/controlplaneio-fluxcd/charts
+  default = "0.61.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_instance_version))
     error_message = "The version must be in the format 'X.Y.Z'"
   }
 }
@@ -41,7 +53,7 @@ variable "chart_repository" {
 }
 
 variable "operator_image_repository" {
-  description = "Image repository for the flux-operator, without a tag (e.g. registry.example.com/controlplaneio-fluxcd/flux-operator). The chart supplies the tag."
+  description = "Image repository for the flux-operator, without a tag (e.g. registry.example.com/controlplaneio-fluxcd/flux-operator)."
   type        = string
   default     = "ghcr.io/controlplaneio-fluxcd/flux-operator"
   nullable    = false
@@ -50,6 +62,14 @@ variable "operator_image_repository" {
     condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)+$", var.operator_image_repository))
     error_message = "operator_image_repository must be a registry host with an optional port and an image path, with no scheme, tag, or trailing slash."
   }
+}
+
+variable "operator_image_tag" {
+  description = "Tag of the flux-operator image, with its digest."
+  type        = string
+  # artifact: type=image name=ghcr.io/controlplaneio-fluxcd/flux-operator
+  default  = "v0.61.0@sha256:71041d9fff7f7b05f1a8123ebe73c73b7b156f4aacfe1e8e19b5aa953a98892c"
+  nullable = false
 }
 
 variable "distribution_registry" {
@@ -62,6 +82,26 @@ variable "distribution_registry" {
     condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$", var.distribution_registry))
     error_message = "distribution_registry must be a registry host with an optional port and path, with no scheme or trailing slash."
   }
+}
+
+variable "controller_image_tags" {
+  description = "Tag of each Flux controller image, with its digest. The images are read from <distribution_registry>/<controller>. The tags MUST match flux_version."
+  type        = map(string)
+  default = {
+    # artifact: type=image name=ghcr.io/fluxcd/source-controller
+    "source-controller" = "v1.9.6@sha256:6a6693172589f8ff26123a231d5fa6ceb194a6efb4dc647cdf057c959f76a2e3"
+    # artifact: type=image name=ghcr.io/fluxcd/kustomize-controller
+    "kustomize-controller" = "v1.9.6@sha256:2ebeaa341da77d52b6abbbba5efcee0450d47f8b42f0e6f33b08f9020262d606"
+    # artifact: type=image name=ghcr.io/fluxcd/helm-controller
+    "helm-controller" = "v1.7.1@sha256:54526cc6ed1202d71d44c310676448065664f3255ad671d9a69ac26f904e617a"
+    # artifact: type=image name=ghcr.io/fluxcd/notification-controller
+    "notification-controller" = "v1.9.4@sha256:840f318265ee26f0d2c48a158bf7896b22aa4e998e320a18646309f0e40b15da"
+    # artifact: type=image name=ghcr.io/fluxcd/image-reflector-controller
+    "image-reflector-controller" = "v1.2.5@sha256:c83ce5c06fed9ebb308cd5165bd144ee934c720f6b47e0da2180869092063c82"
+    # artifact: type=image name=ghcr.io/fluxcd/image-automation-controller
+    "image-automation-controller" = "v1.2.5@sha256:e1a2720d3951694609c39635886d5dcb15b7dffe0b8248461c6693539c522a28"
+  }
+  nullable = false
 }
 
 variable "distribution_artifact" {
@@ -79,7 +119,7 @@ variable "distribution_artifact" {
 variable "ready_gate_image" {
   description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
   type        = string
-  # renovate: datasource=docker depName=kubectl package=alpine/k8s
+  # artifact: type=image name=docker.io/alpine/k8s
   default  = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
   nullable = false
 

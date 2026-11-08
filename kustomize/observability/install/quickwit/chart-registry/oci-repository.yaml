@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: quickwit
+  namespace: system-observability
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/quickwit
+  ref:
+    # artifact: type=chart name=quickwit repo=https://helm.quickwit.io
+    tag: 0.8.17
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

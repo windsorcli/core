@@ -17,14 +17,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: coredns
-      # renovate: datasource=docker depName=ghcr.io/coredns/charts/coredns package=ghcr.io/coredns/charts/coredns
-      version: 1.49.0
-      sourceRef: 
-        kind: HelmRepository
-        name: coredns
+  chartRef:
+    kind: OCIRepository
+    name: coredns
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:
@@ -42,7 +37,8 @@ spec:
                   values:
                     - system
     image:
-      # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
+      repository: docker.io/coredns/coredns
+      # artifact: type=image name=docker.io/coredns/coredns
       tag: 1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286
     isClusterService: false
     extraVolumes: []

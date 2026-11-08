@@ -461,9 +461,6 @@ cases:
                 acme_dns_zone: example.com
                 acme_email: ops@example.com
         - name: dns
-          install:
-            components:
-              - external-dns
           resources:
             - name: public
               components:

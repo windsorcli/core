@@ -41,14 +41,14 @@ runs:
       uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
       with:
         # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
-        version: v1.37.1
+        version: v1.37.2
 
     - name: Install yq
       if: contains(format(',{0},', inputs.tools), ',yq,')
       shell: bash
       env:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
-        YQ_VERSION: v4.54.1
+        YQ_VERSION: v4.54.2
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
@@ -144,7 +144,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-        SUPPORT_BUNDLE_VERSION: v0.134.3
+        SUPPORT_BUNDLE_VERSION: v0.134.4
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}"

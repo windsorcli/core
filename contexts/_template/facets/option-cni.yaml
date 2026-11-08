@@ -30,7 +30,8 @@ terraform:
       cgroup_auto_mount: false
       # Match the Flux HelmRelease's replicas so `windsor up` re-runs don't flap.
       operator_replicas: "${topology == 'single-node' ? 1 : 2}"
-  
+      chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
+
   - name: gitops
     when: "talos_provisioned"
     path: gitops/flux
@@ -48,11 +49,11 @@ flux:
     when: gateway.enabled == true && gateway.driver == 'cilium'
     resources:
       - name: external
-        when: (dns.public_domain ?? '') != ''
+        when: gateway_effective.external_enabled == true
         dependsOn:
           - cni-install
       - name: internal
-        when: gateway_effective.internal == true
+        when: gateway_effective.internal_enabled == true
         dependsOn:
           - cni-install
 

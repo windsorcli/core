@@ -48,15 +48,14 @@ locals {
   ]
   # Registries: blueprint may pass null when workstation_registries is missing; treat as empty map.
   registries = coalesce(var.registries, {})
-  # Fixed layout: 1=gateway, 2=dns, 3=git, 4..(node_start_offset-1)=registries, node_start_offset=first node.
-  # Registries fill a reserved block so adding/removing one never shifts the first-node IP returned by next_ip.
+  # Fixed layout: 1=gateway, 2=dns, 3=git, node_start_offset=first node, 200..254=registries.
   gateway = cidrhost(var.network_cidr, 1)
   dns_ip  = cidrhost(var.network_cidr, 2)
   git_ip  = cidrhost(var.network_cidr, 3)
   # docker-desktop only: internal port the published host port 53 DNATs to.
   dns_host_answer_port = 5300
-  registry_ip_base     = 4
-  registry_ip_capacity = var.node_start_offset - local.registry_ip_base
+  registry_ip_base     = 200
+  registry_ip_capacity = 255 - local.registry_ip_base
   registry_keys_sorted = sort(keys(local.registries))
   # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
   registry_remote_host = {
@@ -218,7 +217,7 @@ resource "docker_container" "dns" {
 
 resource "docker_image" "registry" {
   count = length(local.registries) > 0 ? 1 : 0
-  # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
+  # artifact: type=image name=ghcr.io/distribution/distribution
   name = "ghcr.io/distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
 }
 

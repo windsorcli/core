@@ -15,14 +15,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: cloudnative-pg
-      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/charts/cloudnative-pg package=ghcr.io/cloudnative-pg/charts/cloudnative-pg
-      version: "0.29.1"
-      sourceRef:
-        kind: HelmRepository
-        name: cloudnativepg
+  chartRef:
+    kind: OCIRepository
+    name: cloudnativepg
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:
@@ -42,7 +37,8 @@ spec:
     config:
       clusterWide: true
     image:
-      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg package=ghcr.io/cloudnative-pg/cloudnative-pg
+      repository: ghcr.io/cloudnative-pg/cloudnative-pg
+      # artifact: type=image name=ghcr.io/cloudnative-pg/cloudnative-pg
       tag: 1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
     resources:
       requests:

@@ -18,15 +18,15 @@ spec:
   chart:
     spec:
       chart: hcloud-cloud-controller-manager
-      # renovate: datasource=helm depName=hcloud-cloud-controller-manager package=hcloud-cloud-controller-manager helmRepo=https://charts.hetzner.cloud
+      # artifact: type=chart name=hcloud-cloud-controller-manager repo=https://charts.hetzner.cloud
       version: 1.39.2
       sourceRef:
         kind: HelmRepository
-        name: hcloud
+        name: hcloud-cloud-controller-manager
   values:
     image:
       repository: docker.io/hetznercloud/hcloud-cloud-controller-manager
-      # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-cloud-controller-manager
+      # artifact: type=image name=docker.io/hetznercloud/hcloud-cloud-controller-manager
       tag: v1.34.0@sha256:bedf16705f1c2a1a8d0dcfddd7eb89938f329a5542e464ba08fc580b905621ec
     # Reads the API token from the `hcloud` Secret (key `token`) the platform
     # facet materializes into system-lb. The CCM watches type=LoadBalancer

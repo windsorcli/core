@@ -16,6 +16,11 @@ tasks:
     cmds:
       - scripts/vendor-crds.sh --check
 
+  charts:check:
+    desc: Verify Helm chart sources follow the charts.registry layout (CI guard)
+    cmds:
+      - scripts/charts.sh
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

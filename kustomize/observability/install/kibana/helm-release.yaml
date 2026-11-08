@@ -1,4 +1,4 @@
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: kibana
@@ -15,14 +15,15 @@ spec:
   chart:
     spec:
       chart: kibana
-      # renovate: datasource=helm depName=kibana package=kibana helmRepo=https://helm.elastic.co
+      # artifact: type=chart name=kibana repo=https://helm.elastic.co
       version: "8.5.1"
       sourceRef:
         kind: HelmRepository
-        name: elastic-kibana
+        name: kibana
   values:
-    # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
-    image: docker.elastic.co/kibana/kibana:9.5.5@sha256:13b72ce7222c36e4213229004ae62a87aeb32fd372ebfa6fb38f7a3285fdbb78
+    image: docker.elastic.co/kibana/kibana
+    # artifact: type=image name=docker.elastic.co/kibana/kibana
+    imageTag: 9.5.6@sha256:c7ed45da5c3cfea020fc6c99ce027f4d21d19dab330379c5115d5eb95f6ecebc
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]

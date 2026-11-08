@@ -232,6 +232,7 @@ flux:
     install:
       components:
         - crossplane
+        - "${chart_registry != '' ? 'crossplane/chart-registry' : ''}"
       timeout: 15m
       interval: 5m
     resources:

@@ -42,6 +42,17 @@ variable "pool_id" {
   default     = null
 }
 
+variable "create_pool" {
+  description = "Create the pool named in pool_id. False uses an existing pool. Creating needs Pool.Allocate on /pool."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.create_pool || var.pool_id != null
+    error_message = "create_pool requires pool_id."
+  }
+}
+
 variable "network_bridge" {
   description = "Linux bridge the VM NIC attaches to (e.g. 'vmbr0')."
   type        = string

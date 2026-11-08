@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: cert-manager-webhook-hetzner
+  namespace: system-pki
+spec:
+  interval: 10m
+  timeout: 3m
+  url: ${chart_registry}/cert-manager-webhook-hetzner
+  ref:
+    # artifact: type=chart name=cert-manager-webhook-hetzner repo=https://charts.hetzner.cloud
+    tag: 0.9.1
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

@@ -15,24 +15,23 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: openebs
-      # renovate: datasource=docker depName=ghcr.io/openebs/charts/openebs package=ghcr.io/openebs/charts/openebs
-      version: 4.6.2
-      sourceRef:
-        kind: HelmRepository
-        name: openebs
+  chartRef:
+    kind: OCIRepository
+    name: openebs
   values:
     localpv-provisioner:
       enabled: false
       localpv:
         image:
-          # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
+          registry: docker.io
+          repository: openebs/provisioner-localpv
+          # artifact: type=image name=docker.io/openebs/provisioner-localpv
           tag: 4.6.0@sha256:99f5116f5cb83fb9d046ef5ff5b8ea98da90e7da5250d7b101bd650662238a0a
       helperPod:
         image:
-          # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
+          registry: docker.io
+          repository: openebs/linux-utils
+          # artifact: type=image name=docker.io/openebs/linux-utils
           tag: 4.6.0@sha256:a3043d266b1c06fb42377ced0c3fc190c66e1e83ae1efda7670ed73feb4ede14
       hostpathClass:
         enabled: false
@@ -40,18 +39,24 @@ spec:
       enabled: false
       zfsPlugin:
         image:
-          # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
+          registry: docker.io
+          repository: openebs/zfs-driver
+          # artifact: type=image name=docker.io/openebs/zfs-driver
           tag: 2.11.2@sha256:0234692bb4a48b3e70d0bc25f3327ca2b6f1c93d57a066eea755a5c0d94bfb2d
     lvm-localpv:
       enabled: false
       lvmPlugin:
         image:
-          # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
+          registry: docker.io
+          repository: openebs/lvm-driver
+          # artifact: type=image name=docker.io/openebs/lvm-driver
           tag: 1.10.1@sha256:41f73aba7f31eee4a033053d9c2f203e007a838c14823f3fd472c50651a98999
     mayastor:
       enabled: false
       image:
-        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+        registry: docker.io
+        repo: openebs
+        # artifact: type=image name=docker.io/openebs/mayastor-io-engine
         tag: v2.12.2@sha256:0161a3e6f902bc3766eb651abe11ed28b826e8bdcd8be063f73e8173462dc561
       base:
         metrics:
@@ -73,5 +78,7 @@ spec:
       enabled: false
     preUpgradeHook:
       image:
-        # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+        registry: docker.io
+        repo: openebs/kubectl
+        # artifact: type=image name=docker.io/openebs/kubectl
         tag: 1.32.4@sha256:9524faf8e3cefb47fa28244a5d15f95ec21a73d963273798e593e61f80712333

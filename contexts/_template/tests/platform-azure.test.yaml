@@ -313,9 +313,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:
@@ -431,9 +428,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-          install:
-            components:
-              - external-dns
           resources:
             - name: account
               components:

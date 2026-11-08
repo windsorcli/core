@@ -54,16 +54,35 @@ spec:
   timeout: 10m          # Based on image count (see table above)
 ```
 
-## HelmRepository Configuration
+## Chart Sources
 
-Set `interval: 10m` in all `kustomize/*/helm-repository.yaml` files:
+Every chart source sets `interval: 10m`, and every chart MUST be pullable from `charts.registry`. `task charts:check` enforces the rules below in CI.
+
+A chart published as OCI uses an `oci-repository.yaml` holding one OCIRepository per chart, named after its HelmRelease. The URL defaults to the vendor and switches to `charts.registry` through the `chart_registry` substitution. The HelmRelease references it with `chartRef`:
 
 ```yaml
 apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
+kind: OCIRepository
+metadata:
+  name: kyverno
+  namespace: system-policy
 spec:
   interval: 10m
+  url: ${chart_registry:=oci://ghcr.io/kyverno/charts}/kyverno
+  ref:
+    # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
+    tag: 3.9.2
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
 ```
+
+A chart published only over HTTP keeps a `helm-repository.yaml` HelmRepository, named after its HelmRelease and used by no other release, and `spec.chart` in its HelmRelease. Next to it, a `chart-registry/` component replaces the HelmRepository with an OCIRepository at `${chart_registry}/<chart name>` and switches the HelmRelease to `chartRef`. Its `ref.tag` MUST match the HelmRelease's `spec.chart.spec.version`, under the same renovate annotation. Facets add the component after the base component when `chart_registry != ''`.
+
+A chart lives in `charts.registry` at `<chart name>:<chart version>`, the reference `helm push` writes, so every pinned version MUST be the chart's `Chart.yaml` version. The reference has no other path segments, so chart names MUST be unique across everything core installs. To fill a registry for one context, run `windsor show artifacts --charts-to <registry> -o flux-mirror | flux mirror sync -`. Every OCIRepository MUST set `insecure: ${chart_registry_insecure:=false}`, which is true only when the chart registry is a workstation registry.
+
+To test the chart registry on a Colima workstation context, set `charts.registry` to `<name>.<dns domain>:5000/windsor`. The workstation then runs a local registry called `<name>` and the chart sources pull from it over plain HTTP. Run `windsor up` once without `charts.registry`. Then set `charts.registry` and run `windsor apply terraform workstation` to create the registry. Flux Mirror pushes over plain HTTP only to localhost or a private IP, so copy the charts into it with `windsor show artifacts --charts-to <registry IP>:5000/windsor -o flux-mirror | flux mirror sync -`, and run `windsor up` again. Terraform pulls the Cilium and Flux charts from the vendor, because its Helm provider cannot pull over plain HTTP.
 
 ## Kustomization Configuration
 

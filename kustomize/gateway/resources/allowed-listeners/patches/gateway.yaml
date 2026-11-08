@@ -1,0 +1,14 @@
+---
+# Admits ListenerSets from namespaces labeled gateway.windsorcli.dev/<gateway_name>: "true".
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchLabels:
+          gateway.windsorcli.dev/${gateway_name}: "true"

@@ -97,6 +97,10 @@ $defs:
             - $ref: '#/$defs/ipv4'
             - $ref: '#/$defs/dnsHostname'
           description: Node identifier — IPv4 dotted-quad (typical for static-node providers) or a DNS-labelled hostname. Used by talosctl and downstream facets to address the machine.
+        mac_address:
+          type: string
+          pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
+          description: Fixed guest NIC MAC address on Hyper-V and Proxmox, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -479,7 +483,11 @@ properties:
       pool:
         type: string
         pattern: "^[A-Za-z0-9_-]+$"
-        description: Existing resource pool the VMs join. Unset leaves them outside any pool.
+        description: Resource pool the VMs join. Unset leaves them outside any pool.
+      create_pool:
+        type: boolean
+        default: false
+        description: Create the pool named in pool (needs Pool.Allocate on /pool). False uses an existing pool.
       vm_id_start:
         type: integer
         minimum: 100
@@ -861,9 +869,10 @@ properties:
         type: boolean
         default: false
         description: >
-          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP and
-          compute reports the leased addresses. More than one control plane
-          requires cluster.endpoint, which MUST sit outside the DHCP scope;
+          When true, Hyper-V, vSphere, Proxmox, and Incus guests take IPv4 from DHCP and
+          compute reports the leased addresses. When false, every node MUST have an
+          address in cluster.controlplanes.nodes or cluster.workers.nodes. More than one
+          control plane requires cluster.endpoint, which MUST sit outside the DHCP scope;
           control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
       ntp_servers:
         type: array
@@ -946,9 +955,10 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named control plane node configurations. On Hyper-V, vSphere, and
-              Proxmox, node/endpoint IPv4 is the guest NIC address unless
-              network.dhcp is true; network.cidr_block and network.gateway stay the shared LAN.
+              Named control plane node configurations. On Hyper-V, vSphere, Proxmox,
+              and Incus, node/endpoint IPv4 is the guest NIC address unless
+              network.dhcp is true. Without DHCP, every control plane MUST have an
+              entry keyed controlplane-1 to controlplane-N.
               Hyper-V names guests by pool position (controlplane, or
               controlplane-N when count > 1) and ignores hostname, which keys
               the VM, its disk and its seed ISO.
@@ -967,9 +977,10 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named worker node configurations. On Hyper-V, vSphere, and Proxmox,
-              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
-              true. On Hyper-V, hostname is ignored the same way it is for
+              Named worker node configurations. On Hyper-V, vSphere, Proxmox, and
+              Incus, node/endpoint IPv4 is the guest NIC address unless network.dhcp
+              is true. Without DHCP, every worker MUST have an entry keyed worker-1
+              to worker-N. On Hyper-V, hostname is ignored the same way it is for
               control planes.
           volumes:
             type: array
@@ -1303,6 +1314,16 @@ properties:
         description: Override the CPU/memory-derived Flux controller --concurrent value. For constrained hosts (e.g. CI runners) where the control-plane container's quota is a small slice of the whole host, not just of a roomy dev machine.
     additionalProperties: false
 
+  # Helm chart sources
+  charts:
+    type: object
+    properties:
+      registry:
+        type: string
+        pattern: '^$|^(oci://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
+        description: OCI registry, with optional oci:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). Unset or empty pulls each chart from its vendor.
+    additionalProperties: false
+
   # Gateway configuration
   gateway:
     type: object
@@ -1328,6 +1349,9 @@ properties:
         type: object
         description: Exposure of the external gateway.
         properties:
+          enabled:
+            type: boolean
+            description: Provision this gateway without dns.public_domain, for ListenerSets. A gateway with its domain is always provisioned.
           service_type:
             type: string
             enum:
@@ -1342,6 +1366,19 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+          node_ports:
+            type: object
+            propertyNames:
+              pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+            additionalProperties:
+              type: integer
+              minimum: 30000
+              maximum: 32767
+            description: Map of ListenerSet listener port to node port, such as "3010" to 30310. Admits ListenerSets on a NodePort gateway. On docker-desktop, each listener port is also published on the host.
+          https:
+            type: boolean
+            default: true
+            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the external gateway.
@@ -1367,6 +1404,9 @@ properties:
         type: object
         description: Exposure of the internal gateway.
         properties:
+          enabled:
+            type: boolean
+            description: Provision this gateway without dns.private_domain, for ListenerSets. A gateway with its domain is always provisioned.
           service_type:
             type: string
             enum:
@@ -1381,6 +1421,19 @@ properties:
             minimum: 30000
             maximum: 32767
             description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+          node_ports:
+            type: object
+            propertyNames:
+              pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
+            additionalProperties:
+              type: integer
+              minimum: 30000
+              maximum: 32767
+            description: Map of ListenerSet listener port to node port, such as "3010" to 30310. Admits ListenerSets on a NodePort gateway. On docker-desktop, each listener port is also published on the host.
+          https:
+            type: boolean
+            default: true
+            description: Serve the web-https listener on port 443. Set false to leave 443 to a ListenerSet.
           tls:
             type: object
             description: Certificate source for the internal gateway.

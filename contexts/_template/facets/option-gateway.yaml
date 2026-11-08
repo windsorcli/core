@@ -4,32 +4,55 @@ metadata:
   name: gateway
   description: Configurable cluster traffic entrypoint
 
-# Each rule names gateway_effective.unsupported, which is never set, so a matching rule fails composition.
 requires:
   - when: >-
       ((gateway.external.ip ?? '') != '' && gateway_exposure.external == 'NodePort') ||
       ((gateway.internal.ip ?? '') != '' && gateway_exposure.internal == 'NodePort')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.ip applies only to service_type LoadBalancer.
   - when: >-
       ((gateway.external.node_port ?? 0) != 0 && gateway_exposure.external == 'LoadBalancer') ||
       ((gateway.internal.node_port ?? 0) != 0 && gateway_exposure.internal == 'LoadBalancer')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.node_port applies only to service_type NodePort.
+  - when: >-
+      (len(gateway.external.node_ports ?? {}) > 0 && gateway_exposure.external == 'LoadBalancer') ||
+      (len(gateway.internal.node_ports ?? {}) > 0 && gateway_exposure.internal == 'LoadBalancer')
+    message: gateway.<name>.node_ports applies only to service_type NodePort.
+  - when: >-
+      gateway.driver == 'cilium' &&
+      (len(gateway.external.node_ports ?? {}) > 0 || len(gateway.internal.node_ports ?? {}) > 0)
+    message: gateway.<name>.node_ports needs gateway.driver envoy.
+  - when: >-
+      any(keys(gateway.external.node_ports ?? {}), # in ['80', '443']) ||
+      any(keys(gateway.internal.node_ports ?? {}), # in ['53', '80', '443', '9292'])
+    message: >-
+      gateway.<name>.node_ports MUST NOT list a port the gateway already serves:
+      80 and 443, and 53 and 9292 on the internal gateway.
+  - when: >-
+      (let core = [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port,
+      gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port, 30053, 30292];
+      any(concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {})), # in core))
+    message: >-
+      gateway.<name>.node_ports MUST NOT reuse a node port core assigns: 30080, 30081, 30053, 30292,
+      or either gateway's node_port.
+  - when: >-
+      (let ports = concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {}));
+      len(uniq(ports)) != len(ports))
+    message: Each node port in gateway.<name>.node_ports MUST be unique across both gateways.
+  - when: >-
+      workstation.runtime == 'docker-desktop' &&
+      (let ports = concat(keys(gateway.external.node_ports ?? {}), keys(gateway.internal.node_ports ?? {}));
+      len(uniq(ports)) != len(ports) || any(ports, # in ['8080', '8081', '8443', '8444']))
+    message: >-
+      On docker-desktop, each gateway.<name>.node_ports listener port is a host port. It MUST differ
+      across the two gateways and from 8080, 8081, 8443, and 8444.
   - when: >-
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       ((gateway.external.ip ?? '') != '' || (gateway.internal.ip ?? '') != '')
-    paths:
-      - gateway_effective.unsupported
     message: The cloud load balancer assigns the gateway address; remove gateway.<name>.ip.
   - when: >-
       gateway.enabled == true && platform in ['metal', 'vsphere', 'hyperv', 'incus', 'proxmox'] &&
-      (((dns.public_domain ?? '') != '' && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
-      (gateway_effective.internal == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
-    paths:
-      - gateway_effective.unsupported
+      ((gateway_effective.external_enabled == true && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
+      (gateway_effective.internal_enabled == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
     message: On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer gateway needs gateway.<name>.ip.
   - when: >-
       gateway.enabled == true &&
@@ -40,49 +63,54 @@ requires:
       let internal = (gateway.internal.ip ?? '') != '' ? reduce(split(gateway.internal.ip, '.'), #acc * 256 + int(#), 0) : -1;
       let external = (gateway.external.ip ?? '') != '' ? reduce(split(gateway.external.ip, '.'), #acc * 256 + int(#), 0) : -1;
       (internal >= start && internal <= end) || (external >= start && external <= end))
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.ip MUST sit outside network.loadbalancer_ips.
   - when: (gateway.external.ip ?? '') != '' && gateway.external.ip == (gateway.internal.ip ?? '')
-    paths:
-      - gateway_effective.unsupported
     message: The two gateways need different addresses in gateway.<name>.ip.
   - when: >-
       gateway_exposure.nodeport == true &&
       gateway_exposure.external_node_port == gateway_exposure.internal_node_port
-    paths:
-      - gateway_effective.unsupported
     message: The two NodePort gateways need different gateway.<name>.node_port values.
   - when: >-
       ((gateway.external.tls.cert ?? '') == '') != ((gateway.external.tls.key ?? '') == '') ||
       ((gateway.internal.tls.cert ?? '') == '') != ((gateway.internal.tls.key ?? '') == '')
-    paths:
-      - gateway_effective.unsupported
     message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
   - when: >-
-      gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' &&
+      gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
       tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
-    paths:
-      - gateway_effective.unsupported
     message: >-
       The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
       (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
   - when: >-
-      gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') == '' &&
-      tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
-    paths:
-      - gateway_effective.unsupported
+      gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
+      (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
     message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: >-
-      gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') == '' &&
-      tls_effective.internal_issuer == 'public-acme' &&
+      gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
+      (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
-    paths:
-      - gateway_effective.unsupported
     message: >-
       gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
       dns.public_domain zone on aws, azure, gcp, or hetzner.
+  - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
+    message: Hetzner has no internal gateway; remove gateway.internal.enabled.
+  - when: >-
+      ((gateway.external.enabled ?? true) == false && (dns.public_domain ?? '') != '') ||
+      ((gateway.internal.enabled ?? true) == false && (dns.private_domain ?? '') != '')
+    message: gateway.<name>.enabled false has no effect on a gateway with a domain; remove it.
+  - when: >-
+      ((gateway.external.https ?? true) == false &&
+      ((gateway.external.tls.cert ?? '') != '' || (gateway.external.tls.issuer ?? '') != '')) ||
+      ((gateway.internal.https ?? true) == false &&
+      ((gateway.internal.tls.cert ?? '') != '' || (gateway.internal.tls.issuer ?? '') != ''))
+    message: gateway.<name>.tls applies only to a gateway with https; remove it or set gateway.<name>.https to true.
+  - when: >-
+      gateway.enabled == true &&
+      ((gateway_effective.external_enabled == true && (dns.public_domain ?? '') == '' &&
+      (gateway.external.https ?? true) == true && (gateway.external.tls.cert ?? '') == '') ||
+      (gateway_effective.internal_enabled == true && (dns.private_domain ?? '') == '' &&
+      (gateway.internal.https ?? true) == true && (gateway.internal.tls.cert ?? '') == ''))
+    message: A gateway without a domain needs gateway.<name>.tls.cert, or gateway.<name>.https set to false.
 
 # =============================================================================
 # Config — derived values consumed by this facet
@@ -99,6 +127,27 @@ config:
       external_mode: "${gateway_exposure.external == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
       # Hetzner is public only and gets no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
+      # A gateway exists with its domain, or without one when gateway.<name>.enabled is true.
+      external_enabled: "${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true}"
+      internal_enabled: >-
+        ${platform != 'hetzner' &&
+        ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true)}
+      external_https: ${gateway.external.https ?? true}
+      internal_https: ${gateway.internal.https ?? true}
+      # Host port mappings that publish each gateway.<name>.node_ports listener port on docker-desktop.
+      listener_hostports: >-
+        ${concat(
+        map(sort(keys(gateway.external.node_ports ?? {})), # + ':' + string((gateway.external.node_ports ?? {})[#]) + '/tcp'),
+        map(sort(keys(gateway.internal.node_ports ?? {})), # + ':' + string((gateway.internal.node_ports ?? {})[#]) + '/tcp'))}
+      # Service ports for gateway.<name>.node_ports, as one-line JSON for the envoy/nodeport/listeners Service.
+      external_listener_ports: >-
+        ${replace(replace(toJSON(map(sort(keys(gateway.external.node_ports ?? {})), ({"name": "tcp-" + #, "protocol": "TCP",
+        "port": int(#), "targetPort": int(#) < 1024 ? int(#) + 10000 : int(#),
+        "nodePort": (gateway.external.node_ports ?? {})[#]}))), "\n", ""), "  ", "")}
+      internal_listener_ports: >-
+        ${replace(replace(toJSON(map(sort(keys(gateway.internal.node_ports ?? {})), ({"name": "tcp-" + #, "protocol": "TCP",
+        "port": int(#), "targetPort": int(#) < 1024 ? int(#) + 10000 : int(#),
+        "nodePort": (gateway.internal.node_ports ?? {})[#]}))), "\n", ""), "  ", "")}
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -117,6 +166,7 @@ crds:
 # gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
 # canonical names gateway-install / gateway-resources regardless of driver.
 # Two optional gateways: external from dns.public_domain, internal from dns.private_domain.
+# Either also exists without its domain when gateway.<name>.enabled is true.
 # Resources components take ${gateway_name}, so both gateways share one tree.
 flux:
 
@@ -134,9 +184,8 @@ flux:
       timeout: 10m
       interval: 5m
     resources:
-      # external: provisioned when dns.public_domain is set.
       - name: external
-        when: (dns.public_domain ?? '') != ''
+        when: gateway_effective.external_enabled == true
         dependsOn:
           - pki-resources
         components:
@@ -145,7 +194,12 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${(gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_effective.external_https == true && (gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_effective.external_https != true ? 'no-web-https' : ''}"
+          # Admits ListenerSets from labeled namespaces on a LoadBalancer gateway, or a NodePort gateway with node_ports.
+          - >-
+            ${gateway_effective.external_mode == 'loadbalancer' || len(gateway.external.node_ports ?? {}) > 0 ?
+            'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
           - >-
@@ -162,11 +216,16 @@ flux:
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
+          - >-
+            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
+            len(gateway.external.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
-          - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
-          - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
+          - "${gateway.driver != 'cilium' && gateway_effective.external_https == true ? 'envoy/default-404' : ''}"
+          - >-
+            ${gateway.driver != 'cilium' && gateway_effective.external_https == true && (dns.public_domain ?? '') != '' ?
+            'envoy/default-404/external-dns' : ''}
           - >-
             ${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
             'lb-address' : ''}
@@ -185,14 +244,14 @@ flux:
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.external_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.external_node_port}
+          gateway_listener_ports: ${gateway_effective.external_listener_ports}
           gateway_host_http_port: 8081
           gateway_host_https_port: 8444
         timeout: 10m
         interval: 5m
 
-      # internal: provisioned when dns.private_domain is set, except on Hetzner.
       - name: internal
-        when: gateway_effective.internal == true
+        when: gateway_effective.internal_enabled == true
         dependsOn:
           - pki-resources
         components:
@@ -200,7 +259,11 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${(gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_effective.internal_https == true && (gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_effective.internal_https != true ? 'no-web-https' : ''}"
+          - >-
+            ${gateway_effective.internal_mode == 'loadbalancer' || len(gateway.internal.node_ports ?? {}) > 0 ?
+            'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
           - >-
@@ -223,10 +286,17 @@ flux:
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
+          - >-
+            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            len(gateway.internal.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
-          - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
-          - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
-          - "${gateway.driver != 'cilium' && dns.private.driver == 'coredns' ? 'dns' : ''}"
+          - "${gateway.driver != 'cilium' && gateway_effective.internal_https == true ? 'envoy/default-404' : ''}"
+          - >-
+            ${gateway.driver != 'cilium' && gateway_effective.internal_https == true && (dns.private_domain ?? '') != '' ?
+            'envoy/default-404/external-dns' : ''}
+          - >-
+            ${gateway.driver != 'cilium' && dns.private.driver == 'coredns' && (dns.private_domain ?? '') != '' ?
+            'dns' : ''}
           - >-
             ${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'lb-address' : ''}
@@ -245,6 +315,7 @@ flux:
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.internal_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.internal_node_port}
+          gateway_listener_ports: ${gateway_effective.internal_listener_ports}
           gateway_host_http_port: 8080
           gateway_host_https_port: 8443
         timeout: 10m
@@ -252,7 +323,7 @@ flux:
 
   # Supplied certificate for each gateway, in place of a cert-manager Certificate.
   - name: gateway
-    when: gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.tls.cert ?? '') != ''
+    when: gateway.enabled == true && gateway_effective.external_enabled == true && (gateway.external.tls.cert ?? '') != ''
     secrets:
       external-supplied-tls:
         namespaces: [system-gateway]
@@ -262,7 +333,7 @@ flux:
           tls.key: ${gateway.external.tls.key}
 
   - name: gateway
-    when: gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.tls.cert ?? '') != ''
+    when: gateway.enabled == true && gateway_effective.internal_enabled == true && (gateway.internal.tls.cert ?? '') != ''
     secrets:
       internal-supplied-tls:
         namespaces: [system-gateway]

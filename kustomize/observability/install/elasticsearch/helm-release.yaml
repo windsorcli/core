@@ -17,13 +17,15 @@ spec:
   chart:
     spec:
       chart: elasticsearch
-      # renovate: datasource=helm depName=elasticsearch package=elasticsearch helmRepo=https://helm.elastic.co
+      # artifact: type=chart name=elasticsearch repo=https://helm.elastic.co
       version: "8.5.1"
       sourceRef:
         kind: HelmRepository
-        name: elastic-elasticsearch
+        name: elasticsearch
   values:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1@sha256:dd4cd0943aae9b4b881fa578eca46015af399a309c0d3b5dc86a30adc932f434
+    image: docker.elastic.co/elasticsearch/elasticsearch
+    # artifact: type=image name=docker.elastic.co/elasticsearch/elasticsearch
+    imageTag: 8.5.1@sha256:d784066422aec9f66ae424f692d2416057e78853ab015915a04530570c955cc8
     createCert: false
     secretMounts:
     - name: elasticsearch-certificates

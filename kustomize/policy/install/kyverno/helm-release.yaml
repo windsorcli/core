@@ -14,14 +14,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: kyverno
-      # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
-      version: 3.9.2
-      sourceRef:
-        kind: HelmRepository
-        name: kyverno
+  chartRef:
+    kind: OCIRepository
+    name: kyverno
   values:
     global:
       priorityClassName: windsorcli-platform-critical
@@ -39,8 +34,16 @@ spec:
     crds:
       migration:
         image:
-          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno-cli package=reg.kyverno.io/kyverno/kyverno-cli
+          registry: reg.kyverno.io
+          repository: kyverno/kyverno-cli
+          # artifact: type=image name=reg.kyverno.io/kyverno/kyverno-cli
           tag: v1.19.1@sha256:ced7b2be0b04250cabfe695f15307f69eb715fe23234816388af4f3812915b2a
+    webhooksCleanup:
+      image:
+        registry: ghcr.io
+        repository: kyverno/readiness-checker
+        # artifact: type=image name=ghcr.io/kyverno/readiness-checker
+        tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
     admissionController:
       # Watch CRDs to invalidate the discovery cache. A new CRD otherwise stays
       # invisible to policy matching until the 15m resync.
@@ -61,11 +64,15 @@ spec:
                     - system
       initContainer:
         image:
-          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyvernopre package=reg.kyverno.io/kyverno/kyvernopre
+          registry: reg.kyverno.io
+          repository: kyverno/kyvernopre
+          # artifact: type=image name=reg.kyverno.io/kyverno/kyvernopre
           tag: v1.19.1@sha256:c25c47461f06f2845a48c319ae86fbbc1730a7b9ed5b701889c9dc1f9ee94b09
       container:
         image:
-          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno package=reg.kyverno.io/kyverno/kyverno
+          registry: reg.kyverno.io
+          repository: kyverno/kyverno
+          # artifact: type=image name=reg.kyverno.io/kyverno/kyverno
           tag: v1.19.1@sha256:b31d8511ae5fd6010e2a01ea72ebae08eb82fa51d91af14a1d9fe989949b4edb
         extraEnvVars:
         - name: NO_COLOR
@@ -85,7 +92,9 @@ spec:
                   values:
                     - system
       image:
-        # renovate: datasource=docker depName=reg.kyverno.io/kyverno/background-controller package=reg.kyverno.io/kyverno/background-controller
+        registry: reg.kyverno.io
+        repository: kyverno/background-controller
+        # artifact: type=image name=reg.kyverno.io/kyverno/background-controller
         tag: v1.19.1@sha256:8f1e9143373a27578cafc2d28d2c66ba0926c63b4c77e63de8d2fdd4a122859f
       extraEnvVars:
       - name: NO_COLOR
@@ -94,7 +103,9 @@ spec:
     cleanupController:
       enabled: false
       image:
-        # renovate: datasource=docker depName=reg.kyverno.io/kyverno/cleanup-controller package=reg.kyverno.io/kyverno/cleanup-controller
+        registry: reg.kyverno.io
+        repository: kyverno/cleanup-controller
+        # artifact: type=image name=reg.kyverno.io/kyverno/cleanup-controller
         tag: v1.19.1@sha256:67a48e62a8d8f8120c86914ff822b90017c54054c7b64ef8a1555645e9d9761e
       extraEnvVars:
       - name: NO_COLOR
@@ -103,7 +114,9 @@ spec:
     reportsController:
       enabled: false
       image:
-        # renovate: datasource=docker depName=reg.kyverno.io/kyverno/reports-controller package=reg.kyverno.io/kyverno/reports-controller
+        registry: reg.kyverno.io
+        repository: kyverno/reports-controller
+        # artifact: type=image name=reg.kyverno.io/kyverno/reports-controller
         tag: v1.19.1@sha256:c0eee97b9b44a0dd35805d56b358fa52548480f79d4944602b9609538eccd64c
       extraEnvVars:
       - name: NO_COLOR

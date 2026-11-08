@@ -14,8 +14,6 @@ requires:
   - when: >-
       gateway.enabled == true && (workstation.runtime ?? '') == '' &&
       gateway_exposure.internal == 'NodePort'
-    paths:
-      - gateway_effective.unsupported
     message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
 # =============================================================================
@@ -64,7 +62,6 @@ flux:
         - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"
         - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
-        - external-dns
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns.public_domain ?? ''}"
@@ -86,6 +83,7 @@ flux:
           - external-dns
           - external-dns/providers/coredns
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
@@ -98,6 +96,7 @@ flux:
           - external-dns
           - external-dns/providers/coredns
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-private
           external_dns_domain: ${dns.private_domain}
