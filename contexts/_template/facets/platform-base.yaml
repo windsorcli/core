@@ -43,8 +43,6 @@ requires:
       - cluster.endpoint
     message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
   - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
-    paths:
-      - cluster_effective.unsupported
     message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
   - when: lb_effective.driver == 'metallb'
     paths:
