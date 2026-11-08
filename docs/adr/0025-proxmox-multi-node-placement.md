@@ -106,21 +106,23 @@ nodes of unequal size:
 The module does not read node CPU or memory. Those values change between plans,
 and a placement that follows them would move VMs.
 
-An operator MAY override the node of one VM with `proxmox.placement`, a map from
-VM name (`controlplane-N` or `worker-N`) to node name:
+An operator MAY override the node of one VM with the field `placement` in
+`cluster.controlplanes.nodes.controlplane-N` and `cluster.workers.nodes.worker-N`:
 
 ```yaml
-proxmox:
-  nodes: [pve1, pve2, pve3]
-  placement:
-    worker-1: pve2
+cluster:
+  workers:
+    nodes:
+      worker-1: { node: 192.168.3.51, endpoint: 192.168.3.51:50000, placement: pve2 }
 ```
 
-Each node in the map MUST be in `proxmox.nodes`, and a key that is not a VM name
-fails schema validation. A VM without an entry follows the round-robin rule. An
-override does not shift the position of other VMs. The map lives in the `proxmox`
-block, so the generic node schema holds no vendor field, and a DHCP context needs
-no `endpoint` or `node` for the VM it places.
+The value MUST be in `proxmox.nodes`. A VM without the field follows the
+round-robin rule, and an override does not shift the position of other VMs. The
+name `placement` is not specific to Proxmox, so the shared node schema holds no
+vendor name; the schema description says what it means on Proxmox. The name
+`node` is not available, because `node` already holds the guest address. The
+shared schema requires `endpoint` and `node` on each entry, so a DHCP context
+that places a VM writes both fields too.
 
 This ADR does not define what happens when an operator changes the node of an
 existing VM. The real-cluster test records what the plan shows.
@@ -262,12 +264,14 @@ host. It MUST answer these questions before the work is done:
 
 ## Alternatives considered
 
-A per-node field such as `proxmox_node` in `cluster.*.nodes` puts a vendor name in
-the shared node schema. The schema also requires `endpoint` and `node` on each
-entry, so a DHCP context would have to invent addresses to place a VM. A generic
-field such as `host` or `zone` has a different meaning on each platform (an
-availability zone on a cloud, a host on vSphere, a cluster member on Incus), so a
-shared name would hide those differences.
+A map in the `proxmox` block (`proxmox.placement: {worker-1: pve2}`) keeps the
+override away from the node entry and avoids the `endpoint` and `node` fields
+under DHCP. It separates the setting from the node it describes, so the node entry
+is the place for it.
+
+A field named after the vendor (`proxmox_node`) puts a vendor name in the shared
+schema. A field such as `host` or `zone` has a different meaning on each platform
+(an availability zone on a cloud, a host on vSphere, a cluster member on Incus).
 
 Moving `proxmox_download_file.images` to a `for_each` keyed by `<image>/<node>`
 makes the code simpler. It also changes the address of every existing download,

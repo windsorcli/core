@@ -64,7 +64,7 @@ config:
       nodes: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
-          ["node_name", (proxmox.placement ?? {})["controlplane-" + string(#)] ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
+          ["node_name", (cluster.controlplanes.nodes ?? {})["controlplane-" + string(#)]?.placement ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
@@ -76,7 +76,7 @@ config:
       nodes: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
-          ["node_name", (proxmox.placement ?? {})["worker-" + string(#)] ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
+          ["node_name", (cluster.workers.nodes ?? {})["worker-" + string(#)]?.placement ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.workers[# - 1].mac_address],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
