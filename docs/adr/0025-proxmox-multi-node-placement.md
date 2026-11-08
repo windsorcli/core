@@ -106,11 +106,21 @@ nodes of unequal size:
 The module does not read node CPU or memory. Those values change between plans,
 and a placement that follows them would move VMs.
 
-An operator MAY override the node of one VM with a new field in
-`cluster.controlplanes.nodes.controlplane-N` and
-`cluster.workers.nodes.worker-N`. The field is named `proxmox_node`. The name
-`node` is not available, because `node` already holds the guest address. A VM
-without the field follows the round-robin rule.
+An operator MAY override the node of one VM with `proxmox.placement`, a map from
+VM name (`controlplane-N` or `worker-N`) to node name:
+
+```yaml
+proxmox:
+  nodes: [pve1, pve2, pve3]
+  placement:
+    worker-1: pve2
+```
+
+Each node in the map MUST be in `proxmox.nodes`, and a key that is not a VM name
+fails schema validation. A VM without an entry follows the round-robin rule. An
+override does not shift the position of other VMs. The map lives in the `proxmox`
+block, so the generic node schema holds no vendor field, and a DHCP context needs
+no `endpoint` or `node` for the VM it places.
 
 This ADR does not define what happens when an operator changes the node of an
 existing VM. The real-cluster test records what the plan shows.
@@ -251,6 +261,13 @@ host. It MUST answer these questions before the work is done:
 7. Does the Kubernetes API stay up when one node stops?
 
 ## Alternatives considered
+
+A per-node field such as `proxmox_node` in `cluster.*.nodes` puts a vendor name in
+the shared node schema. The schema also requires `endpoint` and `node` on each
+entry, so a DHCP context would have to invent addresses to place a VM. A generic
+field such as `host` or `zone` has a different meaning on each platform (an
+availability zone on a cloud, a host on vSphere, a cluster member on Incus), so a
+shared name would hide those differences.
 
 Moving `proxmox_download_file.images` to a `for_each` keyed by `<image>/<node>`
 makes the code simpler. It also changes the address of every existing download,

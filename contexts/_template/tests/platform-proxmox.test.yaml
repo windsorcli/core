@@ -937,8 +937,8 @@ cases:
               - name: controlplane-3
                 node_name: small
 
-  # proxmox_node on one VM overrides the round-robin node.
-  - name: proxmox_node overrides the placement of one vm
+  # An entry in proxmox.placement overrides the round-robin node of one VM.
+  - name: proxmox placement overrides the node of one vm
     values:
       platform: proxmox
       gateway:
@@ -950,11 +950,13 @@ cases:
           count: 2
           nodes:
             controlplane-1: { node: 10.10.0.51, endpoint: "10.10.0.51:50000" }
-            controlplane-2: { node: 10.10.0.52, endpoint: "10.10.0.52:50000", proxmox_node: pve1 }
+            controlplane-2: { node: 10.10.0.52, endpoint: "10.10.0.52:50000" }
         workers:
           count: 0
       proxmox:
         nodes: [pve1, pve2]
+        placement:
+          controlplane-2: pve1
     expect:
       terraform:
         - name: compute
@@ -1018,4 +1020,18 @@ cases:
       cluster: *default-cluster
       proxmox:
         nodes: []
+    expectError: true
+
+  # A placement key that is not a VM name fails validation.
+  - name: proxmox placement with an unknown key fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        nodes: [pve1, pve2]
+        placement:
+          database-1: pve2
     expectError: true
