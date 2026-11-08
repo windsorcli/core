@@ -38,8 +38,8 @@ These facts decide the design:
   then skips the component. The `gitops` component already uses it. No `cli`
   change is needed.
 - `dependsOn` orders a component before `compute`.
-- A Terraform component has no `when` field. Only a facet has `when`, so an
-  optional component needs its own facet.
+- A Terraform component in a facet accepts `when`, so the opt-in component
+  needs no facet of its own.
 - `bpg/proxmox` 0.116 has the resource `proxmox_storage_directory`. Its
   `create_base_path` argument creates the base directory. Its `nodes` argument
   lists the nodes where the storage is available.
@@ -160,7 +160,7 @@ Proxmox CSI plugin is later work with its own ADR.
   no state for it and no import.
 - The creating context cannot apply again after a destroy until it references
   the storage instead of creating it.
-- The option adds one component and one facet. The default path does not
+- The option adds one component to the Proxmox facet. The default path does not
   change.
 
 ## Open questions for the real-host test

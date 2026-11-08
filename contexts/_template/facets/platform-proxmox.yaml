@@ -23,6 +23,11 @@ requires:
     paths:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
+  - when: (proxmox.manage_image_datastore ?? false) == true
+    paths:
+      - proxmox.image_datastore
+      - proxmox.image_datastore_path
+    message: Set proxmox.image_datastore to the storage id and proxmox.image_datastore_path to its directory on the node.
 
 # =============================================================================
 # Proxmox-specific Talos values
@@ -136,6 +141,16 @@ config:
 # Terraform chain: compute, cluster, gitops
 # =============================================================================
 terraform:
+
+  # Image datastore that outlives the context.
+  - name: host
+    path: host/proxmox
+    when: "proxmox_effective.manage_image_datastore == true"
+    inputs:
+      nodes: ${proxmox_effective.nodes}
+      image_datastore_id: "${proxmox_effective.image_datastore}"
+      image_datastore_path: "${proxmox.image_datastore_path}"
+    destroy: false
 
   # Talos nocloud VMs with each node's network config on a cloud-init drive.
   - name: compute
