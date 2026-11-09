@@ -462,10 +462,6 @@ properties:
         type: string
         default: local
         description: Datastore that receives the Talos disk image. It must allow the import content type (Proxmox VE 8.4 or later).
-      image_datastore_shared:
-        type: boolean
-        default: false
-        description: Set to true when image_datastore is shared storage that every node sees. The image is then downloaded once. False downloads it on every node that gets a VM.
       bridge:
         type: string
         default: vmbr0

@@ -138,10 +138,10 @@ of two modes:
 
 - On local storage (the default), the module downloads each image once on each
   node that gets a VM.
-- With `proxmox.image_datastore_shared: true`, the module downloads each image
-  once. The storage is shared, so every node sees the file. The module sets
-  `image_datastore_shared` (bool, default false) for this. The operator states
-  that the storage is shared; the module does not detect it.
+- On shared storage, the module downloads each image once. The storage is shared,
+  so every node sees the file. The module reads the `shared` field that
+  `proxmox_datastores` returns for the image datastore on the primary node. The
+  operator sets that flag in Proxmox; the module adds no value of its own.
 
 The disk keeps `import_from` as the file id string. Each VM depends on the
 download for its own node, so Terraform creates the download before the VM and
@@ -159,8 +159,8 @@ need a state move. The module keeps two existing resources on the primary node
 Other nodes get new resources:
 
 - `proxmox_download_file.extra_images`, keyed by `<image>/<node>`, for each
-  node other than the primary node. It does not exist with
-  `image_datastore_shared: true`.
+  node other than the primary node. It does not exist when the image datastore
+  is shared.
 - `data.proxmox_datastores.extra`, keyed by node.
 
 A `moved` block cannot take a node name that is unknown at authoring time, so
@@ -236,8 +236,7 @@ The facet adds no user, role, or ACL. They stay prerequisites.
   corosync vote that hosts no VMs). Proxmox then blocks changes on the
   surviving node. This ADR does not fix that, and a two-node cluster is a
   supported but weak layout.
-- `proxmox.nodes` replaces `proxmox.node`, and the schema gains `nodes` and
-  `image_datastore_shared`.
+- `proxmox.nodes` replaces `proxmox.node`, and the schema gains `nodes`.
 - A node name is a name in the Proxmox cluster. A renamed node breaks the
   placement of its VMs.
 
@@ -283,8 +282,8 @@ the instance list, the checks, and the outputs across calls, and the facet then
 has to merge the outputs of several calls. One call with a node on each
 instance is smaller.
 
-Detecting shared storage from the `shared` field of `proxmox_datastores` would
-remove `image_datastore_shared`. The data source returns `shared` for each
-datastore, but the module would have to read it before it can plan the
-downloads, and a wrong value silently skips a download. An explicit value is
-easier to reason about. A later change MAY replace the value with detection.
+An explicit `image_datastore_shared` value was rejected. It makes the operator state
+a fact that Proxmox already records in `storage.cfg`, and the two can disagree. A
+wrong flag fails the apply in both designs: a shared flag on local storage leaves
+a node without the file, and a missing flag on shared storage makes the second
+download collide with the first.

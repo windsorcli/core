@@ -42,8 +42,8 @@ The following must already exist:
   gets a VM. A directory datastore such as `local` also works once it allows the
   `images` content type;
 - an image datastore with the `import` content type enabled (`image_datastore_id`,
-  default `local`) on every node that gets an image, or shared storage with
-  `image_datastore_shared`. Proxmox VE 8.4 or later supports it. On a shared node, give
+  default `local`) on every node that gets an image, or shared storage marked
+  `shared` in Proxmox. Proxmox VE 8.4 or later supports it. On a shared node, give
   Windsor its own directory datastore, e.g.
   `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`.
   With `proxmox.manage_image_datastore: true`, the [`host/proxmox`](../../host/proxmox)
@@ -63,10 +63,9 @@ share its node, so a caller that spreads VMs over nodes passes one instance for
 each VM. `nodes` lists the nodes of the deployment. The module checks each one
 and rejects an instance whose `node_name` is not in the list.
 
-The module downloads each image on every node that gets a VM. With
-`image_datastore_shared = true` the module downloads each image once, on
-`node_name`. The caller states that the storage is shared; the module does not
-detect it. A node listed in `nodes` without a VM gets no download.
+The module downloads each image on every node that gets a VM. When the primary
+node lists the image datastore with the `shared` flag, the module downloads each
+image once, on `node_name`. A node listed in `nodes` without a VM gets no download.
 
 The primary node keeps `proxmox_download_file.images` and
 `data.proxmox_datastores.node`, so a single-node deployment keeps its resource
@@ -198,7 +197,6 @@ No modules.
 | <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool\_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_datastore_id"></a> [datastore\_id](#input\_datastore\_id) | Datastore for VM disks, EFI disks, and cloud-init drives (e.g. 'local-lvm'). | `string` | `"local-lvm"` | no |
 | <a name="input_image_datastore_id"></a> [image\_datastore\_id](#input\_image\_datastore\_id) | Datastore that receives downloaded images. It must allow the 'import' content type. | `string` | `"local"` | no |
-| <a name="input_image_datastore_shared"></a> [image\_datastore\_shared](#input\_image\_datastore\_shared) | State that image\_datastore\_id is shared storage that every node sees. The module then downloads each image once, on node\_name. False downloads each image on every node that gets a VM. | `bool` | `false` | no |
 | <a name="input_images"></a> [images](#input\_images) | Map of disk images each node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |
 | <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node\_name to place the instance on a node other than var.node\_name; all count copies share that node. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    vm_id          = optional(number)<br/>    mac_address    = optional(string)<br/>    notes          = optional(string)<br/>    node_name      = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_name_suffix"></a> [name\_suffix](#input\_name\_suffix) | Suffix appended to every VM name so several contexts can share one node. | `string` | `""` | no |
