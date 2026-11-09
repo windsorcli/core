@@ -41,7 +41,9 @@ The following must already exist:
 - an image datastore with the `import` content type enabled (`image_datastore_id`,
   default `local`). Proxmox VE 8.4 or later supports it. On a shared node, give
   Windsor its own directory datastore, e.g.
-  `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`;
+  `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`.
+  With `proxmox.manage_image_datastore: true`, the [`host/proxmox`](../../host/proxmox)
+  component creates or adopts that datastore before this module runs;
 - a Linux bridge for the VM NICs (`network_bridge`, default `vmbr0`), on the LAN
   that `network_cidr` describes;
 - the resource pool named in `pool_id`, if set: `pveum pool add windsor`. With `create_pool` the module creates it instead.
@@ -63,6 +65,9 @@ create, refresh, and destroy:
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
 | `/nodes/<node_name>` | `Sys.AccessNetwork` |
+
+The `host/proxmox` component needs `Datastore.Allocate` on `/storage` to create
+the image datastore. This module needs no privilege on `/storage` itself.
 
 With `create_pool`, grant `Pool.Allocate` on `/pool` with propagation: Proxmox checks it on `/pool/<pool_id>`, which does not exist yet. A new pool has no ACLs, so the user also needs the `/pool/<pool_id>` role above on `/pool` with propagation, which covers every pool. Leave both out when `create_pool` is false and scope the user to the one pool.
 
