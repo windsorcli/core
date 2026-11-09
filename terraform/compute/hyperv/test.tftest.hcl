@@ -913,3 +913,33 @@ run "generation_one" {
     error_message = "Gen 1 VM should report generation=1"
   }
 }
+
+# Verifies that common_config_patches may hold several YAML documents
+run "common_config_patches_accepts_several_documents" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+      {
+        name  = "worker"
+        role  = "worker"
+        count = 1
+        ipv4  = "10.5.0.20"
+      },
+    ]
+    common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
+  }
+}

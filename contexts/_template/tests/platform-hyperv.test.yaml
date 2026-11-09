@@ -100,6 +100,47 @@ cases:
             cluster_endpoint: https://10.5.0.5:6443
             controlplane_vip: true
 
+  - name: docker.registries mirror bakes into compute and reaches cluster
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://10.5.0.10:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+        workers:
+          count: 0
+      docker:
+        registries:
+          ghcr.io:
+            hostname: registry.example.com
+            username: robot
+            password: secret
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\npassword: secret\nusername: robot"
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
+      terraform:
+        - name: compute
+          path: compute/hyperv
+        - name: cluster
+          path: cluster/talos
+
   - name: cluster.vip in NodePort mode fails composition
     values:
       platform: hyperv

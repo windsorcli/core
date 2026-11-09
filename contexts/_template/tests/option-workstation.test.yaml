@@ -1,6 +1,6 @@
 # option-workstation.yaml facet tests
 # Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
-# Asserts cluster common_config_patches: cert_rotation (kubelet.extraArgs) and registries.mirrors
+# Asserts cluster common_config_patches (cert_rotation kubelet.extraArgs) and registry_mirrors
 # so changes to config-talos or option-workstation patch logic are caught.
 
 x-defaults:
@@ -81,9 +81,6 @@ cases:
               kubelet:
                 extraArgs:
                   rotate-server-certificates: "true"
-              registries:
-                config: {}
-                mirrors: {}
       terraform:
         - name: cluster
           path: cluster/talos
@@ -210,8 +207,75 @@ cases:
           path: gitops/flux
           destroy: false
 
+  # Workstation registry outputs become plain-HTTP registry mirrors keyed by `local` when set.
+  - name: workstation registries become cluster registry mirrors
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      workstation:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+          registry-1.docker.io:
+            remote: https://registry-1.docker.io
+            local: docker.io
+            hostname: registry-1.docker.test
+    expect:
+      config:
+        talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://registry-1.docker.test:5000\nkind: RegistryMirrorConfig\nname: docker.io"
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://ghcr.test:5000\nkind: RegistryMirrorConfig\nname: ghcr.io"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  # A workstation uses its http caches on port 5000 and renders no registry auths.
+  - name: workstation mirrors use the http caches and ignore registry credentials
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+            username: robot
+            password: secret
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      workstation:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+    expect:
+      config:
+        talos_common:
+          registry_auth_documents: []
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://ghcr.test:5000\nkind: RegistryMirrorConfig\nname: ghcr.io"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
-  # Asserts cluster common_config_patches: cert_rotation + registries.mirrors; no certSANs (incus path uses common_patch_with_registries only).
+  # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.
   - name: incus with workstation enabled creates workstation/incus compute cluster chain
     values:
       platform: incus
@@ -263,9 +327,6 @@ cases:
               kubelet:
                 extraArgs:
                   rotate-server-certificates: "true"
-              registries:
-                config: {}
-                mirrors: {}
       terraform:
         - name: workstation
           path: workstation/incus

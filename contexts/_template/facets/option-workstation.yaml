@@ -79,9 +79,8 @@ config:
           ? trimSuffix(split(split(trimPrefix(charts.registry ?? '', 'oci://'), '/')[0], ':')[0], '.' + ((dns.domain ?? '') != '' ? dns.domain : dns.private_domain))
           : ''}
 
-  # Map workstation TF output to Talos machine.registries.mirrors. Only entries
-  # with both `remote` and `hostname` are kept; `local` overrides the mirror key.
-  # config: {} stays empty — Talos rejects TLS config on our plain-HTTP mirrors.
+  # Map workstation TF output to Talos registry mirrors. Only entries with both
+  # `remote` and `hostname` are kept; `local` overrides the mirror key.
   - name: talos_registry_mirrors
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -95,20 +94,9 @@ config:
             { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
           ]
         ))}
-      config: {}
 
   # talos_common overrides — each block additively merges settings that
   # config-talos stringifies into the Talos machine patch.
-
-  # Inject registry mirrors (always, for any workstation runtime).
-  - name: talos_common
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
-    value:
-      common_patch:
-        machine:
-          registries:
-            mirrors: ${talos_registry_mirrors.mirrors}
-            config: ${talos_registry_mirrors.config}
 
   # Docker only: schedule on control planes when no workers, else honor schedulable.
   - name: talos_common

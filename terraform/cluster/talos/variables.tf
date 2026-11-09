@@ -163,12 +163,13 @@ variable "workers" {
 }
 
 variable "common_config_patches" {
-  description = "A YAML string of common config patches to apply. Can be an empty string or valid YAML."
+  description = "A YAML string of common config patches to apply. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
+  sensitive   = true
   validation {
-    condition     = var.common_config_patches == "" || can(yamldecode(var.common_config_patches))
-    error_message = "common_config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for doc in split("\n---\n", var.common_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "common_config_patches must be an empty string or valid YAML documents."
   }
 }
 

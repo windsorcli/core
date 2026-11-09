@@ -98,6 +98,7 @@ variable "common_config_patches" {
   description = "Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig."
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "controlplane_config_patches" {

@@ -829,8 +829,15 @@ properties:
             hostname:
               $ref: '#/$defs/dnsHostname'
               description: Hostname for the mirror endpoint (e.g. registry.test). Lowercase DNS-labels separated by dots.
+            username:
+              type: string
+              description: Username for the mirror at hostname. Set together with password. Not used on a workstation.
+            password:
+              type: string
+              sensitive: true
+              description: Password or token for the mirror at hostname. Set via a secret() reference, together with username.
           additionalProperties: false
-        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. Keys are DNS hostnames.
+        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. An entry with a hostname is a mirror. Keys are DNS hostnames.
     additionalProperties: false
 
   # Cluster topology preset — selects between a single-node cluster, a

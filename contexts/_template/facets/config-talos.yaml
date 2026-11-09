@@ -14,6 +14,13 @@ requires:
   # gateway neither can reach it.
   - when: cluster.oidc.enabled == true && (cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled != true
     message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+  - when: >-
+      any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))
+    message: A docker.registries entry that sets username or password needs both.
+  - when: >-
+      let auths = filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != '');
+      any(auths, let entry = #; any(auths, get(#, 'hostname') == get(entry, 'hostname') && (get(#, 'username') != get(entry, 'username') || get(#, 'password') != get(entry, 'password'))))
+    message: docker.registries entries with the same hostname need the same username and password.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -81,7 +88,8 @@ config:
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
-      common_config_patches: "${string(talos_common.common_patch)}"
+      common_config_patches: >-
+        ${join(concat([string(talos_common.common_patch)], talos_common.registry_mirror_documents, talos_common.registry_auth_documents), "\n---\n")}
 
       # Extension catalog: driver/feature → required Talos Image Factory
       # extensions. Add a key for a new driver; the aggregated extensions list picks it up.
@@ -93,6 +101,38 @@ config:
           - siderolabs/nvme-cli
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
+
+      # RegistryMirrorConfig documents, empty while the workstation mirrors are still unresolved.
+      registry_mirror_documents: >-
+        ${let mirrors = talos_registry_mirrors.mirrors ?? fromPairs(map(
+          filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'hostname') ?? '') != ''),
+          [
+            ((get(get(#, 1), 'local') ?? '') != '' ? get(get(#, 1), 'local') : get(#, 0)),
+            { endpoints: ['https://' + get(get(#, 1), 'hostname')] }
+          ]
+        ));
+        type(mirrors) != 'map' ? [] : map(sortBy(toPairs(mirrors), get(#, 0)), string(fromPairs([
+          ['apiVersion', 'v1alpha1'],
+          ['kind', 'RegistryMirrorConfig'],
+          ['name', get(#, 0)],
+          ['endpoints', map(get(get(#, 1), 'endpoints'), fromPairs([['url', #]]))]
+        ])))}
+
+      # RegistryAuthConfig documents, one per mirror hostname, off a workstation.
+      registry_auth_documents: >-
+        ${talos_registry_mirrors.mirrors != null ? [] : map(
+          sortBy(toPairs(fromPairs(map(
+            filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''),
+            [get(#, 'hostname'), #]
+          ))), get(#, 0)),
+          string(fromPairs([
+            ['apiVersion', 'v1alpha1'],
+            ['kind', 'RegistryAuthConfig'],
+            ['name', get(#, 0)],
+            ['username', get(get(#, 1), 'username')],
+            ['password', get(get(#, 1), 'password')]
+          ]))
+        )}
 
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.

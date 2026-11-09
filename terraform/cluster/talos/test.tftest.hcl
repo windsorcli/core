@@ -360,3 +360,39 @@ run "multiple_invalid_inputs" {
     ]
   }
 }
+
+# Verifies that common_config_patches may hold several YAML documents
+run "common_config_patches_accepts_several_documents" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    common_config_patches = "machine:\n  install:\n    wipe: true\n---\napiVersion: v1alpha1\nkind: RegistryMirrorConfig\nname: docker.io\nendpoints:\n  - url: https://registry.example.com\n"
+  }
+}
+
+# Verifies that a malformed document in common_config_patches is rejected
+run "common_config_patches_rejects_malformed_document" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    common_config_patches = "machine: {}\n---\nkind: [unclosed\n"
+  }
+
+  expect_failures = [var.common_config_patches]
+}

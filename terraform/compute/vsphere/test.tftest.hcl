@@ -648,3 +648,23 @@ run "mixed_static_and_dhcp_waits_per_vm" {
     error_message = "Net waiter must not require a routable/default-gateway match"
   }
 }
+
+# Verifies that common_config_patches may hold several YAML documents
+run "common_config_patches_accepts_several_documents" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.5:6443"
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, image = "talos", ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, image = "talos", ipv4 = "10.5.0.20" },
+    ]
+    common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
+  }
+}
