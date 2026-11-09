@@ -40,6 +40,8 @@ config:
   # Image Factory schematic ce4c9805 holds siderolabs/qemu-guest-agent only.
   - name: proxmox_effective
     value:
+      node: "${(proxmox.nodes ?? [proxmox.node])[0]}"
+      nodes: ${proxmox.nodes ?? [proxmox.node]}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
       image_datastore_shared: ${proxmox.image_datastore_shared ?? false}
