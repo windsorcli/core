@@ -176,8 +176,7 @@ module "controlplane_bootstrap" {
 }
 
 module "controlplanes" {
-  count      = max(length(var.controlplanes) - 1, 0) // Don't create more control planes if there are none
-  depends_on = [module.controlplane_bootstrap]
+  count = max(length(var.controlplanes) - 1, 0) // Don't create more control planes if there are none
 
   source                    = "./modules/machine"
   node                      = var.controlplanes[count.index + 1].node
@@ -198,6 +197,7 @@ module "controlplanes" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[count.index + 1].instance_id
+  apply_after               = module.controlplane_bootstrap.health_check_id
   config_patches = concat([for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -212,8 +212,7 @@ module "controlplanes" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 module "workers" {
-  count      = length(var.workers)
-  depends_on = [module.controlplane_bootstrap] // Depends on the first control plane completing
+  count = length(var.workers)
 
   source                    = "./modules/machine"
   node                      = var.workers[count.index].node
@@ -233,6 +232,7 @@ module "workers" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.workers[count.index].instance_id
+  apply_after               = module.controlplane_bootstrap.health_check_id
   config_patches = concat([for p in compact(concat([
     var.common_config_patches,
     var.worker_config_patches,

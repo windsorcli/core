@@ -49,6 +49,11 @@ locals {
   )
 }
 
+# Orders the config apply after var.apply_after.
+resource "terraform_data" "apply_after" {
+  input = var.apply_after
+}
+
 # Data source to generate the machine configuration for Talos
 data "talos_machine_configuration" "this" {
   cluster_name       = var.cluster_name        # Name of the cluster
@@ -65,7 +70,8 @@ data "talos_machine_configuration" "this" {
 # regenerate without the per-node network patch (lives in
 # compute/hyperv) and wipe the static IP back to DHCP.
 resource "talos_machine_configuration_apply" "this" {
-  count = var.skip_machine_config_apply ? 0 : 1
+  count      = var.skip_machine_config_apply ? 0 : 1
+  depends_on = [terraform_data.apply_after]
 
   client_configuration        = var.client_configuration
   machine_configuration_input = data.talos_machine_configuration.this.machine_configuration

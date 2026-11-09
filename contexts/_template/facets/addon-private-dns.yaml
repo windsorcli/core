@@ -14,8 +14,6 @@ requires:
   - when: >-
       gateway.enabled == true && (workstation.runtime ?? '') == '' &&
       gateway_exposure.internal == 'NodePort'
-    paths:
-      - gateway_effective.unsupported
     message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
 # =============================================================================

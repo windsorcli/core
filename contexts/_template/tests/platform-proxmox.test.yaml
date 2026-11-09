@@ -425,6 +425,68 @@ cases:
             pool_id: windsor
             create_pool: true
 
+  # Default: no host component, and compute has no extra dependency.
+  - name: proxmox without manage_image_datastore has no host component
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          path: compute/proxmox
+          dependsOn: []
+    exclude:
+      terraform:
+        - name: host
+
+  # Opt-in: the host component runs before compute and is kept on destroy.
+  - name: proxmox manage_image_datastore adds the host component
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        image_datastore: windsor-images
+        image_datastore_path: /var/lib/windsor-images
+        manage_image_datastore: true
+    expect:
+      terraform:
+        - name: host
+          path: host/proxmox
+          destroy: false
+          inputs:
+            nodes:
+              - pve
+            image_datastore_id: windsor-images
+            image_datastore_path: /var/lib/windsor-images
+        - name: compute
+          path: compute/proxmox
+          dependsOn:
+            - host
+          inputs:
+            image_datastore_id: windsor-images
+
+  # Opt-in without a datastore id and path fails composition.
+  - name: proxmox manage_image_datastore without a path fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        image_datastore: windsor-images
+        manage_image_datastore: true
+    expectError: true
+
   # Schema: a VM ID start below the Proxmox minimum fails validation.
   - name: proxmox vm_id_start below 100 fails validation
     values:
