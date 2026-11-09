@@ -16,3 +16,8 @@ output "instance_id" {
   description = "Identity of the underlying compute instance, as passed in."
   value       = var.instance_id
 }
+
+output "health_check_id" {
+  description = "ID of the node health check, known once the node is configured and healthy."
+  value       = null_resource.node_healthcheck.id
+}

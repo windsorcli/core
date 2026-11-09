@@ -135,3 +135,9 @@ variable "instance_id" {
   type        = string
   default     = null
 }
+
+variable "apply_after" {
+  description = "Opaque ID the config apply waits on, such as another node's health check."
+  type        = string
+  default     = null
+}

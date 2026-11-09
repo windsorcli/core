@@ -304,3 +304,15 @@ run "health_check_command_with_hostname_as_node" {
     error_message = "Should pass a hostname node to --nodes unchanged"
   }
 }
+
+run "apply_after_orders_config_apply" {
+  variables {
+    apply_after   = "bootstrap-health-check"
+    disk_selector = null
+  }
+
+  assert {
+    condition     = terraform_data.apply_after.input == "bootstrap-health-check"
+    error_message = "Should pass apply_after to the resource the config apply depends on"
+  }
+}
