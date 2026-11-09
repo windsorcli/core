@@ -41,7 +41,6 @@ config:
       nodes: ${proxmox.nodes}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
-      image_datastore_shared: ${proxmox.image_datastore_shared ?? false}
       bridge: "${proxmox.bridge ?? 'vmbr0'}"
       vlan_id: ${proxmox.vlan_id ?? null}
       arch: "${proxmox.arch ?? 'amd64'}"
@@ -165,7 +164,6 @@ terraform:
       nodes: ${proxmox_effective.nodes}
       datastore_id: "${proxmox_effective.datastore}"
       image_datastore_id: "${proxmox_effective.image_datastore}"
-      image_datastore_shared: ${proxmox_effective.image_datastore_shared}
       network_bridge: "${proxmox_effective.bridge}"
       vlan_id: ${proxmox_effective.vlan_id}
       arch: "${proxmox_effective.arch}"

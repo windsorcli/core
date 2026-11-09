@@ -762,29 +762,6 @@ run "repeated_node_downloads_once" {
   }
 }
 
-# Shared image storage: one download on node_name, VMs on other nodes import that file.
-run "shared_image_datastore" {
-  command = apply
-
-  variables {
-    image_datastore_shared = true
-    instances = [
-      { name = "controlplane-1", role = "controlplane", image = "talos", ipv4 = "10.5.0.11", node_name = "pve" },
-      { name = "controlplane-2", role = "controlplane", image = "talos", ipv4 = "10.5.0.12", node_name = "pve2" },
-    ]
-  }
-
-  assert {
-    condition     = length(proxmox_download_file.extra_images) == 0
-    error_message = "Shared image storage must create no extra downloads"
-  }
-
-  assert {
-    condition     = proxmox_virtual_environment_vm.instances["controlplane-2"].node_name == "pve2"
-    error_message = "Shared storage must not change VM placement"
-  }
-}
-
 # A listed node without a VM is still checked.
 run "listed_node_without_vm_is_read" {
   command = plan
@@ -845,23 +822,6 @@ run "rejects_unknown_primary_node" {
   }
 
   expect_failures = [data.proxmox_datastores.node]
-}
-
-# Shared image storage skips the image datastore check on other nodes.
-run "shared_storage_skips_extra_downloads" {
-  command = plan
-
-  variables {
-    image_datastore_shared = true
-    instances = [
-      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", node_name = "pve2" },
-    ]
-  }
-
-  assert {
-    condition     = length(proxmox_download_file.extra_images) == 0
-    error_message = "Shared image storage must create no extra downloads"
-  }
 }
 
 # An instance node outside nodes is rejected.

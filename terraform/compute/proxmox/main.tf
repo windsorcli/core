@@ -75,6 +75,13 @@ data "proxmox_datastores" "node" {
   }
 }
 
+locals {
+  # The image datastore is shared storage when the primary node lists it with the shared flag.
+  image_datastore_shared = try(anytrue([
+    for d in data.proxmox_datastores.node.datastores : d.shared == true if d.id == var.image_datastore_id
+  ]), false)
+}
+
 # The proxmox_datastores lists the datastores the caller can see on each other node.
 data "proxmox_datastores" "extra" {
   for_each = local.extra_nodes
@@ -93,12 +100,12 @@ data "proxmox_datastores" "extra" {
     }
 
     postcondition {
-      condition     = self.datastores == null || var.image_datastore_shared || !contains(local.image_nodes, each.key) || contains([for d in self.datastores : d.id], var.image_datastore_id)
-      error_message = "Image datastore '${var.image_datastore_id}' does not exist on node '${each.key}', or the user lacks Datastore.Audit on it. Create it on every node, or set proxmox.image_datastore_shared to true for shared storage."
+      condition     = self.datastores == null || local.image_datastore_shared || !contains(local.image_nodes, each.key) || contains([for d in self.datastores : d.id], var.image_datastore_id)
+      error_message = "Image datastore '${var.image_datastore_id}' does not exist on node '${each.key}', or the user lacks Datastore.Audit on it. Create it on every node, or mark the datastore as shared."
     }
 
     postcondition {
-      condition = self.datastores == null || var.image_datastore_shared || !contains(local.image_nodes, each.key) || !contains([for d in self.datastores : d.id], var.image_datastore_id) || anytrue([
+      condition = self.datastores == null || local.image_datastore_shared || !contains(local.image_nodes, each.key) || !contains([for d in self.datastores : d.id], var.image_datastore_id) || anytrue([
         for d in self.datastores : contains(d.content_types, "import") if d.id == var.image_datastore_id
       ])
       error_message = "Image datastore '${var.image_datastore_id}' on node '${each.key}' does not allow the 'import' content type. Add 'import' to its content types."
@@ -158,8 +165,8 @@ resource "proxmox_download_file" "images" {
 }
 
 locals {
-  # One download per image and node, for nodes other than node_name. Shared storage needs none.
-  extra_images = var.image_datastore_shared ? {} : {
+  # One download per image and node, for nodes other than node_name. A shared datastore needs none.
+  extra_images = local.image_datastore_shared ? {} : {
     for pair in setproduct(keys(var.images), setintersection(local.extra_nodes, toset(local.image_nodes))) :
     "${pair[0]}/${pair[1]}" => { image = pair[0], node = pair[1] }
   }
@@ -212,7 +219,7 @@ locals {
     for k, v in local.instances_by_name : k => (
       v.image != null && v.image != "" && contains(keys(var.images), v.image)
       ? (
-        v.node_name == var.node_name || var.image_datastore_shared
+        v.node_name == var.node_name || local.image_datastore_shared
         ? proxmox_download_file.images[v.image].id
         : proxmox_download_file.extra_images["${v.image}/${v.node_name}"].id
       )

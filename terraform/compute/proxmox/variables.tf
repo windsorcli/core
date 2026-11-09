@@ -52,12 +52,6 @@ variable "image_datastore_id" {
   default     = "local"
 }
 
-variable "image_datastore_shared" {
-  description = "State that image_datastore_id is shared storage that every node sees. The module then downloads each image once, on node_name. False downloads each image on every node that gets a VM."
-  type        = bool
-  default     = false
-}
-
 variable "pool_id" {
   description = "Resource pool the VMs join. Null leaves them outside any pool."
   type        = string

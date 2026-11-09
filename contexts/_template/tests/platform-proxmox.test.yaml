@@ -918,7 +918,6 @@ cases:
             node_name: pve
             nodes:
               - pve
-            image_datastore_shared: false
             instances:
               - name: controlplane
                 node_name: pve
@@ -1026,24 +1025,6 @@ cases:
                 node_name: pve1
               - name: controlplane-2
                 node_name: pve1
-
-  # A shared image datastore flows to the module.
-  - name: proxmox image_datastore_shared flows to compute
-    values:
-      platform: proxmox
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      proxmox:
-        nodes: [pve]
-        image_datastore: cephfs
-        image_datastore_shared: true
-    expect:
-      terraform:
-        - name: compute
-          inputs:
-            image_datastore_shared: true
 
   # Omitting nodes fails composition.
   - name: proxmox without nodes fails composition
