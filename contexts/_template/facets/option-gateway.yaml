@@ -4,37 +4,26 @@ metadata:
   name: gateway
   description: Configurable cluster traffic entrypoint
 
-# Each rule names gateway_effective.unsupported, which is never set, so a matching rule fails composition.
 requires:
   - when: >-
       ((gateway.external.ip ?? '') != '' && gateway_exposure.external == 'NodePort') ||
       ((gateway.internal.ip ?? '') != '' && gateway_exposure.internal == 'NodePort')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.ip applies only to service_type LoadBalancer.
   - when: >-
       ((gateway.external.node_port ?? 0) != 0 && gateway_exposure.external == 'LoadBalancer') ||
       ((gateway.internal.node_port ?? 0) != 0 && gateway_exposure.internal == 'LoadBalancer')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.node_port applies only to service_type NodePort.
   - when: >-
       (len(gateway.external.node_ports ?? {}) > 0 && gateway_exposure.external == 'LoadBalancer') ||
       (len(gateway.internal.node_ports ?? {}) > 0 && gateway_exposure.internal == 'LoadBalancer')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.node_ports applies only to service_type NodePort.
   - when: >-
       gateway.driver == 'cilium' &&
       (len(gateway.external.node_ports ?? {}) > 0 || len(gateway.internal.node_ports ?? {}) > 0)
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.node_ports needs gateway.driver envoy.
   - when: >-
       any(keys(gateway.external.node_ports ?? {}), # in ['80', '443']) ||
       any(keys(gateway.internal.node_ports ?? {}), # in ['53', '80', '443', '9292'])
-    paths:
-      - gateway_effective.unsupported
     message: >-
       gateway.<name>.node_ports MUST NOT list a port the gateway already serves:
       80 and 443, and 53 and 9292 on the internal gateway.
@@ -42,38 +31,28 @@ requires:
       (let core = [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port,
       gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port, 30053, 30292];
       any(concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {})), # in core))
-    paths:
-      - gateway_effective.unsupported
     message: >-
       gateway.<name>.node_ports MUST NOT reuse a node port core assigns: 30080, 30081, 30053, 30292,
       or either gateway's node_port.
   - when: >-
       (let ports = concat(values(gateway.external.node_ports ?? {}), values(gateway.internal.node_ports ?? {}));
       len(uniq(ports)) != len(ports))
-    paths:
-      - gateway_effective.unsupported
     message: Each node port in gateway.<name>.node_ports MUST be unique across both gateways.
   - when: >-
       workstation.runtime == 'docker-desktop' &&
       (let ports = concat(keys(gateway.external.node_ports ?? {}), keys(gateway.internal.node_ports ?? {}));
       len(uniq(ports)) != len(ports) || any(ports, # in ['8080', '8081', '8443', '8444']))
-    paths:
-      - gateway_effective.unsupported
     message: >-
       On docker-desktop, each gateway.<name>.node_ports listener port is a host port. It MUST differ
       across the two gateways and from 8080, 8081, 8443, and 8444.
   - when: >-
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       ((gateway.external.ip ?? '') != '' || (gateway.internal.ip ?? '') != '')
-    paths:
-      - gateway_effective.unsupported
     message: The cloud load balancer assigns the gateway address; remove gateway.<name>.ip.
   - when: >-
       gateway.enabled == true && platform in ['metal', 'vsphere', 'hyperv', 'incus', 'proxmox'] &&
       ((gateway_effective.external_enabled == true && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
       (gateway_effective.internal_enabled == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
-    paths:
-      - gateway_effective.unsupported
     message: On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer gateway needs gateway.<name>.ip.
   - when: >-
       gateway.enabled == true &&
@@ -84,66 +63,46 @@ requires:
       let internal = (gateway.internal.ip ?? '') != '' ? reduce(split(gateway.internal.ip, '.'), #acc * 256 + int(#), 0) : -1;
       let external = (gateway.external.ip ?? '') != '' ? reduce(split(gateway.external.ip, '.'), #acc * 256 + int(#), 0) : -1;
       (internal >= start && internal <= end) || (external >= start && external <= end))
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.ip MUST sit outside network.loadbalancer_ips.
   - when: (gateway.external.ip ?? '') != '' && gateway.external.ip == (gateway.internal.ip ?? '')
-    paths:
-      - gateway_effective.unsupported
     message: The two gateways need different addresses in gateway.<name>.ip.
   - when: >-
       gateway_exposure.nodeport == true &&
       gateway_exposure.external_node_port == gateway_exposure.internal_node_port
-    paths:
-      - gateway_effective.unsupported
     message: The two NodePort gateways need different gateway.<name>.node_port values.
   - when: >-
       ((gateway.external.tls.cert ?? '') == '') != ((gateway.external.tls.key ?? '') == '') ||
       ((gateway.internal.tls.cert ?? '') == '') != ((gateway.internal.tls.key ?? '') == '')
-    paths:
-      - gateway_effective.unsupported
     message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
   - when: >-
       gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
       tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
-    paths:
-      - gateway_effective.unsupported
     message: >-
       The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
       (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
   - when: >-
       gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
-    paths:
-      - gateway_effective.unsupported
     message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: >-
       gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
       (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
-    paths:
-      - gateway_effective.unsupported
     message: >-
       gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
       dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
-    paths:
-      - gateway_effective.unsupported
     message: Hetzner has no internal gateway; remove gateway.internal.enabled.
   - when: >-
       ((gateway.external.enabled ?? true) == false && (dns.public_domain ?? '') != '') ||
       ((gateway.internal.enabled ?? true) == false && (dns.private_domain ?? '') != '')
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.enabled false has no effect on a gateway with a domain; remove it.
   - when: >-
       ((gateway.external.https ?? true) == false &&
       ((gateway.external.tls.cert ?? '') != '' || (gateway.external.tls.issuer ?? '') != '')) ||
       ((gateway.internal.https ?? true) == false &&
       ((gateway.internal.tls.cert ?? '') != '' || (gateway.internal.tls.issuer ?? '') != ''))
-    paths:
-      - gateway_effective.unsupported
     message: gateway.<name>.tls applies only to a gateway with https; remove it or set gateway.<name>.https to true.
   - when: >-
       gateway.enabled == true &&
@@ -151,8 +110,6 @@ requires:
       (gateway.external.https ?? true) == true && (gateway.external.tls.cert ?? '') == '') ||
       (gateway_effective.internal_enabled == true && (dns.private_domain ?? '') == '' &&
       (gateway.internal.https ?? true) == true && (gateway.internal.tls.cert ?? '') == ''))
-    paths:
-      - gateway_effective.unsupported
     message: A gateway without a domain needs gateway.<name>.tls.cert, or gateway.<name>.https set to false.
 
 # =============================================================================

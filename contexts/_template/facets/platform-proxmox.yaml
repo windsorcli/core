@@ -26,6 +26,11 @@ requires:
     paths:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
+  - when: (proxmox.manage_image_datastore ?? false) == true
+    paths:
+      - proxmox.image_datastore
+      - proxmox.image_datastore_path
+    message: Set proxmox.image_datastore to the storage id and proxmox.image_datastore_path to its directory on the node.
 
 # =============================================================================
 # Proxmox-specific Talos values
@@ -35,8 +40,6 @@ config:
   # Image Factory schematic ce4c9805 holds siderolabs/qemu-guest-agent only.
   - name: proxmox_effective
     value:
-      node: "${(proxmox.nodes ?? [proxmox.node])[0]}"
-      nodes: ${proxmox.nodes ?? [proxmox.node]}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
       image_datastore_shared: ${proxmox.image_datastore_shared ?? false}
@@ -47,6 +50,7 @@ config:
       bios: "${proxmox.bios ?? 'seabios'}"
       pool: ${proxmox.pool ?? null}
       create_pool: ${proxmox.create_pool ?? false}
+      manage_image_datastore: ${proxmox.manage_image_datastore ?? false}
       vm_id_start: ${proxmox.vm_id_start ?? null}
       name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
@@ -142,9 +146,21 @@ config:
 # =============================================================================
 terraform:
 
+  # Image datastore that outlives the context.
+  - name: host
+    path: host/proxmox
+    when: "proxmox_effective.manage_image_datastore == true"
+    inputs:
+      nodes: ${proxmox_effective.nodes}
+      image_datastore_id: "${proxmox_effective.image_datastore}"
+      image_datastore_path: "${proxmox.image_datastore_path}"
+    destroy: false
+
   # Talos nocloud VMs with each node's network config on a cloud-init drive.
   - name: compute
     path: compute/proxmox
+    dependsOn:
+      - "${proxmox_effective.manage_image_datastore ? 'host' : ''}"
     inputs:
       node_name: "${proxmox_effective.node}"
       nodes: ${proxmox_effective.nodes}

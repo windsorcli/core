@@ -495,6 +495,14 @@ properties:
           - ovmf
         default: seabios
         description: Firmware for amd64 VMs. ovmf adds an EFI disk. arm64 VMs always use ovmf.
+      manage_image_datastore:
+        type: boolean
+        default: false
+        description: Create the directory storage named in image_datastore at image_datastore_path. Other contexts reference it by id. Kept on destroy.
+      image_datastore_path:
+        type: string
+        pattern: "^/"
+        description: Absolute directory path on the node that backs the image datastore. Required with manage_image_datastore.
       pool:
         type: string
         pattern: "^[A-Za-z0-9_-]+$"

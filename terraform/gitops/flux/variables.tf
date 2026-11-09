@@ -93,7 +93,7 @@ variable "controller_image_tags" {
     # artifact: type=image name=ghcr.io/fluxcd/kustomize-controller
     "kustomize-controller" = "v1.9.6@sha256:2ebeaa341da77d52b6abbbba5efcee0450d47f8b42f0e6f33b08f9020262d606"
     # artifact: type=image name=ghcr.io/fluxcd/helm-controller
-    "helm-controller" = "v1.6.5@sha256:0d52fff5c4d476277b8fcb6beb9041e269adb5db943fe69f5a806ea0c92b1511"
+    "helm-controller" = "v1.7.1@sha256:54526cc6ed1202d71d44c310676448065664f3255ad671d9a69ac26f904e617a"
     # artifact: type=image name=ghcr.io/fluxcd/notification-controller
     "notification-controller" = "v1.9.4@sha256:840f318265ee26f0d2c48a158bf7896b22aa4e998e320a18646309f0e40b15da"
     # artifact: type=image name=ghcr.io/fluxcd/image-reflector-controller
