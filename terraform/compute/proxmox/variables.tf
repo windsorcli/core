@@ -15,12 +15,28 @@ variable "context_id" {
 }
 
 variable "node_name" {
-  description = "Proxmox VE node that hosts the VMs (e.g. 'pve')."
+  description = "Primary Proxmox VE node (e.g. 'pve'). It hosts every VM without its own node_name and keeps the image downloads and datastore checks of a single-node deployment."
   type        = string
 
   validation {
     condition     = var.node_name != ""
     error_message = "node_name must not be empty."
+  }
+}
+
+variable "nodes" {
+  description = "Nodes of the Proxmox cluster that the deployment uses. Each is checked to be online. Null checks only the nodes that get a VM."
+  type        = list(string)
+  default     = null
+
+  validation {
+    condition     = var.nodes == null ? true : alltrue([for n in var.nodes : n != ""])
+    error_message = "nodes must not contain an empty name."
+  }
+
+  validation {
+    condition     = var.nodes == null ? true : alltrue([for inst in var.instances : inst.node_name == null || contains(var.nodes, inst.node_name)])
+    error_message = "instances: each node_name must be listed in nodes."
   }
 }
 
@@ -34,6 +50,12 @@ variable "image_datastore_id" {
   description = "Datastore that receives downloaded images. It must allow the 'import' content type."
   type        = string
   default     = "local"
+}
+
+variable "image_datastore_shared" {
+  description = "State that image_datastore_id is shared storage that every node sees. The module then downloads each image once, on node_name. False downloads each image on every node that gets a VM."
+  type        = bool
+  default     = false
 }
 
 variable "pool_id" {
@@ -134,7 +156,7 @@ variable "name_suffix" {
 }
 
 variable "images" {
-  description = "Map of disk images the node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file_name must end in the matching extension."
+  description = "Map of disk images each node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file_name must end in the matching extension."
   type = map(object({
     url            = string
     file_name      = string
@@ -154,7 +176,7 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk."
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node_name to place the instance on a node other than var.node_name; all count copies share that node."
   type = list(object({
     name           = string
     count          = optional(number, 1)
@@ -167,6 +189,7 @@ variable "instances" {
     vm_id          = optional(number)
     mac_address    = optional(string)
     notes          = optional(string)
+    node_name      = optional(string)
   }))
   default = []
 

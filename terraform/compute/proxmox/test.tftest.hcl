@@ -1,4 +1,10 @@
 mock_provider "proxmox" {
+  mock_data "proxmox_virtual_environment_nodes" {
+    defaults = {
+      names  = ["pve", "pve2", "pve3"]
+      online = [true, true, true]
+    }
+  }
   mock_data "proxmox_virtual_environment_pools" {
     defaults = {
       pool_ids = ["windsor"]
@@ -673,4 +679,201 @@ run "rejects_create_pool_without_pool_id" {
   }
 
   expect_failures = [var.create_pool]
+}
+
+# Three control planes on three nodes: one VM per node, one image download per node.
+run "multi_node_placement" {
+  command = apply
+
+  variables {
+    nodes = ["pve", "pve2", "pve3"]
+    instances = [
+      { name = "controlplane-1", role = "controlplane", image = "talos", ipv4 = "10.5.0.11", node_name = "pve" },
+      { name = "controlplane-2", role = "controlplane", image = "talos", ipv4 = "10.5.0.12", node_name = "pve2" },
+      { name = "controlplane-3", role = "controlplane", image = "talos", ipv4 = "10.5.0.13", node_name = "pve3" },
+    ]
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane-1"].node_name == "pve" && proxmox_virtual_environment_vm.instances["controlplane-2"].node_name == "pve2" && proxmox_virtual_environment_vm.instances["controlplane-3"].node_name == "pve3"
+    error_message = "Each VM must land on the node of its instance"
+  }
+
+  assert {
+    condition     = toset(keys(proxmox_download_file.extra_images)) == toset(["talos/pve2", "talos/pve3"])
+    error_message = "Every node other than node_name must get its own download"
+  }
+
+  assert {
+    condition     = proxmox_download_file.extra_images["talos/pve2"].node_name == "pve2"
+    error_message = "An extra download must run on its own node"
+  }
+
+  assert {
+    condition     = toset(keys(proxmox_download_file.images)) == toset(["talos"]) && proxmox_download_file.images["talos"].node_name == "pve"
+    error_message = "The primary download must keep its address and stay on node_name"
+  }
+
+  assert {
+    condition     = toset(keys(data.proxmox_datastores.extra)) == toset(["pve2", "pve3"])
+    error_message = "Every node other than node_name must get a datastore listing"
+  }
+
+}
+
+# One node and no node_name on the instances: no extra resources, so the plan of a single-node context does not change.
+run "single_node_has_no_extras" {
+  command = plan
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", image = "talos", ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(proxmox_download_file.extra_images) == 0 && length(data.proxmox_datastores.extra) == 0
+    error_message = "A single-node deployment must create no extra downloads or listings"
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane"].node_name == "pve"
+    error_message = "An instance without node_name must use var.node_name"
+  }
+}
+
+# Repeating a node in the placement does not repeat its download.
+run "repeated_node_downloads_once" {
+  command = plan
+
+  variables {
+    nodes = ["pve", "pve2"]
+    instances = [
+      { name = "controlplane-1", role = "controlplane", image = "talos", ipv4 = "10.5.0.11", node_name = "pve2" },
+      { name = "controlplane-2", role = "controlplane", image = "talos", ipv4 = "10.5.0.12", node_name = "pve2" },
+      { name = "controlplane-3", role = "controlplane", image = "talos", ipv4 = "10.5.0.13", node_name = "pve" },
+    ]
+  }
+
+  assert {
+    condition     = toset(keys(proxmox_download_file.extra_images)) == toset(["talos/pve2"])
+    error_message = "A node with two VMs must get one download"
+  }
+}
+
+# Shared image storage: one download on node_name, VMs on other nodes import that file.
+run "shared_image_datastore" {
+  command = apply
+
+  variables {
+    image_datastore_shared = true
+    instances = [
+      { name = "controlplane-1", role = "controlplane", image = "talos", ipv4 = "10.5.0.11", node_name = "pve" },
+      { name = "controlplane-2", role = "controlplane", image = "talos", ipv4 = "10.5.0.12", node_name = "pve2" },
+    ]
+  }
+
+  assert {
+    condition     = length(proxmox_download_file.extra_images) == 0
+    error_message = "Shared image storage must create no extra downloads"
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane-2"].node_name == "pve2"
+    error_message = "Shared storage must not change VM placement"
+  }
+}
+
+# A listed node without a VM is still checked.
+run "listed_node_without_vm_is_read" {
+  command = plan
+
+  variables {
+    nodes = ["pve", "pve2"]
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  assert {
+    condition     = toset(keys(data.proxmox_datastores.extra)) == toset(["pve2"]) && length(proxmox_download_file.extra_images) == 0
+    error_message = "A listed node must be read but get no download without a VM"
+  }
+}
+
+# A node outside the cluster fails the check.
+run "rejects_unknown_node" {
+  command = plan
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", node_name = "ghost" },
+    ]
+  }
+
+  expect_failures = [data.proxmox_datastores.extra]
+}
+
+# A node that is offline fails the check.
+run "rejects_offline_node" {
+  command = plan
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", node_name = "pve2" },
+    ]
+  }
+
+  override_data {
+    target = data.proxmox_virtual_environment_nodes.cluster
+    values = {
+      names  = ["pve", "pve2"]
+      online = [true, false]
+    }
+  }
+
+  expect_failures = [data.proxmox_datastores.extra]
+}
+
+# The primary node must be in the cluster.
+run "rejects_unknown_primary_node" {
+  command = plan
+
+  variables {
+    node_name = "ghost"
+  }
+
+  expect_failures = [data.proxmox_datastores.node]
+}
+
+# Shared image storage skips the image datastore check on other nodes.
+run "shared_storage_skips_extra_downloads" {
+  command = plan
+
+  variables {
+    image_datastore_shared = true
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", node_name = "pve2" },
+    ]
+  }
+
+  assert {
+    condition     = length(proxmox_download_file.extra_images) == 0
+    error_message = "Shared image storage must create no extra downloads"
+  }
+}
+
+# An instance node outside nodes is rejected.
+run "rejects_instance_node_outside_nodes" {
+  command = plan
+
+  variables {
+    nodes = ["pve"]
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", node_name = "pve2" },
+    ]
+  }
+
+  expect_failures = [var.nodes]
 }

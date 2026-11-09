@@ -12,9 +12,7 @@ requires:
   # kube-apiserver fetches the issuer's JWKS itself and clients validate the same
   # token `iss` claim, both against the hosted Keycloak's gateway URL — without a
   # gateway neither can reach it.
-  - when: cluster.oidc.enabled == true && (cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak'
-    paths:
-      - identity_effective.gateway_reachable
+  - when: cluster.oidc.enabled == true && (cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled != true
     message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
   - when: >-
       any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))

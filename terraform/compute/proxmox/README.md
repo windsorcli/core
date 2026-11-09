@@ -3,9 +3,10 @@ title: Proxmox
 description: Talos VMs on Proxmox VE.
 ---
 
-VM substrate for Talos clusters on a single Proxmox VE node. The node downloads
-the Talos nocloud disk image from the Image Factory into its import storage, and
-each VM imports that image as its root disk. A Proxmox cloud-init drive carries
+VM substrate for Talos clusters on one or more nodes of a Proxmox VE cluster.
+Each node that gets a VM downloads the Talos nocloud disk image from the Image
+Factory into its import storage, and each VM imports the image on its own node as
+its root disk. A Proxmox cloud-init drive carries
 the node's static address, so Talos boots into maintenance mode at a known IP.
 The `cluster/talos` module then generates the cluster identity and applies each
 node's machineconfig over the Talos API. Pairs with the `cluster/talos` module.
@@ -35,24 +36,51 @@ Terraform. The module needs no SSH access to the node.
 The module reads nothing from the node inventory beyond the names it is given.
 The following must already exist:
 
-- a node named as passed in `node_name`;
-- a datastore for VM disks (`datastore_id`, default `local-lvm`). A directory
-  datastore such as `local` also works once it allows the `images` content type;
+- the node named in `node_name`, and every node named in `nodes` or in an
+  instance's `node_name`, in one Proxmox cluster and online;
+- a datastore for VM disks (`datastore_id`, default `local-lvm`) on every node that
+  gets a VM. A directory datastore such as `local` also works once it allows the
+  `images` content type;
 - an image datastore with the `import` content type enabled (`image_datastore_id`,
-  default `local`). Proxmox VE 8.4 or later supports it. On a shared node, give
+  default `local`) on every node that gets an image, or shared storage with
+  `image_datastore_shared`. Proxmox VE 8.4 or later supports it. On a shared node, give
   Windsor its own directory datastore, e.g.
   `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`.
   With `proxmox.manage_image_datastore: true`, the [`host/proxmox`](../../host/proxmox)
   component creates or adopts that datastore before this module runs;
 - a Linux bridge for the VM NICs (`network_bridge`, default `vmbr0`), on the LAN
-  that `network_cidr` describes;
+  that `network_cidr` describes. With several nodes, every node has this bridge
+  with the same VLAN and layer-2 reach; the module does not check it;
 - the resource pool named in `pool_id`, if set: `pveum pool add windsor`. With `create_pool` the module creates it instead.
 
-The node must reach `factory.talos.dev` over HTTPS to download the image.
+Each node that downloads an image must reach `factory.talos.dev` over HTTPS.
+
+## Placement on several nodes
+
+An instance without `node_name` runs on the primary node, `var.node_name`. An
+instance with `node_name` runs on that node. All `count` copies of one instance
+share its node, so a caller that spreads VMs over nodes passes one instance for
+each VM. `nodes` lists the nodes of the deployment. The module checks each one
+and rejects an instance whose `node_name` is not in the list.
+
+The module downloads each image on every node that gets a VM. With
+`image_datastore_shared = true` the module downloads each image once, on
+`node_name`. The caller states that the storage is shared; the module does not
+detect it. A node listed in `nodes` without a VM gets no download.
+
+The primary node keeps `proxmox_download_file.images` and
+`data.proxmox_datastores.node`, so a single-node deployment keeps its resource
+addresses and its plan does not change. Other nodes use
+`proxmox_download_file.extra_images`, keyed `<image>/<node>`, and
+`data.proxmox_datastores.extra`, keyed by node. The primary node always downloads
+the images, also when no VM runs on it.
+
+Fewer nodes than control planes put two control planes on one node.
+Losing that node can cost etcd quorum. The module does not fail on it.
 
 ## Permissions
 
-Grant the Windsor user one role per ACL path. Nothing is granted on `/`, so the
+Grant the Windsor user one role per ACL path. With several nodes, grant the node, datastore, and image datastore rows on every node that gets a VM or an image. Nothing is granted on `/`, so the
 user cannot see, stop, change, or delete guests outside the pool, or files outside
 the image datastore. Verified on Proxmox VE 9.2 with `bpg/proxmox` 0.116 through
 create, refresh, and destroy:
@@ -64,14 +92,14 @@ create, refresh, and destroy:
 | `/storage/<datastore_id>` | `Datastore.AllocateSpace Datastore.Audit` |
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
-| `/nodes/<node_name>` | `Sys.AccessNetwork` |
+| `/nodes/<node_name>` | `Sys.AccessNetwork Sys.Audit` |
 
 The `host/proxmox` component needs `Datastore.Allocate` on `/storage` to create
 the image datastore. This module needs no privilege on `/storage` itself.
 
 With `create_pool`, grant `Pool.Allocate` on `/pool` with propagation: Proxmox checks it on `/pool/<pool_id>`, which does not exist yet. A new pool has no ACLs, so the user also needs the `/pool/<pool_id>` role above on `/pool` with propagation, which covers every pool. Leave both out when `create_pool` is false and scope the user to the one pool.
 
-Plan reads the datastore list (`Datastore.Audit`) and, when `create_pool` is false, the pool list (`Pool.Audit`). It fails when `image_datastore_id` or `datastore_id` is missing, when `image_datastore_id` lacks the `import` content type, or when `pool_id` does not exist.
+Plan reads the node list (`Sys.Audit`), the datastore list of each node (`Datastore.Audit`) and, when `create_pool` is false, the pool list (`Pool.Audit`). It fails when a node is missing or offline, when `image_datastore_id` or `datastore_id` is missing on a node that needs it, when `image_datastore_id` lacks the `import` content type, or when `pool_id` does not exist.
 
 DHCP instances also need the guest agent read on the pool: `VM.GuestAgent.Audit`
 on Proxmox VE 9, `VM.Monitor` on 8.4. A tagged NIC needs `SDN.Use` on
@@ -86,7 +114,7 @@ pveum role add WindsorVM --privs "Pool.Audit,VM.Allocate,VM.Audit,VM.PowerMgmt,V
 pveum role add WindsorDisk --privs "Datastore.AllocateSpace,Datastore.Audit"
 pveum role add WindsorImage --privs "Datastore.Allocate,Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit"
 pveum role add WindsorNet --privs "SDN.Use"
-pveum role add WindsorNode --privs "Sys.AccessNetwork"
+pveum role add WindsorNode --privs "Sys.AccessNetwork,Sys.Audit"
 pveum user add windsor@pve --password '<password>'
 pveum acl modify /pool/windsor --users windsor@pve --roles WindsorVM
 pveum acl modify /storage/local-lvm --users windsor@pve --roles WindsorDisk
@@ -147,10 +175,13 @@ No modules.
 
 | Name | Type |
 |------|------|
+| [proxmox_download_file.extra_images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
 | [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
 | [proxmox_virtual_environment_pool.windsor](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_pool) | resource |
 | [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm) | resource |
+| [proxmox_datastores.extra](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
 | [proxmox_datastores.node](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
+| [proxmox_virtual_environment_nodes.cluster](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_nodes) | data source |
 | [proxmox_virtual_environment_pools.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_pools) | data source |
 | [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
 
@@ -167,14 +198,16 @@ No modules.
 | <a name="input_create_pool"></a> [create\_pool](#input\_create\_pool) | Create the pool named in pool\_id. False uses an existing pool. Creating needs Pool.Allocate on /pool. | `bool` | `false` | no |
 | <a name="input_datastore_id"></a> [datastore\_id](#input\_datastore\_id) | Datastore for VM disks, EFI disks, and cloud-init drives (e.g. 'local-lvm'). | `string` | `"local-lvm"` | no |
 | <a name="input_image_datastore_id"></a> [image\_datastore\_id](#input\_image\_datastore\_id) | Datastore that receives downloaded images. It must allow the 'import' content type. | `string` | `"local"` | no |
-| <a name="input_images"></a> [images](#input\_images) | Map of disk images the node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |
-| <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    vm_id          = optional(number)<br/>    mac_address    = optional(string)<br/>    notes          = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_image_datastore_shared"></a> [image\_datastore\_shared](#input\_image\_datastore\_shared) | State that image\_datastore\_id is shared storage that every node sees. The module then downloads each image once, on node\_name. False downloads each image on every node that gets a VM. | `bool` | `false` | no |
+| <a name="input_images"></a> [images](#input\_images) | Map of disk images each node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |
+| <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node\_name to place the instance on a node other than var.node\_name; all count copies share that node. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    vm_id          = optional(number)<br/>    mac_address    = optional(string)<br/>    notes          = optional(string)<br/>    node_name      = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_name_suffix"></a> [name\_suffix](#input\_name\_suffix) | Suffix appended to every VM name so several contexts can share one node. | `string` | `""` | no |
 | <a name="input_network_bridge"></a> [network\_bridge](#input\_network\_bridge) | Linux bridge the VM NIC attaches to (e.g. 'vmbr0'). | `string` | `"vmbr0"` | no |
 | <a name="input_network_cidr"></a> [network\_cidr](#input\_network\_cidr) | CIDR of the network the VMs attach to. Supplies the prefix length for static addresses. | `string` | `"10.5.0.0/16"` | no |
 | <a name="input_network_gateway"></a> [network\_gateway](#input\_network\_gateway) | IPv4 default gateway written to static guests. | `string` | `null` | no |
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to guests. | `list(string)` | `[]` | no |
-| <a name="input_node_name"></a> [node\_name](#input\_node\_name) | Proxmox VE node that hosts the VMs (e.g. 'pve'). | `string` | n/a | yes |
+| <a name="input_node_name"></a> [node\_name](#input\_node\_name) | Primary Proxmox VE node (e.g. 'pve'). It hosts every VM without its own node\_name and keeps the image downloads and datastore checks of a single-node deployment. | `string` | n/a | yes |
+| <a name="input_nodes"></a> [nodes](#input\_nodes) | Nodes of the Proxmox cluster that the deployment uses. Each is checked to be online. Null checks only the nodes that get a VM. | `list(string)` | `null` | no |
 | <a name="input_pool_id"></a> [pool\_id](#input\_pool\_id) | Resource pool the VMs join. Null leaves them outside any pool. | `string` | `null` | no |
 | <a name="input_vlan_id"></a> [vlan\_id](#input\_vlan\_id) | VLAN tag for the VM NIC. Null leaves the NIC untagged. | `number` | `null` | no |
 

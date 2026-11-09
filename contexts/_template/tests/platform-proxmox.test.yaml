@@ -20,7 +20,7 @@ x-defaults:
       count: 0
 
   proxmox: &default-proxmox
-    node: pve
+    nodes: [pve]
 
   terraform-outputs: &default-terraform-outputs
     compute:
@@ -310,7 +310,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve2
+        nodes: [pve2]
         datastore: ceph-vm
         image_datastore: cephfs
         bridge: vmbr1
@@ -338,7 +338,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         arch: arm64
     expect:
       terraform:
@@ -386,7 +386,7 @@ cases:
         workers:
           count: 2
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: windsor
         vm_id_start: 9000
     expect:
@@ -415,7 +415,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: windsor
         create_pool: true
     expect:
@@ -452,7 +452,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         image_datastore: windsor-images
         image_datastore_path: /var/lib/windsor-images
         manage_image_datastore: true
@@ -482,7 +482,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         image_datastore: windsor-images
         manage_image_datastore: true
     expectError: true
@@ -496,7 +496,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         vm_id_start: 99
     expectError: true
 
@@ -509,7 +509,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: "windsor/pool"
     expectError: true
 
@@ -879,7 +879,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         server: pve.example.lan
     expectError: true
 
@@ -892,6 +892,179 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         vlan_id: 4095
+    expectError: true
+
+  # A single node puts every VM on it and passes the one-entry list.
+  - name: proxmox single node places every vm on it
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes: *default-cp-nodes
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            node_name: pve
+            nodes:
+              - pve
+            image_datastore_shared: false
+            instances:
+              - name: controlplane
+                node_name: pve
+
+  # Control planes and workers count separately, so controlplane-1 and worker-1 share the first node.
+  - name: proxmox nodes places vms round-robin
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+          nodes:
+            controlplane-1: { node: 10.10.0.51, endpoint: "10.10.0.51:50000" }
+            controlplane-2: { node: 10.10.0.52, endpoint: "10.10.0.52:50000" }
+            controlplane-3: { node: 10.10.0.53, endpoint: "10.10.0.53:50000" }
+        workers:
+          count: 3
+          nodes:
+            worker-1: { node: 10.10.0.61, endpoint: "10.10.0.61:50000" }
+            worker-2: { node: 10.10.0.62, endpoint: "10.10.0.62:50000" }
+            worker-3: { node: 10.10.0.63, endpoint: "10.10.0.63:50000" }
+      proxmox:
+        nodes: [pve1, pve2]
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            node_name: pve1
+            nodes:
+              - pve1
+              - pve2
+            instances:
+              - name: controlplane-1
+                node_name: pve1
+              - name: controlplane-2
+                node_name: pve2
+              - name: controlplane-3
+                node_name: pve1
+              - name: worker-1
+                node_name: pve1
+              - name: worker-2
+                node_name: pve2
+              - name: worker-3
+                node_name: pve1
+
+  # A repeated name gives that node more VMs.
+  - name: proxmox repeated node name weights the placement
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+          nodes:
+            controlplane-1: { node: 10.10.0.51, endpoint: "10.10.0.51:50000" }
+            controlplane-2: { node: 10.10.0.52, endpoint: "10.10.0.52:50000" }
+            controlplane-3: { node: 10.10.0.53, endpoint: "10.10.0.53:50000" }
+        workers:
+          count: 0
+      proxmox:
+        nodes: [big, big, small]
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane-1
+                node_name: big
+              - name: controlplane-2
+                node_name: big
+              - name: controlplane-3
+                node_name: small
+
+  # placement on a node entry overrides the round-robin node of that VM.
+  - name: proxmox node placement overrides the node of one vm
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 2
+          nodes:
+            controlplane-1: { node: 10.10.0.51, endpoint: "10.10.0.51:50000" }
+            controlplane-2: { node: 10.10.0.52, endpoint: "10.10.0.52:50000", placement: pve1 }
+        workers:
+          count: 0
+      proxmox:
+        nodes: [pve1, pve2]
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane-1
+                node_name: pve1
+              - name: controlplane-2
+                node_name: pve1
+
+  # A shared image datastore flows to the module.
+  - name: proxmox image_datastore_shared flows to compute
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        nodes: [pve]
+        image_datastore: cephfs
+        image_datastore_shared: true
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            image_datastore_shared: true
+
+  # Omitting nodes fails composition.
+  - name: proxmox without nodes fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        bridge: vmbr0
+    expectError: true
+
+  # An empty nodes list fails composition.
+  - name: proxmox empty nodes list fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        nodes: []
     expectError: true

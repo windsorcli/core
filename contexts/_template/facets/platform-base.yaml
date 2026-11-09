@@ -10,12 +10,8 @@ when: (platform ?? 'none') != 'none'
 requires:
   # Split-horizon DNS on one domain is not supported.
   - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
-    paths:
-      - dns.split_horizon_supported
     message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
   - when: dns.private.driver == 'cloud' && platform != 'aws' && platform != 'azure' && platform != 'gcp'
-    paths:
-      - dns.private_cloud_supported
     message: dns.private.driver cloud needs a platform with a cloud private zone (aws, azure or gcp); use coredns or none.
   - when: dns.private.driver == 'cloud'
     paths:
@@ -31,12 +27,8 @@ requires:
       - pki.acme.eab.hmac_key
     message: ACME external account binding needs both pki.acme.eab.key_id and pki.acme.eab.hmac_key.
   - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
-    paths:
-      - lb_effective.driver_supported
     message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
   - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
-    paths:
-      - lb_effective.driver_supported
     message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
   - when: cluster.vip == true
     paths:
@@ -200,7 +192,6 @@ config:
         ${(lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb') &&
         ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
         platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
-      driver_supported: "${lb_effective.driver == 'none' || (lb_effective.driver == 'cilium') == (cluster.cni.driver == 'cilium') ? 'yes' : ''}"
 
   # Docker Desktop has no routable node network, so LoadBalancer Services are unreachable.
   - name: lb_effective
