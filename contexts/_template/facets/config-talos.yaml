@@ -16,11 +16,8 @@ requires:
     paths:
       - identity_effective.gateway_reachable
     message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
-  # Fails composition through talos_effective.unsupported, a path that is never set.
   - when: >-
       any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))
-    paths:
-      - talos_effective.unsupported
     message: A docker.registries entry that sets username or password needs both.
 
 # =============================================================================
