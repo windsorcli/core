@@ -129,29 +129,17 @@ cases:
         controlplanes: []
         workers: []
     expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\npassword: secret\nusername: robot"
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
       terraform:
         - name: compute
           path: compute/hyperv
-          inputs:
-            registry_mirrors:
-              ghcr.io:
-                endpoints:
-                  - https://registry.example.com
-            registry_auths:
-              registry.example.com:
-                username: robot
-                password: secret
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              ghcr.io:
-                endpoints:
-                  - https://registry.example.com
-            registry_auths:
-              registry.example.com:
-                username: robot
-                password: secret
 
   - name: cluster.vip in NodePort mode fails composition
     values:

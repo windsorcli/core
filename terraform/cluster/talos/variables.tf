@@ -163,12 +163,13 @@ variable "workers" {
 }
 
 variable "common_config_patches" {
-  description = "A YAML string of common config patches to apply. Can be an empty string or valid YAML."
+  description = "A YAML string of common config patches to apply. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
+  sensitive   = true
   validation {
-    condition     = var.common_config_patches == "" || can(yamldecode(var.common_config_patches))
-    error_message = "common_config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for doc in split("\n---\n", var.common_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "common_config_patches must be an empty string or valid YAML documents."
   }
 }
 
@@ -216,26 +217,3 @@ variable "worker_disks" {
   default     = []
 }
 
-
-variable "registry_mirrors" {
-  description = "Registry mirrors keyed by the image registry host (e.g. docker.io). Each entry renders a RegistryMirrorConfig document on every node."
-  type = map(object({
-    endpoints = list(string)
-  }))
-  default = {}
-
-  validation {
-    condition     = alltrue([for m in values(var.registry_mirrors) : length(m.endpoints) > 0 && alltrue([for e in m.endpoints : can(regex("^https?://", e))])])
-    error_message = "Each registry mirror must list at least one endpoint, and every endpoint must start with http:// or https://."
-  }
-}
-
-variable "registry_auths" {
-  description = "Registry credentials keyed by mirror hostname (e.g. registry.example.com). Each entry renders a RegistryAuthConfig document on every node."
-  type = map(object({
-    username = string
-    password = string
-  }))
-  default   = {}
-  sensitive = true
-}

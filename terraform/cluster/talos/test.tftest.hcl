@@ -361,8 +361,8 @@ run "multiple_invalid_inputs" {
   }
 }
 
-# Verifies that each registry mirror renders as a RegistryMirrorConfig document
-run "registry_mirrors_render_documents" {
+# Verifies that common_config_patches may hold several YAML documents
+run "common_config_patches_accepts_several_documents" {
   command = plan
 
   variables {
@@ -370,37 +370,16 @@ run "registry_mirrors_render_documents" {
     cluster_endpoint = "https://test.example.com:6443"
     controlplanes = [
       {
-        hostname = "cp1"
         endpoint = "https://cp1.example.com:6443"
         node     = "192.168.1.10"
       }
     ]
-    registry_mirrors = {
-      "docker.io" = { endpoints = ["https://registry.example.com"] }
-      "ghcr.io"   = { endpoints = ["http://ghcr.test:5000"] }
-    }
-  }
-
-  assert {
-    condition     = length(local.registry_mirror_docs) == 2
-    error_message = "One RegistryMirrorConfig document should render per registry"
-  }
-  assert {
-    condition     = yamldecode(local.registry_mirror_docs[0]).kind == "RegistryMirrorConfig" && yamldecode(local.registry_mirror_docs[0]).name == "docker.io"
-    error_message = "docker.io should render as a RegistryMirrorConfig document"
-  }
-  assert {
-    condition     = yamldecode(local.registry_mirror_docs[0]).endpoints == [{ url = "https://registry.example.com" }]
-    error_message = "docker.io endpoint should carry only its url"
-  }
-  assert {
-    condition     = yamldecode(local.registry_mirror_docs[1]).endpoints == [{ url = "http://ghcr.test:5000" }]
-    error_message = "ghcr.io endpoint should carry only its url"
+    common_config_patches = "machine:\n  install:\n    wipe: true\n---\napiVersion: v1alpha1\nkind: RegistryMirrorConfig\nname: docker.io\nendpoints:\n  - url: https://registry.example.com\n"
   }
 }
 
-# Verifies that each registry credential renders as a RegistryAuthConfig document
-run "registry_auths_render_documents" {
+# Verifies that a malformed document in common_config_patches is rejected
+run "common_config_patches_rejects_malformed_document" {
   command = plan
 
   variables {
@@ -408,79 +387,12 @@ run "registry_auths_render_documents" {
     cluster_endpoint = "https://test.example.com:6443"
     controlplanes = [
       {
-        hostname = "cp1"
         endpoint = "https://cp1.example.com:6443"
         node     = "192.168.1.10"
       }
     ]
-    registry_auths = {
-      "registry.example.com" = { username = "robot", password = "secret" }
-    }
+    common_config_patches = "machine: {}\n---\nkind: [unclosed\n"
   }
 
-  assert {
-    condition     = length(local.registry_auth_docs) == 1
-    error_message = "One RegistryAuthConfig document should render per registry"
-  }
-  assert {
-    condition     = yamldecode(local.registry_auth_docs[0]).kind == "RegistryAuthConfig" && yamldecode(local.registry_auth_docs[0]).name == "registry.example.com"
-    error_message = "registry.example.com should render as a RegistryAuthConfig document"
-  }
-  assert {
-    condition     = yamldecode(local.registry_auth_docs[0]).username == "robot" && yamldecode(local.registry_auth_docs[0]).password == "secret"
-    error_message = "RegistryAuthConfig should carry the username and password"
-  }
-  assert {
-    condition     = issensitive(local.registry_auth_docs[0]) && !issensitive(local.registry_auth_docs)
-    error_message = "Each RegistryAuthConfig document should be sensitive, not the whole list"
-  }
-}
-
-# Verifies that no RegistryMirrorConfig documents render by default
-run "registry_mirrors_default_empty" {
-  command = plan
-
-  variables {
-    cluster_name     = "test-cluster"
-    cluster_endpoint = "https://test.example.com:6443"
-    controlplanes = [
-      {
-        hostname = "cp1"
-        endpoint = "https://cp1.example.com:6443"
-        node     = "192.168.1.10"
-      }
-    ]
-  }
-
-  assert {
-    condition     = length(local.registry_mirror_docs) == 0
-    error_message = "No RegistryMirrorConfig documents should render without registry_mirrors"
-  }
-  assert {
-    condition     = length(local.registry_auth_docs) == 0
-    error_message = "No RegistryAuthConfig documents should render without registry_auths"
-  }
-}
-
-# Verifies that a mirror without endpoints or with a schemeless url fails validation
-run "registry_mirrors_invalid" {
-  command = plan
-
-  variables {
-    cluster_name     = "test-cluster"
-    cluster_endpoint = "https://test.example.com:6443"
-    controlplanes = [
-      {
-        hostname = "cp1"
-        endpoint = "https://cp1.example.com:6443"
-        node     = "192.168.1.10"
-      }
-    ]
-    registry_mirrors = {
-      "docker.io" = { endpoints = [] }
-      "ghcr.io"   = { endpoints = ["ghcr.test:5000"] }
-    }
-  }
-
-  expect_failures = [var.registry_mirrors]
+  expect_failures = [var.common_config_patches]
 }

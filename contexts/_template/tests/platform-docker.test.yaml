@@ -261,6 +261,8 @@ cases:
     expect:
       config:
         talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://gcr.test:5000\nkind: RegistryMirrorConfig\nname: gcr.io"
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: true
@@ -288,11 +290,6 @@ cases:
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              gcr.io:
-                endpoints:
-                  - http://gcr.test:5000
 
   # Full: workstation path with fully populated cluster, ingress, volumes (flannel + kube-vip to exercise lb path)
   - name: full config creates workstation compute cluster chain with all options

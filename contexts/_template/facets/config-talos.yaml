@@ -86,7 +86,8 @@ config:
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
-      common_config_patches: "${string(talos_common.common_patch)}"
+      common_config_patches: >-
+        ${join(concat([string(talos_common.common_patch)], talos_common.registry_mirror_documents, talos_common.registry_auth_documents), "\n---\n")}
 
       # Extension catalog: driver/feature → required Talos Image Factory
       # extensions. Add a key for a new driver; the aggregated extensions list picks it up.
@@ -99,22 +100,34 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # RegistryMirrorConfig entries keyed by image host: the workstation caches, else each docker.registries entry with a hostname.
-      registry_mirrors: >-
-        ${talos_registry_mirrors.mirrors ?? fromPairs(map(
+      # RegistryMirrorConfig documents, empty while the workstation mirrors are still unresolved.
+      registry_mirror_documents: >-
+        ${let mirrors = talos_registry_mirrors.mirrors ?? fromPairs(map(
           filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'hostname') ?? '') != ''),
           [
             ((get(get(#, 1), 'local') ?? '') != '' ? get(get(#, 1), 'local') : get(#, 0)),
             { endpoints: ['https://' + get(get(#, 1), 'hostname')] }
           ]
-        ))}
+        ));
+        type(mirrors) != 'map' ? [] : map(sortBy(toPairs(mirrors), get(#, 0)), string(fromPairs([
+          ['apiVersion', 'v1alpha1'],
+          ['kind', 'RegistryMirrorConfig'],
+          ['name', get(#, 0)],
+          ['endpoints', map(get(get(#, 1), 'endpoints'), fromPairs([['url', #]]))]
+        ])))}
 
-      # RegistryAuthConfig entries keyed by mirror hostname, off a workstation.
-      registry_auths: >-
-        ${talos_registry_mirrors.mirrors != null ? {} : fromPairs(map(
-          filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''),
-          [get(#, 'hostname'), { username: get(#, 'username'), password: get(#, 'password') }]
-        ))}
+      # RegistryAuthConfig documents keyed by mirror hostname, off a workstation.
+      registry_auth_documents: >-
+        ${talos_registry_mirrors.mirrors != null ? [] : map(
+          sortBy(filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''), get(#, 'hostname')),
+          string(fromPairs([
+            ['apiVersion', 'v1alpha1'],
+            ['kind', 'RegistryAuthConfig'],
+            ['name', get(#, 'hostname')],
+            ['username', get(#, 'username')],
+            ['password', get(#, 'password')]
+          ]))
+        )}
 
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.

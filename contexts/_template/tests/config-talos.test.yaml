@@ -772,18 +772,15 @@ cases:
           quay.io:
             remote: https://quay.io
     expect:
+      config:
+        talos_common:
+          registry_auth_documents: []
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://docker.mirror.example.com\nkind: RegistryMirrorConfig\nname: docker.io"
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://ghcr.mirror.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              ghcr.io:
-                endpoints:
-                  - https://ghcr.mirror.example.com
-              docker.io:
-                endpoints:
-                  - https://docker.mirror.example.com
-            registry_auths: {}
 
   - name: no docker.registries renders no registry mirrors
     values:
@@ -793,12 +790,12 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
+      config:
+        talos_common:
+          registry_auth_documents: []
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors: {}
-            registry_auths: {}
 
   - name: docker.registries credentials render auths keyed by mirror hostname
     values:
@@ -814,18 +811,15 @@ cases:
             username: robot
             password: secret
     expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\npassword: secret\nusername: robot"
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              ghcr.io:
-                endpoints:
-                  - https://registry.example.com
-            registry_auths:
-              registry.example.com:
-                username: robot
-                password: secret
 
   - name: docker.registries username without password fails composition
     values:

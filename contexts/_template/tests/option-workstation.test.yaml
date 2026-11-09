@@ -86,7 +86,6 @@ cases:
           path: cluster/talos
           inputs:
             cluster_name: talos
-            registry_mirrors: {}
         - name: gitops
           path: gitops/flux
           destroy: false
@@ -231,17 +230,14 @@ cases:
             local: docker.io
             hostname: registry-1.docker.test
     expect:
+      config:
+        talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://registry-1.docker.test:5000\nkind: RegistryMirrorConfig\nname: docker.io"
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://ghcr.test:5000\nkind: RegistryMirrorConfig\nname: ghcr.io"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              docker.io:
-                endpoints:
-                  - http://registry-1.docker.test:5000
-              ghcr.io:
-                endpoints:
-                  - http://ghcr.test:5000
 
   # A workstation uses its http caches on port 5000 and renders no registry auths.
   - name: workstation mirrors use the http caches and ignore registry credentials
@@ -269,15 +265,14 @@ cases:
             remote: https://ghcr.io
             hostname: ghcr.test
     expect:
+      config:
+        talos_common:
+          registry_auth_documents: []
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://ghcr.test:5000\nkind: RegistryMirrorConfig\nname: ghcr.io"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            registry_mirrors:
-              ghcr.io:
-                endpoints:
-                  - http://ghcr.test:5000
-            registry_auths: {}
 
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
   # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.
@@ -345,7 +340,6 @@ cases:
             - compute
           inputs:
             vip_interface: null
-            registry_mirrors: {}
         - name: gitops
           path: gitops/flux
           inputs:
