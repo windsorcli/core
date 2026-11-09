@@ -8,12 +8,9 @@ metadata:
 when: "platform == 'proxmox' && cluster.driver == 'talos'"
 
 requires:
-  - when: (proxmox.node ?? '') == '' && len(proxmox.nodes ?? []) == 0
-    paths:
-      - proxmox.node
-    message: Set proxmox.node, or proxmox.nodes for several nodes of one cluster (e.g. "pve").
-  - when: (proxmox.node ?? '') != '' && (proxmox.nodes ?? null) != null
-    message: Set proxmox.node or proxmox.nodes, not both.
+  - paths:
+      - proxmox.nodes
+    message: Set proxmox.nodes to the node names of one Proxmox VE cluster (e.g. [pve]).
   - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
     paths:
       - cluster.endpoint
@@ -40,8 +37,8 @@ config:
   # Image Factory schematic ce4c9805 holds siderolabs/qemu-guest-agent only.
   - name: proxmox_effective
     value:
-      node: "${(proxmox.nodes ?? [proxmox.node])[0]}"
-      nodes: ${proxmox.nodes ?? [proxmox.node]}
+      node: "${proxmox.nodes[0]}"
+      nodes: ${proxmox.nodes}
       datastore: "${proxmox.datastore ?? 'local-lvm'}"
       image_datastore: "${proxmox.image_datastore ?? 'local'}"
       image_datastore_shared: ${proxmox.image_datastore_shared ?? false}

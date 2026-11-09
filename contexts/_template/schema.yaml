@@ -447,16 +447,13 @@ properties:
     type: object
     additionalProperties: false
     properties:
-      node:
-        type: string
-        description: Proxmox VE node that hosts the Talos VMs (e.g. "pve"). Set this or nodes.
       nodes:
         type: array
         items:
           type: string
           minLength: 1
         minItems: 1
-        description: Nodes of one Proxmox VE cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Set this or node. Repeating a name gives that node more VMs.
+        description: Node names of one Proxmox VE cluster (e.g. [pve]). Control plane N and worker N take entry (N - 1) modulo the list length. Required. The first entry is the primary node. Repeating a name gives that node more VMs.
       datastore:
         type: string
         default: local-lvm

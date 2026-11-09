@@ -54,7 +54,7 @@ One context targets one Proxmox endpoint. That endpoint is either:
 
 - A cluster. The nodes in `proxmox.nodes` are nodes of that cluster.
 - A standalone host that is not in a cluster. This is the single-node case
-  that works today, with `proxmox.node` or with `proxmox.nodes` of length one.
+  that works today, with `proxmox.nodes` of length one.
 
 The operator does not select a mode. The values are the same for both, and the
 module does not check whether the endpoint is a cluster. A standalone host
@@ -77,14 +77,13 @@ proxmox:
   nodes: [pve1, pve2, pve3]
 ```
 
-`proxmox.node` stays and means `nodes: [node]`. A context MUST set one of the
-two. A `requires` rule accepts either value. A second `requires` rule, with a
-`when` condition on both values, fails composition when a context sets both.
+`proxmox.node` is removed. A single-node context sets `nodes: [pve]`. The platform
+is pre-release, so the rename needs no alias. A `requires` rule on `proxmox.nodes`
+fails composition when the list is missing or empty. A name MAY appear more than
+once; see section 3.
 
-The facet reads the list as `proxmox.nodes ?? [proxmox.node]` and sets it in
-`proxmox_effective`. The expression alone prefers `proxmox.nodes`, so the second
-rule enforces the exclusion. An empty list fails composition. A name MAY appear
-more than once; see section 3.
+The first entry is the primary node. The facet passes it to the module as
+`node_name` and sets both values in `proxmox_effective`.
 
 ### 3. Placement
 
@@ -237,7 +236,7 @@ The facet adds no user, role, or ACL. They stay prerequisites.
   corosync vote that hosts no VMs). Proxmox then blocks changes on the
   surviving node. This ADR does not fix that, and a two-node cluster is a
   supported but weak layout.
-- `proxmox.nodes` is a user-facing value, and the schema gains `nodes` and
+- `proxmox.nodes` replaces `proxmox.node`, and the schema gains `nodes` and
   `image_datastore_shared`.
 - A node name is a name in the Proxmox cluster. A renamed node breaks the
   placement of its VMs.

@@ -20,7 +20,7 @@ x-defaults:
       count: 0
 
   proxmox: &default-proxmox
-    node: pve
+    nodes: [pve]
 
   terraform-outputs: &default-terraform-outputs
     compute:
@@ -310,7 +310,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve2
+        nodes: [pve2]
         datastore: ceph-vm
         image_datastore: cephfs
         bridge: vmbr1
@@ -338,7 +338,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         arch: arm64
     expect:
       terraform:
@@ -386,7 +386,7 @@ cases:
         workers:
           count: 2
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: windsor
         vm_id_start: 9000
     expect:
@@ -415,7 +415,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: windsor
         create_pool: true
     expect:
@@ -452,7 +452,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         image_datastore: windsor-images
         image_datastore_path: /var/lib/windsor-images
         manage_image_datastore: true
@@ -482,7 +482,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         image_datastore: windsor-images
         manage_image_datastore: true
     expectError: true
@@ -496,7 +496,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         vm_id_start: 99
     expectError: true
 
@@ -509,7 +509,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         pool: "windsor/pool"
     expectError: true
 
@@ -879,7 +879,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         server: pve.example.lan
     expectError: true
 
@@ -892,7 +892,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         vlan_id: 4095
     expectError: true
 
@@ -1036,7 +1036,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
       proxmox:
-        node: pve
+        nodes: [pve]
         image_datastore: cephfs
         image_datastore_shared: true
     expect:
@@ -1045,21 +1045,8 @@ cases:
           inputs:
             image_datastore_shared: true
 
-  # Setting node and nodes together fails composition.
-  - name: proxmox node and nodes together fail composition
-    values:
-      platform: proxmox
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      proxmox:
-        node: pve
-        nodes: [pve1, pve2]
-    expectError: true
-
-  # Setting neither node nor nodes fails composition.
-  - name: proxmox without node or nodes fails composition
+  # Omitting nodes fails composition.
+  - name: proxmox without nodes fails composition
     values:
       platform: proxmox
       gateway:
