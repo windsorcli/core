@@ -121,7 +121,7 @@ cases:
       docker:
         registries:
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
             password: secret
     terraformOutputs:
