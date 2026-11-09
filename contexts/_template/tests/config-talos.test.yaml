@@ -821,6 +821,51 @@ cases:
         - name: cluster
           path: cluster/talos
 
+  - name: docker.registries entries sharing a hostname render one auth
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          docker.io:
+            hostname: registry.example.com
+            username: robot
+            password: secret
+          ghcr.io:
+            hostname: registry.example.com
+            username: robot
+            password: secret
+    expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\npassword: secret\nusername: robot"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries different credentials for one hostname fail composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          docker.io:
+            hostname: registry.example.com
+            username: robot
+            password: secret
+          ghcr.io:
+            hostname: registry.example.com
+            username: other
+            password: secret
+    expectError: true
+
   - name: docker.registries username without password fails composition
     values:
       platform: metal

@@ -19,6 +19,10 @@ requires:
   - when: >-
       any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))
     message: A docker.registries entry that sets username or password needs both.
+  - when: >-
+      let auths = filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != '');
+      any(auths, let entry = #; any(auths, get(#, 'hostname') == get(entry, 'hostname') && (get(#, 'username') != get(entry, 'username') || get(#, 'password') != get(entry, 'password'))))
+    message: docker.registries entries with the same hostname need the same username and password.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -116,16 +120,19 @@ config:
           ['endpoints', map(get(get(#, 1), 'endpoints'), fromPairs([['url', #]]))]
         ])))}
 
-      # RegistryAuthConfig documents keyed by mirror hostname, off a workstation.
+      # RegistryAuthConfig documents, one per mirror hostname, off a workstation.
       registry_auth_documents: >-
         ${talos_registry_mirrors.mirrors != null ? [] : map(
-          sortBy(filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''), get(#, 'hostname')),
+          sortBy(toPairs(fromPairs(map(
+            filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''),
+            [get(#, 'hostname'), #]
+          ))), get(#, 0)),
           string(fromPairs([
             ['apiVersion', 'v1alpha1'],
             ['kind', 'RegistryAuthConfig'],
-            ['name', get(#, 'hostname')],
-            ['username', get(#, 'username')],
-            ['password', get(#, 'password')]
+            ['name', get(#, 0)],
+            ['username', get(get(#, 1), 'username')],
+            ['password', get(get(#, 1), 'password')]
           ]))
         )}
 
