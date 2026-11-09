@@ -1,4 +1,4 @@
-# The Proxmox Compute module creates Talos nocloud VMs on a single Proxmox VE node.
+# The Proxmox Compute module creates Talos nocloud VMs on one or more nodes of a Proxmox VE cluster.
 
 # =============================================================================
 # Provider Configuration
@@ -27,17 +27,35 @@ locals {
   cpu_type             = var.cpu_type != null ? var.cpu_type : (local.is_arm64 ? "host" : "x86-64-v2-AES")
 
   network_prefix_length = tonumber(split("/", var.network_cidr)[1])
+
+  # Nodes that get a VM, nodes that need the images, and every other node the module reads.
+  vm_nodes    = distinct([for inst in var.instances : coalesce(inst.node_name, var.node_name)])
+  image_nodes = distinct([for inst in var.instances : coalesce(inst.node_name, var.node_name) if inst.image != null && inst.image != ""])
+  extra_nodes = setsubtract(toset(concat(local.vm_nodes, local.image_nodes, coalesce(var.nodes, []))), toset([var.node_name]))
 }
 
 # =============================================================================
-# Datastore and Pool Checks
+# Node and Datastore Checks
 # =============================================================================
 
-# The proxmox_datastores lists the datastores the caller can see on the node.
+# The proxmox_virtual_environment_nodes lists the nodes of the cluster and whether each is online.
+data "proxmox_virtual_environment_nodes" "cluster" {}
+
+# The proxmox_datastores lists the datastores the caller can see on the primary node.
 data "proxmox_datastores" "node" {
   node_name = var.node_name
 
   lifecycle {
+    precondition {
+      condition     = contains(data.proxmox_virtual_environment_nodes.cluster.names, var.node_name)
+      error_message = "Node '${var.node_name}' is not in the Proxmox cluster, or the user lacks Sys.Audit. Set proxmox.node or proxmox.nodes to existing node names."
+    }
+
+    precondition {
+      condition     = !contains(data.proxmox_virtual_environment_nodes.cluster.names, var.node_name) || try(data.proxmox_virtual_environment_nodes.cluster.online[index(data.proxmox_virtual_environment_nodes.cluster.names, var.node_name)], false)
+      error_message = "Node '${var.node_name}' is offline. Start it, or set proxmox.node or proxmox.nodes to an online node."
+    }
+
     postcondition {
       condition     = self.datastores == null || length(var.images) == 0 || contains([for d in self.datastores : d.id], var.image_datastore_id)
       error_message = "Image datastore '${var.image_datastore_id}' does not exist on node '${var.node_name}', or the user lacks Datastore.Audit on it. Create it or set proxmox.image_datastore to an existing datastore."
@@ -51,8 +69,44 @@ data "proxmox_datastores" "node" {
     }
 
     postcondition {
-      condition     = self.datastores == null || length(var.instances) == 0 || contains([for d in self.datastores : d.id], var.datastore_id)
+      condition     = self.datastores == null || !contains(local.vm_nodes, var.node_name) || contains([for d in self.datastores : d.id], var.datastore_id)
       error_message = "VM datastore '${var.datastore_id}' does not exist on node '${var.node_name}', or the user lacks Datastore.Audit on it. Create it or set proxmox.datastore to an existing datastore."
+    }
+  }
+}
+
+# The proxmox_datastores lists the datastores the caller can see on each other node.
+data "proxmox_datastores" "extra" {
+  for_each = local.extra_nodes
+
+  node_name = each.key
+
+  lifecycle {
+    precondition {
+      condition     = contains(data.proxmox_virtual_environment_nodes.cluster.names, each.key)
+      error_message = "Node '${each.key}' is not in the Proxmox cluster, or the user lacks Sys.Audit. Set proxmox.nodes to existing node names."
+    }
+
+    precondition {
+      condition     = !contains(data.proxmox_virtual_environment_nodes.cluster.names, each.key) || try(data.proxmox_virtual_environment_nodes.cluster.online[index(data.proxmox_virtual_environment_nodes.cluster.names, each.key)], false)
+      error_message = "Node '${each.key}' is offline. Start it or remove it from proxmox.nodes."
+    }
+
+    postcondition {
+      condition     = self.datastores == null || var.image_datastore_shared || !contains(local.image_nodes, each.key) || contains([for d in self.datastores : d.id], var.image_datastore_id)
+      error_message = "Image datastore '${var.image_datastore_id}' does not exist on node '${each.key}', or the user lacks Datastore.Audit on it. Create it on every node, or set proxmox.image_datastore_shared to true for shared storage."
+    }
+
+    postcondition {
+      condition = self.datastores == null || var.image_datastore_shared || !contains(local.image_nodes, each.key) || !contains([for d in self.datastores : d.id], var.image_datastore_id) || anytrue([
+        for d in self.datastores : contains(d.content_types, "import") if d.id == var.image_datastore_id
+      ])
+      error_message = "Image datastore '${var.image_datastore_id}' on node '${each.key}' does not allow the 'import' content type. Add 'import' to its content types."
+    }
+
+    postcondition {
+      condition     = self.datastores == null || !contains(local.vm_nodes, each.key) || contains([for d in self.datastores : d.id], var.datastore_id)
+      error_message = "VM datastore '${var.datastore_id}' does not exist on node '${each.key}', or the user lacks Datastore.Audit on it. Create it on every node or set proxmox.datastore to an existing datastore."
     }
   }
 }
@@ -89,7 +143,7 @@ locals {
 # Image Resources
 # =============================================================================
 
-# The proxmox_download_file pulls each image into the node's import storage through the PVE download-url API.
+# The proxmox_download_file pulls each image into the primary node's import storage through the PVE download-url API.
 resource "proxmox_download_file" "images" {
   for_each = var.images
 
@@ -103,6 +157,28 @@ resource "proxmox_download_file" "images" {
   upload_timeout      = each.value.upload_timeout
 }
 
+locals {
+  # One download per image and node, for nodes other than node_name. Shared storage needs none.
+  extra_images = var.image_datastore_shared ? {} : {
+    for pair in setproduct(keys(var.images), setintersection(local.extra_nodes, toset(local.image_nodes))) :
+    "${pair[0]}/${pair[1]}" => { image = pair[0], node = pair[1] }
+  }
+}
+
+# The proxmox_download_file on each other node pulls the image into that node's own import storage.
+resource "proxmox_download_file" "extra_images" {
+  for_each = local.extra_images
+
+  node_name           = each.value.node
+  datastore_id        = var.image_datastore_id
+  content_type        = "import"
+  url                 = var.images[each.value.image].url
+  file_name           = var.images[each.value.image].file_name
+  overwrite           = false
+  overwrite_unmanaged = false
+  upload_timeout      = var.images[each.value.image].upload_timeout
+}
+
 # =============================================================================
 # Instance Expansion
 # =============================================================================
@@ -112,6 +188,7 @@ locals {
     for instance in var.instances : [
       for i in range(instance.count) : {
         name           = instance.count > 1 ? "${instance.name}-${i + 1}" : instance.name
+        node_name      = coalesce(instance.node_name, var.node_name)
         role           = instance.role
         image          = instance.image
         cpu            = instance.cpu
@@ -130,11 +207,15 @@ locals {
 
   instances_by_name = { for inst in local.expanded_instances : inst.name => inst }
 
-  # Image key to downloaded file id, null for a blank or unknown key.
+  # Image key to the downloaded file id on the VM's node, null for a blank or unknown key.
   instance_image_ids = {
     for k, v in local.instances_by_name : k => (
       v.image != null && v.image != "" && contains(keys(var.images), v.image)
-      ? proxmox_download_file.images[v.image].id
+      ? (
+        v.node_name == var.node_name || var.image_datastore_shared
+        ? proxmox_download_file.images[v.image].id
+        : proxmox_download_file.extra_images["${v.image}/${v.node_name}"].id
+      )
       : null
     )
   }
@@ -156,12 +237,12 @@ locals {
   }
 }
 
-# The proxmox_virtual_environment_vm boots the imported Talos disk with a Proxmox cloud-init drive holding the node's network config.
+# The proxmox_virtual_environment_vm boots the imported Talos disk on its node with a Proxmox cloud-init drive holding the node's network config.
 resource "proxmox_virtual_environment_vm" "instances" {
   for_each = local.instances_by_name
 
   name        = "${each.value.name}${var.name_suffix}"
-  node_name   = var.node_name
+  node_name   = each.value.node_name
   vm_id       = each.value.vm_id
   pool_id     = local.vm_pool_id
   description = each.value.notes

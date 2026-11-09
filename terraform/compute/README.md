@@ -8,7 +8,7 @@ The compute category has three drivers that provision Talos nodes on
 local hardware. `docker` runs nodes as containers and is the default
 on macOS and Linux dev machines. `hyperv` runs them as VMs on a
 Windows host. `incus` runs them as VMs on Linux. `proxmox` runs them
-as VMs on a Proxmox VE node. The driver is selected by `platform`. Managed-cloud platforms (`aws`, `azure`) and
+as VMs on the nodes of a Proxmox VE cluster. The driver is selected by `platform`. Managed-cloud platforms (`aws`, `azure`) and
 bare-metal (`metal`) don't use a compute module: EKS and AKS
 provision their own nodes, and `metal` expects nodes that already
 exist.
@@ -117,7 +117,7 @@ flowchart LR
 ```yaml
 platform: proxmox
 proxmox:
-  node: pve
+  nodes: [pve]
 network:
   cidr_block: 192.168.10.0/24
 gateway:
