@@ -32,11 +32,6 @@ config:
       admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
-      # Non-empty only when the hosted server's issuer is actually reachable
-      # (gateway enabled). requires: paths only test presence, not booleans, so
-      # consumers needing browser/apiserver access to the issuer check this
-      # instead of gateway.enabled directly.
-      gateway_reachable: "${(identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true ? 'yes' : ''}"
 
   # The hosted server needs CloudNativePG, so the keycloak driver turns it on
   # by default (on unless explicitly disabled). The oidc driver hosts nothing,

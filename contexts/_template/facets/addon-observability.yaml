@@ -39,9 +39,7 @@ requires:
     message: Grafana SSO authenticates against the cluster identity provider — enable identity.
   # The hosted Keycloak's issuer is a gateway URL — without a gateway, the browser
   # redirect Grafana's login sends the user to can never resolve.
-  - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak'
-    paths:
-      - identity_effective.gateway_reachable
+  - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled != true
     message: Grafana SSO against the hosted Keycloak needs it reachable through the gateway — enable the gateway.
 
 # =============================================================================
