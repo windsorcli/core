@@ -38,31 +38,25 @@ requires:
 # layers in the common defaults.
 config:
 
-  # docker.registries entries with an endpoint, and one set of credentials per endpoint host.
+  # docker.registries entries with an endpoint, parsed for the Talos registry documents.
   - name: talos_registries
     value:
       endpoints: >-
         ${map(
           filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''),
           let entry = get(#, 1);
-          let scheme = entry.endpoint contains '://' ? split(entry.endpoint, '://')[0] : 'https';
-          let location = trimPrefix(entry.endpoint, scheme + '://');
-          let host = split(location, '/')[0];
+          let parts = split(entry.endpoint contains '://' ? entry.endpoint : 'https://' + entry.endpoint, '/');
           ({
             registry: (entry.local ?? '') != '' ? entry.local : get(#, 0),
-            scheme: scheme,
-            host: host,
-            url: scheme + '://' + host + (location == host ? '' : '/v2/' + trimPrefix(location, host + '/')),
+            host: parts[2],
+            https: parts[0] == 'https:',
+            url: parts[0] + '//' + parts[2] + (len(parts) > 3 ? '/v2/' + join(parts[3:], '/') : ''),
             username: entry.username ?? '',
             password: entry.password ?? ''
           })
         )}
-      auths: "${fromPairs(map(filter(talos_registries.endpoints, #.username != ''), [#.host, #]))}"
-      credentials_conflict: >-
-        ${any(talos_registries.endpoints, #.username != '' && (
-          #.username != talos_registries.auths[#.host].username
-          || #.password != talos_registries.auths[#.host].password
-        ))}
+      auths: "${filter(talos_registries.endpoints, #.username != '')}"
+      credentials_conflict: "${len(uniq(map(talos_registries.auths, #.host + ' ' + #.username + ' ' + #.password))) > len(uniq(map(talos_registries.auths, #.host)))}"
 
   # talos_common defaults: platform facets set platform-specific values first,
   # then this block fills in anything left.
@@ -149,18 +143,18 @@ config:
 
       # RegistryAuthConfig documents, one per endpoint host.
       registry_auth_documents: >-
-        ${map(sortBy(values(talos_registries.auths), #.host), string(fromPairs([
+        ${sort(uniq(map(talos_registries.auths, string(fromPairs([
           ['apiVersion', 'v1alpha1'],
           ['kind', 'RegistryAuthConfig'],
           ['name', #.host],
           ['username', #.username],
           ['password', #.password]
-        ])))}
+        ])))))}
 
       # RegistryTLSConfig documents trusting pki.trusted_cas, one per https endpoint host.
       registry_tls_documents: >-
         ${len(pki.trusted_cas ?? []) == 0 ? [] : map(
-          sort(uniq(map(filter(talos_registries.endpoints, #.scheme == 'https'), #.host))),
+          sort(uniq(map(filter(talos_registries.endpoints, #.https), #.host))),
           string(fromPairs([
             ['apiVersion', 'v1alpha1'],
             ['kind', 'RegistryTLSConfig'],
