@@ -23,8 +23,8 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.2.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.2.1 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
 
 ## Providers
 
@@ -43,10 +43,10 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 
 | Name | Type |
 |------|------|
-| [incus_image.local](https://registry.terraform.io/providers/lxc/incus/latest/docs/resources/image) | resource |
-| [incus_network.main](https://registry.terraform.io/providers/lxc/incus/latest/docs/resources/network) | resource |
-| [incus_storage_pool.pools](https://registry.terraform.io/providers/lxc/incus/latest/docs/resources/storage_pool) | resource |
-| [incus_storage_volume.disks](https://registry.terraform.io/providers/lxc/incus/latest/docs/resources/storage_volume) | resource |
+| [incus_image.local](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/image) | resource |
+| [incus_network.main](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/network) | resource |
+| [incus_storage_pool.pools](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_pool) | resource |
+| [incus_storage_volume.disks](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_volume) | resource |
 | [terraform_data.ip_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 
 ## Inputs

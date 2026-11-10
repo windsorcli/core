@@ -53,7 +53,7 @@ credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
-| <a name="requirement_vsphere"></a> [vsphere](#requirement\_vsphere) | ~> 2.17 |
+| <a name="requirement_vsphere"></a> [vsphere](#requirement\_vsphere) | 2.17.1 |
 
 ## Providers
 
@@ -71,16 +71,16 @@ No modules.
 | Name | Type |
 |------|------|
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
-| [vsphere_folder.vm](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/resources/folder) | resource |
-| [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/resources/virtual_machine) | resource |
+| [vsphere_folder.vm](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/folder) | resource |
+| [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/virtual_machine) | resource |
 | [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
 | [talos_machine_configuration.worker](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
-| [vsphere_compute_cluster.this](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/compute_cluster) | data source |
-| [vsphere_datacenter.this](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/datacenter) | data source |
-| [vsphere_datastore.this](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/datastore) | data source |
-| [vsphere_host.this](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/host) | data source |
-| [vsphere_network.this](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/network) | data source |
-| [vsphere_resource_pool.named](https://registry.terraform.io/providers/vmware/vsphere/latest/docs/data-sources/resource_pool) | data source |
+| [vsphere_compute_cluster.this](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/compute_cluster) | data source |
+| [vsphere_datacenter.this](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/datacenter) | data source |
+| [vsphere_datastore.this](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/datastore) | data source |
+| [vsphere_host.this](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/host) | data source |
+| [vsphere_network.this](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/network) | data source |
+| [vsphere_resource_pool.named](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/data-sources/resource_pool) | data source |
 
 ## Inputs
 

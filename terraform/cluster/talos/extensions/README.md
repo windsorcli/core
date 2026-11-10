@@ -14,7 +14,7 @@ worker nodes when the image changes.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
 ## Providers
@@ -32,8 +32,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [null_resource.upgrade_controlplane](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [null_resource.upgrade_worker](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [null_resource.upgrade_controlplane](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [null_resource.upgrade_worker](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
 | [talos_image_factory_schematic.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/image_factory_schematic) | resource |
 
 ## Inputs

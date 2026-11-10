@@ -48,6 +48,7 @@
     },
     {
       "matchDatasources": ["terraform-provider"],
+      "rangeStrategy": "pin",
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",

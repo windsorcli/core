@@ -16,7 +16,7 @@ brings up via the Talos API.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.6.0 |
-| <a name="requirement_external"></a> [external](#requirement\_external) | ~> 2.3 |
+| <a name="requirement_external"></a> [external](#requirement\_external) | 2.4.2 |
 
 ## Providers
 
@@ -37,7 +37,7 @@ No modules.
 | [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/image) | resource |
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/network) | resource |
 | [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/volume) | resource |
-| [external_external.docker_host](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
+| [external_external.docker_host](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external) | data source |
 
 ## Inputs
 
