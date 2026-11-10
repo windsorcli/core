@@ -22,7 +22,7 @@ spec:
         name: filebeat
   values:
     image: docker.elastic.co/beats/filebeat
-    # artifact: type=image name=docker.elastic.co/beats/filebeat
+    # artifact: type=image name=docker.elastic.co/beats/filebeat referrers=false
     imageTag: 9.5.6@sha256:13afd81be4fa1523865c987a22b7c4aebca739941270333c7ca0048a4c9efeb3
     daemonset:
       secretMounts:
