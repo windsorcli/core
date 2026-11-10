@@ -26,7 +26,7 @@ requires:
         values(docker.registries ?? {}),
         ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == '')
       )
-    message: A docker.registries entry that sets username or password needs both.
+    message: The username and password of a docker.registries entry must be set together.
   - when: talos_registries.credentials_conflict == true
     message: docker.registries entries with the same endpoint host need the same username and password.
 
