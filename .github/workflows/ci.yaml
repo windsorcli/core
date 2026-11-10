@@ -345,7 +345,7 @@ jobs:
           flux plugin install mirror
           export REGISTRY="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000"
           windsor show artifacts --charts-to "$REGISTRY/windsor" -o flux-mirror \
-            | yq '.artifacts[].destination |= sub("^charts.test:5000", strenv(REGISTRY))' \
+            | yq '.artifacts[].destination |= sub("^charts[.]test:5000", strenv(REGISTRY))' \
             | flux mirror sync --no-progress -
 
       - name: Windsor Up
