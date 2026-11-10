@@ -189,7 +189,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
+        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade","registry"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
     steps:
 
       # -----------------------------------------------------------------------
