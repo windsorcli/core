@@ -43,7 +43,7 @@ config:
     value:
       endpoints: >-
         ${map(
-          filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''),
+          sortBy(filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''), get(#, 0)),
           let entry = get(#, 1);
           let parts = split(entry.endpoint contains '://' ? entry.endpoint : 'https://' + entry.endpoint, '/');
           ({
