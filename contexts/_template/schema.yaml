@@ -843,7 +843,7 @@ properties:
               sensitive: true
               description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
           additionalProperties: false
-        description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror. An entry with only hostname is a workstation pull-through cache.
+        description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror, and nodes pull its images only from that mirror. An entry with only hostname is a workstation pull-through cache.
     additionalProperties: false
 
   # Cluster topology preset — selects between a single-node cluster, a

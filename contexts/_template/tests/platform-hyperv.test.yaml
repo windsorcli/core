@@ -134,7 +134,7 @@ cases:
           registry_auth_documents:
             - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\npassword: secret\nusername: robot"
           registry_mirror_documents:
-            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io\nskipFallback: true"
       terraform:
         - name: compute
           path: compute/hyperv
