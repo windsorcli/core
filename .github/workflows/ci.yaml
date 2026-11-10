@@ -180,7 +180,7 @@ jobs:
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.mode == 'registry' && 80 || 45 }}
+    timeout-minutes: ${{ matrix.mode == 'registry' && 90 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -336,7 +336,7 @@ jobs:
       - name: Fill registry
         id: fill_registry
         if: matrix.mode == 'registry'
-        timeout-minutes: 40
+        timeout-minutes: 60
         # Flux Mirror pushes over plain HTTP to a private IP, which reaches the same registry as charts.test:5000.
         run: |
           windsor show artifacts -o yaml > "$RUNNER_TEMP/artifacts.yaml"
