@@ -176,11 +176,11 @@ jobs:
   # ===========================================================================
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
-  # chart pulled from a workstation chart registry.
+  # chart and image pulled from a workstation registry.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.mode == 'registry' && 80 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -250,7 +250,9 @@ jobs:
       - name: Create docker cache directory
         run: mkdir -p .windsor/cache/docker
 
+      # Registry mode stores its copied images under this path.
       - name: Cache docker cache
+        if: matrix.mode != 'registry'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .windsor/cache/docker
@@ -330,18 +332,20 @@ jobs:
         if: matrix.mode != 'upgrade'
         run: windsor show blueprint
 
-      # Copies each tagged chart into the workstation chart registry, so an untagged chart fails to pull.
-      - name: Fill chart registry
-        id: chart_registry
+      # Mirrors each registry that names an image, and copies each tagged chart and image into the workstation registry.
+      - name: Fill registry
+        id: fill_registry
         if: matrix.mode == 'registry'
-        timeout-minutes: 15
+        timeout-minutes: 40
         # Flux Mirror pushes over plain HTTP to a private IP, which reaches the same registry as charts.test:5000.
         run: |
+          windsor show artifacts -o yaml > "$RUNNER_TEMP/artifacts.yaml"
+          yq -i '.docker.registries = (load(strenv(RUNNER_TEMP) + "/artifacts.yaml") | [.artifacts[] | select(.kind == "image") | .reference | split("/")[0]] | unique | map({"key": ., "value": {"endpoint": "http://charts.test:5000/windsor/" + .}}) | from_entries)' contexts/local/values.yaml
           windsor apply terraform workstation
           flux plugin install mirror
-          export DEST="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000/windsor"
-          windsor show artifacts --charts-to "$DEST" -o flux-mirror \
-            | yq '.artifacts |= map(select(.destination | test("^" + strenv(DEST) + "/")))' \
+          export REGISTRY="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000"
+          windsor show artifacts --charts-to "$REGISTRY/windsor" -o flux-mirror \
+            | yq '.artifacts[].destination |= sub("^charts.test:5000", strenv(REGISTRY))' \
             | flux mirror sync --no-progress -
 
       - name: Windsor Up
@@ -395,7 +399,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.chart_registry.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
