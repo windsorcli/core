@@ -765,10 +765,10 @@ cases:
       docker:
         registries:
           ghcr.io:
-            hostname: ghcr.mirror.example.com
+            endpoint: ghcr.mirror.example.com
           registry-1.docker.io:
             local: docker.io
-            hostname: docker.mirror.example.com
+            endpoint: docker.mirror.example.com
           quay.io:
             remote: https://quay.io
     expect:
@@ -797,7 +797,7 @@ cases:
         - name: cluster
           path: cluster/talos
 
-  - name: docker.registries credentials render auths keyed by mirror hostname
+  - name: docker.registries credentials render auths keyed by endpoint host
     values:
       platform: metal
       gateway:
@@ -807,7 +807,7 @@ cases:
       docker:
         registries:
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
             password: secret
     expect:
@@ -821,7 +821,7 @@ cases:
         - name: cluster
           path: cluster/talos
 
-  - name: docker.registries entries sharing a hostname render one auth
+  - name: docker.registries entries sharing an endpoint host render one auth
     values:
       platform: metal
       gateway:
@@ -831,11 +831,11 @@ cases:
       docker:
         registries:
           docker.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
             password: secret
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
             password: secret
     expect:
@@ -847,7 +847,7 @@ cases:
         - name: cluster
           path: cluster/talos
 
-  - name: docker.registries different credentials for one hostname fail composition
+  - name: docker.registries different credentials for one endpoint host fail composition
     values:
       platform: metal
       gateway:
@@ -857,13 +857,180 @@ cases:
       docker:
         registries:
           docker.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
             password: secret
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: other
             password: secret
+    expectError: true
+
+  - name: docker.registries catch-all endpoint with a port and path overrides the path
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          '*':
+            endpoint: harbor.example.com:8443/windsor
+            username: robot
+            password: secret
+    expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: harbor.example.com:8443\npassword: secret\nusername: robot"
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- overridePath: true\n  url: https://harbor.example.com:8443/v2/windsor\nkind: RegistryMirrorConfig\nname: \"*\""
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries http endpoint keeps its scheme
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: http://registry.internal:5000/windsor
+            username: robot
+            password: secret
+    expect:
+      config:
+        talos_common:
+          registry_auth_documents:
+            - "apiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.internal:5000\npassword: secret\nusername: robot"
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- overridePath: true\n  url: http://registry.internal:5000/v2/windsor\nkind: RegistryMirrorConfig\nname: ghcr.io"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries https endpoint keeps its scheme
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: https://registry.example.com
+    expect:
+      config:
+        talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://registry.example.com\nkind: RegistryMirrorConfig\nname: ghcr.io"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries endpoints with pki.trusted_cas render one TLS document per host
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        trusted_cas:
+          - CERT
+      docker:
+        registries:
+          docker.io:
+            endpoint: harbor.example.com/docker
+          ghcr.io:
+            endpoint: harbor.example.com/ghcr
+    expect:
+      config:
+        talos_common:
+          registry_tls_documents:
+            - "apiVersion: v1alpha1\nca: CERT\nkind: RegistryTLSConfig\nname: harbor.example.com"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries http endpoint renders no TLS document
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        trusted_cas:
+          - CERT
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: http://registry.internal:5000
+    expect:
+      config:
+        talos_common:
+          registry_tls_documents: []
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: docker.registries hostname without endpoint off a workstation fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            hostname: ghcr.test
+    expectError: true
+
+  - name: docker.registries catch-all without endpoint fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          '*':
+            hostname: registry.example.com
+    expectError: true
+
+  - name: docker.registries endpoint with an unsupported scheme fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: ftp://registry.example.com
+    expectError: true
+
+  - name: docker.registries endpoint with embedded credentials fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: https://robot:secret@registry.example.com
     expectError: true
 
   - name: docker.registries username without password fails composition
@@ -876,7 +1043,7 @@ cases:
       docker:
         registries:
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             username: robot
     expectError: true
 
@@ -890,7 +1057,7 @@ cases:
       docker:
         registries:
           ghcr.io:
-            hostname: registry.example.com
+            endpoint: registry.example.com
             password: secret
     expectError: true
 

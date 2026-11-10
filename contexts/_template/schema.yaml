@@ -816,7 +816,9 @@ properties:
       registries:
         type: object
         propertyNames:
-          $ref: '#/$defs/dnsHostname'
+          anyOf:
+            - $ref: '#/$defs/dnsHostname'
+            - const: '*'
         additionalProperties:
           type: object
           properties:
@@ -828,16 +830,20 @@ properties:
               description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
             hostname:
               $ref: '#/$defs/dnsHostname'
-              description: Hostname for the mirror endpoint (e.g. registry.test). Lowercase DNS-labels separated by dots.
+              description: Hostname of the workstation pull-through cache (e.g. registry.test). Lowercase DNS-labels separated by dots.
+            endpoint:
+              type: string
+              pattern: '^(https?://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$'
+              description: Cluster mirror as an optional http or https scheme, host, optional port, and optional path (e.g. harbor.example.com:8443/windsor). The default scheme is https.
             username:
               type: string
-              description: Username for the mirror at hostname. Set together with password. Not used on a workstation.
+              description: Username for the mirror at endpoint. Set together with password.
             password:
               type: string
               sensitive: true
-              description: Password or token for the mirror at hostname. Set via a secret() reference, together with username.
+              description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
           additionalProperties: false
-        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. An entry with a hostname is a mirror. Keys are DNS hostnames.
+        description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror. An entry with only hostname is a workstation pull-through cache.
     additionalProperties: false
 
   # Cluster topology preset — selects between a single-node cluster, a

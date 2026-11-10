@@ -12,15 +12,23 @@ requires:
   # kube-apiserver fetches the issuer's JWKS itself and clients validate the same
   # token `iss` claim, both against the hosted Keycloak's gateway URL — without a
   # gateway neither can reach it.
-  - when: cluster.oidc.enabled == true && (cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled != true
-    message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
   - when: >-
-      any(values(docker.registries ?? {}), ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == ''))
-    message: A docker.registries entry that sets username or password needs both.
+      cluster.oidc.enabled == true
+      && (cluster.oidc.issuer_url ?? '') == ''
+      && identity.enabled == true
+      && (identity.driver ?? 'keycloak') == 'keycloak'
+      && gateway.enabled != true
+    message: >-
+      kube-apiserver OIDC against the hosted Keycloak needs it reachable through
+      the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
   - when: >-
-      let auths = filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != '');
-      any(auths, let entry = #; any(auths, get(#, 'hostname') == get(entry, 'hostname') && (get(#, 'username') != get(entry, 'username') || get(#, 'password') != get(entry, 'password'))))
-    message: docker.registries entries with the same hostname need the same username and password.
+      any(
+        values(docker.registries ?? {}),
+        ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == '')
+      )
+    message: The username and password of a docker.registries entry must be set together.
+  - when: talos_registries.credentials_conflict == true
+    message: docker.registries entries with the same endpoint host need the same username and password.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -29,6 +37,26 @@ requires:
 # terraform module consumes. Platform facets set overrides first; this file
 # layers in the common defaults.
 config:
+
+  # docker.registries entries with an endpoint, parsed for the Talos registry documents.
+  - name: talos_registries
+    value:
+      endpoints: >-
+        ${map(
+          filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''),
+          let entry = get(#, 1);
+          let parts = split(entry.endpoint contains '://' ? entry.endpoint : 'https://' + entry.endpoint, '/');
+          ({
+            registry: (entry.local ?? '') != '' ? entry.local : get(#, 0),
+            host: parts[2],
+            https: parts[0] == 'https:',
+            url: parts[0] + '//' + parts[2] + (len(parts) > 3 ? '/v2/' + join(parts[3:], '/') : ''),
+            username: entry.username ?? '',
+            password: entry.password ?? ''
+          })
+        )}
+      auths: "${filter(talos_registries.endpoints, #.username != '')}"
+      credentials_conflict: "${len(uniq(map(talos_registries.auths, #.host + ' ' + #.username + ' ' + #.password))) > len(uniq(map(talos_registries.auths, #.host)))}"
 
   # talos_common defaults: platform facets set platform-specific values first,
   # then this block fills in anything left.
@@ -89,7 +117,7 @@ config:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
       common_config_patches: >-
-        ${join(concat([string(talos_common.common_patch)], talos_common.registry_mirror_documents, talos_common.registry_auth_documents), "\n---\n")}
+        ${join(concat([string(talos_common.common_patch)], talos_common.registry_mirror_documents, talos_common.registry_auth_documents, talos_common.registry_tls_documents), "\n---\n")}
 
       # Extension catalog: driver/feature → required Talos Image Factory
       # extensions. Add a key for a new driver; the aggregated extensions list picks it up.
@@ -104,33 +132,34 @@ config:
 
       # RegistryMirrorConfig documents, empty while the workstation mirrors are still unresolved.
       registry_mirror_documents: >-
-        ${let mirrors = talos_registry_mirrors.mirrors ?? fromPairs(map(
-          filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'hostname') ?? '') != ''),
-          [
-            ((get(get(#, 1), 'local') ?? '') != '' ? get(get(#, 1), 'local') : get(#, 0)),
-            { endpoints: ['https://' + get(get(#, 1), 'hostname')] }
-          ]
-        ));
-        type(mirrors) != 'map' ? [] : map(sortBy(toPairs(mirrors), get(#, 0)), string(fromPairs([
+        ${let caches = talos_registry_mirrors.mirrors;
+        let endpoints = map(talos_registries.endpoints, [#.registry, { endpoints: [#.url] }]);
+        caches != null && type(caches) != 'map' ? [] : map(sortBy(toPairs(fromPairs(concat(toPairs(caches ?? {}), endpoints))), get(#, 0)), string(fromPairs([
           ['apiVersion', 'v1alpha1'],
           ['kind', 'RegistryMirrorConfig'],
           ['name', get(#, 0)],
-          ['endpoints', map(get(get(#, 1), 'endpoints'), fromPairs([['url', #]]))]
+          ['endpoints', map(get(get(#, 1), 'endpoints'), # contains '/v2/' ? fromPairs([['url', #], ['overridePath', true]]) : fromPairs([['url', #]]))]
         ])))}
 
-      # RegistryAuthConfig documents, one per mirror hostname, off a workstation.
+      # RegistryAuthConfig documents, one per endpoint host.
       registry_auth_documents: >-
-        ${talos_registry_mirrors.mirrors != null ? [] : map(
-          sortBy(toPairs(fromPairs(map(
-            filter(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'username') ?? '') != ''),
-            [get(#, 'hostname'), #]
-          ))), get(#, 0)),
+        ${sort(uniq(map(talos_registries.auths, string(fromPairs([
+          ['apiVersion', 'v1alpha1'],
+          ['kind', 'RegistryAuthConfig'],
+          ['name', #.host],
+          ['username', #.username],
+          ['password', #.password]
+        ])))))}
+
+      # RegistryTLSConfig documents trusting pki.trusted_cas, one per https endpoint host.
+      registry_tls_documents: >-
+        ${len(pki.trusted_cas ?? []) == 0 ? [] : map(
+          sort(uniq(map(filter(talos_registries.endpoints, #.https), #.host))),
           string(fromPairs([
             ['apiVersion', 'v1alpha1'],
-            ['kind', 'RegistryAuthConfig'],
-            ['name', get(#, 0)],
-            ['username', get(get(#, 1), 'username')],
-            ['password', get(get(#, 1), 'password')]
+            ['kind', 'RegistryTLSConfig'],
+            ['name', #],
+            ['ca', join(pki.trusted_cas, '\n')]
           ]))
         )}
 

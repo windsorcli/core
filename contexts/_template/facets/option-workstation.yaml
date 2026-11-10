@@ -61,14 +61,14 @@ config:
   - name: workstation_registries
     value:
       registries: |
-        ${(workstation.services.registries ?? true) == false ? {} : fromPairs(concat(toPairs(docker.registries ?? {
+        ${(workstation.services.registries ?? true) == false ? {} : fromPairs(concat(filter(toPairs(docker.registries ?? {
           "gcr.io": { "remote": "https://gcr.io" },
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },
           "reg.kyverno.io": { "remote": "https://reg.kyverno.io" },
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
-        }), workstation_chart_registry.key != '' ? [[workstation_chart_registry.key, {}]] : []))}
+        }), get(#, 0) != '*'), workstation_chart_registry.key != '' ? [[workstation_chart_registry.key, {}]] : []))}
 
   # Local registry key when charts.registry names <key>.<workstation domain>, else empty.
   - name: workstation_chart_registry

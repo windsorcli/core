@@ -274,6 +274,63 @@ cases:
         - name: cluster
           path: cluster/talos
 
+  - name: workstation mirrors use endpoint when it is set and create no catch-all cache
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          '*':
+            endpoint: harbor.example.com
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+            endpoint: http://ghcr.test:5000/filled
+          quay.io:
+            remote: https://quay.io
+            hostname: quay.test
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      workstation:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+          quay.io:
+            remote: https://quay.io
+            hostname: quay.test
+    expect:
+      config:
+        talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- url: https://harbor.example.com\nkind: RegistryMirrorConfig\nname: \"*\""
+            - "apiVersion: v1alpha1\nendpoints:\n- overridePath: true\n  url: http://ghcr.test:5000/v2/filled\nkind: RegistryMirrorConfig\nname: ghcr.io"
+            - "apiVersion: v1alpha1\nendpoints:\n- url: http://quay.test:5000\nkind: RegistryMirrorConfig\nname: quay.io"
+        workstation_registries:
+          registries:
+            ghcr.io:
+              remote: https://ghcr.io
+              hostname: ghcr.test
+              endpoint: http://ghcr.test:5000/filled
+            quay.io:
+              remote: https://quay.io
+              hostname: quay.test
+      terraform:
+        - name: cluster
+          path: cluster/talos
+    exclude:
+      config:
+        workstation_registries:
+          registries:
+            '*':
+              endpoint: harbor.example.com
+
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
   # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.
   - name: incus with workstation enabled creates workstation/incus compute cluster chain

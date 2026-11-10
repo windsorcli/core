@@ -8,6 +8,12 @@ metadata:
 when: (platform ?? 'none') != 'none'
 
 requires:
+  - when: "'*' in keys(docker.registries ?? {}) && (get(docker.registries['*'], 'endpoint') ?? '') == ''"
+    message: The docker.registries * entry needs endpoint.
+  - when: >-
+      any(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'endpoint') ?? '') == '') &&
+      !((platform == 'docker' || platform == 'incus') && (workstation.runtime ?? '') != '')
+    message: A docker.registries entry that sets hostname needs endpoint on a context with no workstation.
   # Split-horizon DNS on one domain is not supported.
   - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
     message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
