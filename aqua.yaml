@@ -19,7 +19,7 @@ packages:
   - name: siderolabs/omni/omni@v1.12.4
   - name: kubernetes/kubectl@v1.37.2
   - name: go-task/task@v3.54.0
-  - name: golang/go@go1.27.3
+  - name: golang/go@go1.27.4
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.6.1
   - name: aws/aws-cli@2.38.5
