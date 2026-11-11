@@ -130,11 +130,11 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # RegistryMirrorConfig documents, empty while the workstation mirrors are still unresolved.
+      # RegistryMirrorConfig documents for the docker.registries endpoints and the resolved workstation caches.
       registry_mirror_documents: >-
-        ${let caches = talos_registry_mirrors.mirrors;
+        ${let caches = type(talos_registry_mirrors.mirrors) == 'map' ? talos_registry_mirrors.mirrors : {};
         let endpoints = map(talos_registries.endpoints, [#.registry, { endpoints: [#.url], skipFallback: true }]);
-        caches != null && type(caches) != 'map' ? [] : map(sortBy(toPairs(fromPairs(concat(toPairs(caches ?? {}), endpoints))), get(#, 0)), string(fromPairs(concat([
+        map(sortBy(toPairs(fromPairs(concat(toPairs(caches), endpoints))), get(#, 0)), string(fromPairs(concat([
           ['apiVersion', 'v1alpha1'],
           ['kind', 'RegistryMirrorConfig'],
           ['name', get(#, 0)],

@@ -331,6 +331,33 @@ cases:
             '*':
               endpoint: harbor.example.com
 
+  # Registry mode: endpoint mirrors render before the workstation output resolves.
+  - name: workstation mirrors render the endpoints while the workstation output is unresolved
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          ghcr.io:
+            endpoint: http://charts.test:5000/windsor/ghcr.io
+          registry.k8s.io:
+            endpoint: http://charts.test:5000/windsor/registry.k8s.io
+    expect:
+      config:
+        talos_common:
+          registry_mirror_documents:
+            - "apiVersion: v1alpha1\nendpoints:\n- overridePath: true\n  url: http://charts.test:5000/v2/windsor/ghcr.io\nkind: RegistryMirrorConfig\nname: ghcr.io\nskipFallback: true"
+            - "apiVersion: v1alpha1\nendpoints:\n- overridePath: true\n  url: http://charts.test:5000/v2/windsor/registry.k8s.io\nkind: RegistryMirrorConfig\nname: registry.k8s.io\nskipFallback: true"
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
   # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.
   - name: incus with workstation enabled creates workstation/incus compute cluster chain
@@ -1046,3 +1073,4 @@ cases:
       config:
         workstation_chart_registry:
           key: ""
+
