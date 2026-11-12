@@ -41,12 +41,6 @@
       "allowedVersions": "/^v1\\.36\\./"
     },
     {
-      "description": "Keep the container-mode etcd pin on the 3.6 line, the line that Talos 1.13 selects",
-      "matchFileNames": ["contexts/_template/facets/platform-docker.yaml", "contexts/_template/facets/config-talos.yaml"],
-      "matchDepNames": ["registry.k8s.io/etcd"],
-      "allowedVersions": "/^v3\\.6\\./"
-    },
-    {
       "description": "Provider 0.12.0 generates Talos 1.14 documents that conflict with the v1alpha1 patches in core",
       "matchDatasources": ["terraform-provider"],
       "matchPackageNames": ["siderolabs/talos"],
@@ -134,8 +128,8 @@
       "enabled": false
     },
     {
-      "description": "Bump the pause and flannel images by hand with Talos, since Talos selects them and core cannot set them",
-      "matchDepNames": ["registry.k8s.io/pause", "ghcr.io/siderolabs/flannel"],
+      "description": "Generate the Talos image table with task talos:images, since Talos selects these images",
+      "matchFileNames": ["contexts/_template/facets/config-talos-images.yaml"],
       "enabled": false
     },
     {

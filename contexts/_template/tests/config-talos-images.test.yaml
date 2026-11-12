@@ -1,0 +1,146 @@
+# config-talos-images.yaml facet tests
+# Registry mode needs a table entry for the Talos version of the context.
+# A Talos pin with no entry fails the registry mode cases below.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.20"
+      end: "10.5.1.100"
+
+  dns: &default-dns
+    domain: test.local
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+
+cases:
+  # The docker pin (Talos 1.13) has a table entry.
+  - name: registry mode composes on docker
+    values:
+      platform: docker
+      workstation:
+        runtime: docker-desktop
+      charts:
+        registry: charts.test:5000/windsor
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.13.11"
+
+  # The default pin (Talos 1.14) has a table entry.
+  - name: registry mode composes on incus
+    values:
+      platform: incus
+      charts:
+        registry: registry.example.com/windsor
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.14.2"
+
+  - name: registry mode accepts a node image of a pinned Talos version
+    values:
+      platform: incus
+      charts:
+        registry: registry.example.com/windsor
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          image: windsor:talos/v1.14.2/amd64
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+              image: ghcr.io/siderolabs/talos:v1.13.11
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+
+  - name: registry mode fails for a pool image of an unpinned Talos version
+    values:
+      platform: incus
+      charts:
+        registry: registry.example.com/windsor
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          image: windsor:talos/v1.14.99/amd64
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  - name: registry mode fails for a node image of an unpinned Talos version
+    values:
+      platform: incus
+      charts:
+        registry: registry.example.com/windsor
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+              image: ghcr.io/siderolabs/talos:v1.14.21
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  - name: a node image of an unpinned Talos version composes outside registry mode
+    values:
+      platform: incus
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          image: windsor:talos/v1.14.99/amd64
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos

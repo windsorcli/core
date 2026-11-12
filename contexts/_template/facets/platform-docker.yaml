@@ -27,15 +27,6 @@ config:
       # artifact: type=image name=registry.k8s.io/kube-proxy
       kubernetes_image_tag: "v1.36.5"
       kubernetes_version: "${trimPrefix(talos.kubernetes_image_tag, 'v')}"
-      # artifact: type=image name=registry.k8s.io/etcd
-      etcd_image: "registry.k8s.io/etcd:v3.6.14"
-      # artifact: type=image name=registry.k8s.io/coredns/coredns
-      coredns_image: "registry.k8s.io/coredns/coredns:v1.14.7"
-      # Talos selects these images, and core does not set them.
-      # artifact: type=image name=registry.k8s.io/pause
-      pause_image: "registry.k8s.io/pause:3.10.1"
-      # artifact: type=image name=ghcr.io/siderolabs/flannel
-      flannel_image: "ghcr.io/siderolabs/flannel:0.28.8"
 
   # Node targets for post-cluster steps (e.g. extensions), from compute outputs.
   - name: talos_node_targets
@@ -79,8 +70,6 @@ terraform:
       cluster_name: talos
       talos_version: ${talos.talos_version}
       kubernetes_version: ${talos.kubernetes_version ?? null}
-      etcd_image: ${talos.etcd_image ?? null}
-      coredns_image: ${talos.coredns_image ?? null}
 
       # With compute output: pass nodes through; docker-desktop adds a certSANs
       # patch. Without it (bootstrap-from-host): rewrite endpoint/node to

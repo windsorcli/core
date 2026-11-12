@@ -90,9 +90,6 @@ locals {
   vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
   vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
 
-  # Pins the etcd and CoreDNS images that the control plane runs.
-  controlplane_images_patch = yamlencode({ cluster = { etcd = { image = var.etcd_image }, coreDNS = { image = var.coredns_image } } })
-
 
   # Callers that deliver the machineconfig out of band (hyperv CIDATA) skip the
   # apply, which would otherwise wipe the per-node static IP back to DHCP.
@@ -160,7 +157,6 @@ module "controlplane_bootstrap" {
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[0].instance_id
   config_patches = [for p in compact(concat([
-    local.controlplane_images_patch,
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,
@@ -193,7 +189,6 @@ module "controlplanes" {
   instance_id               = var.controlplanes[count.index + 1].instance_id
   apply_after               = module.controlplane_bootstrap.health_check_id
   config_patches = [for p in compact(concat([
-    local.controlplane_images_patch,
     var.common_config_patches,
     var.controlplane_config_patches,
     local.vip_patch,

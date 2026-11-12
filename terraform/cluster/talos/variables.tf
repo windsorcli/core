@@ -30,22 +30,6 @@ variable "talos_version" {
   }
 }
 
-variable "etcd_image" {
-  description = "The etcd image of the control plane nodes. The default is the image that Talos 1.14.2 selects."
-  type        = string
-  nullable    = false
-  # artifact: type=image name=registry.k8s.io/etcd
-  default = "registry.k8s.io/etcd:3.7.1"
-}
-
-variable "coredns_image" {
-  description = "The CoreDNS image of the cluster. The default is the image that Talos 1.14.2 selects."
-  type        = string
-  nullable    = false
-  # artifact: type=image name=registry.k8s.io/coredns/coredns
-  default = "registry.k8s.io/coredns/coredns:v1.14.7"
-}
-
 # Pre-generated cluster identity from an upstream module.
 # When BOTH are null (default — incus/metal/docker/aws/azure callers): cluster/talos
 # generates secrets locally via talos_machine_secrets and applies per-node configs
