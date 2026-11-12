@@ -47,6 +47,7 @@ config:
       targets: ${incus.targets ?? []}
       network: "${incus.network ?? ''}"
       lan: ${(incus.network ?? '') != ''}
+      storage_pool: "${incus.storage_pool ?? 'default'}"
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -174,7 +175,7 @@ config:
 # With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
-  # Talos VMs on a fresh NAT bridge, or on the existing incus.network. Uses the default incus storage pool.
+  # Talos VMs on a fresh NAT bridge, or on the existing incus.network, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
@@ -186,6 +187,7 @@ terraform:
       network_name: "${incus_effective.network}"
       create_network: ${!incus_effective.lan}
       static_dhcp_leases: ${!incus_effective.lan}
+      default_storage_pool: "${incus_effective.storage_pool}"
       network_cidr: ${network.cidr_block}
       storage_pools:
         local:

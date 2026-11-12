@@ -632,6 +632,7 @@ cases:
             remote: home
             create_network: true
             static_dhcp_leases: true
+            default_storage_pool: default
             instances:
               - name: controlplane-0
                 target: nuc-1
@@ -711,6 +712,7 @@ cases:
         remote: home
         targets: [nuc-1, nuc-2, nuc-3]
         network: lan
+        storage_pool: local
       cluster:
         driver: talos
         controlplanes:
@@ -735,6 +737,7 @@ cases:
             network_name: lan
             create_network: false
             static_dhcp_leases: false
+            default_storage_pool: local
             instances:
               - name: controlplane
                 target: nuc-1

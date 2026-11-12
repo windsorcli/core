@@ -147,6 +147,12 @@ variable "remote" {
   default     = null
 }
 
+variable "default_storage_pool" {
+  description = "Existing storage pool that root disks and data disks use when they name the pool \"default\". IncusOS names its pool \"local\""
+  type        = string
+  default     = "default"
+}
+
 variable "storage_pools" {
   description = "Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Pools with null driver are skipped (allows conditional pool creation). The 'default' pool is assumed to exist."
   type = map(object({

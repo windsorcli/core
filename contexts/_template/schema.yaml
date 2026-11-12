@@ -539,6 +539,11 @@ properties:
           each node MUST declare its address in cluster.controlplanes.nodes or
           cluster.workers.nodes, reserved on the LAN's DHCP server. Unset creates
           a NAT bridge from network.cidr_block.
+      storage_pool:
+        type: string
+        minLength: 1
+        default: default
+        description: Existing storage pool for root and data disks, present on every member. IncusOS names its pool local.
     description: Incus infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

@@ -388,6 +388,53 @@ run "lan_network_rejects_wait_for_ipv4" {
   expect_failures = [var.static_dhcp_leases]
 }
 
+# On a cluster, "default" resolves to default_storage_pool and data volumes follow their instance's member.
+run "cluster_pool_alias_and_volume_target" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    remote               = "cluster"
+    default_storage_pool = "local"
+    instances = [
+      {
+        name   = "worker"
+        image  = "ubuntu/22.04"
+        type   = "virtual-machine"
+        target = "member-2"
+        disks = [
+          { name = "data", size = 30 }
+        ]
+      }
+    ]
+  }
+
+  assert {
+    condition     = local.all_instances[0].storage_pool == "local"
+    error_message = "Root disk should use default_storage_pool"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].pool == "local"
+    error_message = "Data volume should use default_storage_pool"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].target == "member-2"
+    error_message = "Data volume should be created on its instance's member"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].remote == "cluster"
+    error_message = "Data volume should be created on the remote"
+  }
+
+  assert {
+    condition     = incus_network.main[0].remote == "cluster"
+    error_message = "Network should be created on the remote"
+  }
+}
+
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 # Also validates that disks can reference pools defined in storage_pools.
