@@ -107,6 +107,14 @@ jobs:
       - name: Validate chart sources
         run: task charts:check
 
+      # Fail if the talos_images table in config-talos.yaml has drifted from the pinned Talos versions.
+      - name: Validate Talos image table
+        run: task talos:images:check
+
+      # Fail if the table differs from what talosctl selects at each pinned Talos version.
+      - name: Verify Talos image table
+        run: task talos:images:verify
+
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
@@ -347,7 +355,7 @@ jobs:
           windsor show artifacts -o yaml > "$RUNNER_TEMP/artifacts.yaml"
           yq -i '.docker.registries = (load(strenv(RUNNER_TEMP) + "/artifacts.yaml") | [.artifacts[] | select(.kind == "image") | .reference | split("/")[0]] | unique | map({"key": ., "value": {"endpoint": "http://charts.test:5000/windsor/" + .}}) | from_entries)' contexts/local/values.yaml
           windsor apply terraform workstation
-          flux plugin install mirror
+          flux plugin install mirror@0.16.0
           export REGISTRY="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000"
           windsor show artifacts --charts-to "$REGISTRY/windsor" -o flux-mirror \
             | yq '.artifacts[].destination |= sub("^charts[.]test:5000", strenv(REGISTRY))' \

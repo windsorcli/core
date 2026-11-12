@@ -11,6 +11,7 @@ variable "kubernetes_version" {
   # artifact: type=image name=registry.k8s.io/kube-controller-manager
   # artifact: type=image name=registry.k8s.io/kube-scheduler
   # artifact: type=image name=ghcr.io/siderolabs/kubelet
+  # artifact: type=image name=registry.k8s.io/kube-proxy
   default = "v1.37.2"
   validation {
     condition     = can(regex("^v?1\\.\\d+\\.\\d+$", var.kubernetes_version))

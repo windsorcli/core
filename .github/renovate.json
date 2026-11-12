@@ -128,6 +128,17 @@
       "enabled": false
     },
     {
+      "description": "Generate the talos_images table with task talos:images, since Talos selects these images",
+      "matchFileNames": ["contexts/_template/facets/config-talos.yaml"],
+      "matchDepNames": ["registry.k8s.io/coredns/coredns", "registry.k8s.io/etcd", "ghcr.io/siderolabs/flannel", "registry.k8s.io/networking/kube-network-policies", "registry.k8s.io/pause"],
+      "enabled": false
+    },
+    {
+      "description": "Review Flux Mirror bumps by hand, since PR checks skip the registry leg that runs it",
+      "matchPackageNames": ["fluxcd/flux-mirror"],
+      "automerge": false
+    },
+    {
       "description": "Track windsorcli/action@main for edge validation; don't pin or update",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["windsorcli/action"],
@@ -210,6 +221,20 @@
       "depNameTemplate": "windsorcli/blueprint",
       "datasourceTemplate": "github-tags",
       "packageNameTemplate": "windsorcli/blueprint",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yaml$/"
+      ],
+      "matchStrings": [
+        "flux plugin install mirror@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "fluxcd/flux-mirror",
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "fluxcd/flux-mirror",
+      "extractVersionTemplate": "^v(?<version>.*)$",
       "versioningTemplate": "semver"
     },
     {
