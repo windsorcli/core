@@ -105,14 +105,14 @@ variable "controller_image_tags" {
 }
 
 variable "distribution_artifact" {
-  description = "OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact)."
+  description = "OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact). When empty, the operator uses the manifests in its own image, which MUST include flux_version."
   type        = string
-  default     = "oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest"
+  default     = ""
   nullable    = false
 
   validation {
-    condition     = can(regex("^oci://.+", var.distribution_artifact))
-    error_message = "distribution_artifact must start with 'oci://'."
+    condition     = var.distribution_artifact == "" || can(regex("^oci://.+", var.distribution_artifact))
+    error_message = "distribution_artifact must be empty or start with 'oci://'."
   }
 }
 
