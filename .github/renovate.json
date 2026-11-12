@@ -140,6 +140,16 @@
       "automerge": false
     },
     {
+      "description": "Review Grafana plugin image bumps by hand: check Grafana support, and run task grafana:plugins to set the checksum and the image tag",
+      "matchFileNames": ["images/grafana-plugins/Dockerfile"],
+      "automerge": false
+    },
+    {
+      "description": "task grafana:plugins sets the Grafana plugin image tag from the image content",
+      "matchPackageNames": ["ghcr.io/windsorcli/grafana-plugins"],
+      "enabled": false
+    },
+    {
       "description": "Track windsorcli/action@main for edge validation; don't pin or update",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["windsorcli/action"],
@@ -272,6 +282,20 @@
       "datasourceTemplate": "{{datasource}}",
       "packageNameTemplate": "{{package}}",
       "depNameTemplate": "{{depName}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "description": "Parse renovate annotations on Dockerfile ARG versions",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*\\nARG\\s+[A-Z0-9_]+=(?<currentValue>v?\\d+\\.\\d+\\.\\d+)\\s"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
     },
     {
       "description": "Handle date-based Docker image tags (e.g., trust-pkg-debian-bookworm)",
