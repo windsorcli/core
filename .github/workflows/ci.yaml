@@ -197,7 +197,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
+        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade","registry"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
     steps:
 
       # -----------------------------------------------------------------------
@@ -361,6 +361,12 @@ jobs:
             | yq '.artifacts[].destination |= sub("^charts[.]test:5000", strenv(REGISTRY))' \
             | flux mirror sync --no-progress -
 
+      # Rejects and logs each new connection from the workstation network to a host outside it, except DNS.
+      - name: Block egress
+        id: block_egress
+        if: matrix.mode == 'registry'
+        run: .github/scripts/egress.sh block
+
       - name: Windsor Up
         id: windsor_up
         if: matrix.mode != 'upgrade' && steps.infra_diff.outputs.skip != 'true'
@@ -401,6 +407,12 @@ jobs:
         if: steps.infra_diff.outputs.skip != 'true'
         run: .github/scripts/wait-for-ready.sh 300
 
+      # Fails when the cluster opened any connection to a host outside the workstation network.
+      - name: Check egress
+        id: check_egress
+        if: always() && steps.block_egress.outcome == 'success'
+        run: .github/scripts/egress.sh check
+
       # -----------------------------------------------------------------------
       # Phase classification + diagnostics collection
       # -----------------------------------------------------------------------
@@ -412,7 +424,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.block_egress.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}" || bad "${{ steps.check_egress.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
