@@ -21,6 +21,21 @@ tasks:
     cmds:
       - scripts/charts.sh
 
+  talos:images:
+    desc: Regenerate the default images of each pinned Talos version
+    cmds:
+      - scripts/talos-images.sh
+
+  talos:images:check:
+    desc: Verify the Talos image table matches the pinned Talos versions (CI guard)
+    cmds:
+      - scripts/talos-images.sh --check
+
+  talos:images:verify:
+    desc: Compare the Talos image table with talosctl image default (CI guard)
+    cmds:
+      - scripts/talos-images.sh --verify
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

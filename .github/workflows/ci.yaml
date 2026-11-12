@@ -107,6 +107,14 @@ jobs:
       - name: Validate chart sources
         run: task charts:check
 
+      # Fail if the talos_images table in config-talos.yaml has drifted from the pinned Talos versions.
+      - name: Validate Talos image table
+        run: task talos:images:check
+
+      # Fail if the table differs from what talosctl selects at each pinned Talos version.
+      - name: Verify Talos image table
+        run: task talos:images:verify
+
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
