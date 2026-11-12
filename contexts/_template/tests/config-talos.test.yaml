@@ -1184,6 +1184,12 @@ cases:
       cluster: *registry-cluster
     terraformOutputs: *registry-terraform-outputs
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              coreDNS:
+                image: registry.k8s.io/coredns/coredns:v1.14.7
       terraform:
         - name: cluster
           path: cluster/talos
@@ -1200,6 +1206,12 @@ cases:
       cluster: *registry-cluster
     terraformOutputs: *registry-terraform-outputs
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              coreDNS:
+                image: registry.k8s.io/coredns/coredns:v1.14.7
       terraform:
         - name: cluster
           path: cluster/talos
