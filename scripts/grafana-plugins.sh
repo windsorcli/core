@@ -11,19 +11,20 @@ set -euo pipefail
 
 IMAGE_DIR="images/grafana-plugins"
 IMAGE="ghcr.io/windsorcli/grafana-plugins"
+IMAGE_RE="ghcr\\.io/windsorcli/grafana-plugins"
 RELEASE="kustomize/observability/install/grafana/helm-release.yaml"
 MODE="${1:-}"
 
 # image_tag -> the tag for the current content of IMAGE_DIR
 image_tag() {
-  (cd "$IMAGE_DIR" && find . -type f -print | LC_ALL=C sort | xargs sha256sum) \
+  (cd "$IMAGE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) \
     | sha256sum | cut -c1-12
 }
 
 # release_tag -> the tag of IMAGE in RELEASE, or an error when the line is missing
 release_tag() {
   local tag
-  tag=$(grep -oE "reference: ${IMAGE}:[0-9a-f]+" "$RELEASE" | sed 's/.*://') || true
+  tag=$(grep -oE "reference: ${IMAGE_RE}:[0-9a-f]+" "$RELEASE" | sed 's/.*://') || true
   if [ -z "$tag" ]; then
     echo "error: no 'reference: ${IMAGE}:<tag>' line in $RELEASE" >&2
     exit 1
@@ -50,7 +51,7 @@ case "$MODE" in
     have=$(release_tag)
     tmp=$(mktemp)
     trap 'rm -f "$tmp"' EXIT
-    sed "s#reference: ${IMAGE}:${have}#reference: ${IMAGE}:${want}#" "$RELEASE" > "$tmp"
+    sed "s#reference: ${IMAGE_RE}:${have}#reference: ${IMAGE}:${want}#" "$RELEASE" > "$tmp"
     cat "$tmp" > "$RELEASE"
     echo "Set ${IMAGE}:${want} in $RELEASE"
     ;;
