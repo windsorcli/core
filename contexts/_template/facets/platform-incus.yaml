@@ -11,13 +11,25 @@ when: "platform == 'incus' && cluster.driver == 'talos'"
 
 requires:
   - when: >-
-      (workstation.runtime ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? '') != ''
+      && cluster_node_addresses.controlplanes_missing
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: On incus.network, give each control plane its reserved LAN address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: >-
+      (workstation.runtime ?? '') == '' && (incus.network ?? '') != ''
+      && cluster_node_addresses.workers_missing
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: On incus.network, give each worker its reserved LAN address in cluster.workers.nodes under worker-1 to worker-N.
+  - when: >-
+      (workstation.runtime ?? '') == '' && (incus.network ?? '') == '' && network.dhcp != true
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? '') == '' && network.dhcp != true
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
@@ -27,6 +39,15 @@ requires:
 # Config — Incus-specific Talos values
 # =============================================================================
 config:
+
+  # Remote, cluster members, and LAN network for the standalone compute step.
+  - name: incus_effective
+    value:
+      remote: ${incus.remote ?? null}
+      targets: ${incus.targets ?? []}
+      network: "${incus.network ?? ''}"
+      lan: ${(incus.network ?? '') != ''}
+      storage_pool: "${incus.storage_pool ?? 'default'}"
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -93,7 +114,13 @@ config:
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(# - 1) : "controlplane"],
           ["role", "controlplane"],
           ["count", 1],
-          ["ipv4", network.dhcp == true ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["target", (cluster_node_entries.controlplanes[# - 1] ?? {}).placement
+            ?? (len(incus_effective.targets) > 0
+              ? incus_effective.targets[(# - 1) % len(incus_effective.targets)] : null)],
+          ["ipv4", network.dhcp == true && !incus_effective.lan ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["wait_for_ipv4", !incus_effective.lan],
+          ["network_config", cluster_node_addresses.controlplanes[# - 1].mac_address == null ? {}
+            : {"hwaddr": cluster_node_addresses.controlplanes[# - 1].mac_address}],
           ["image", cluster.controlplanes.image
             ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
           ["type", "virtual-machine"],
@@ -118,7 +145,13 @@ config:
           ["name", int(cluster.workers.count ?? 0) > 1 ? "worker-" + string(# - 1) : "worker"],
           ["role", "worker"],
           ["count", 1],
-          ["ipv4", network.dhcp == true ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["target", (cluster_node_entries.workers[# - 1] ?? {}).placement
+            ?? (len(incus_effective.targets) > 0
+              ? incus_effective.targets[(# - 1) % len(incus_effective.targets)] : null)],
+          ["ipv4", network.dhcp == true && !incus_effective.lan ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["wait_for_ipv4", !incus_effective.lan],
+          ["network_config", cluster_node_addresses.workers[# - 1].mac_address == null ? {}
+            : {"hwaddr": cluster_node_addresses.workers[# - 1].mac_address}],
           ["image", cluster.workers.image
             ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
           ["type", "virtual-machine"],
@@ -142,8 +175,7 @@ config:
 # With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
-  # Talos VMs on a fresh Incus network (create_network: true — no workstation
-  # stack to inherit one from). Uses the default incus storage pool.
+  # Talos VMs on a fresh NAT bridge, or on the existing incus.network, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
@@ -151,8 +183,11 @@ terraform:
     # fetches, and images.windsorcli.dev rate-limits those (429).
     parallelism: 1
     inputs:
-      network_name: ""
-      create_network: true
+      remote: ${incus_effective.remote}
+      network_name: "${incus_effective.network}"
+      create_network: ${!incus_effective.lan}
+      static_dhcp_leases: ${!incus_effective.lan}
+      default_storage_pool: "${incus_effective.storage_pool}"
       network_cidr: ${network.cidr_block}
       storage_pools:
         local:

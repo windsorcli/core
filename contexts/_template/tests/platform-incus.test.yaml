@@ -604,3 +604,164 @@ cases:
               - siderolabs/iscsi-tools
               - siderolabs/util-linux-tools
             powercycle_reboot: true
+
+  # incus.remote and incus.targets spread the VMs round-robin across cluster members.
+  - name: targets place nodes round-robin on the remote cluster
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      incus:
+        remote: home
+        targets: [nuc-1, nuc-2, nuc-3]
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+        workers:
+          count: 2
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            remote: home
+            create_network: true
+            static_dhcp_leases: true
+            default_storage_pool: default
+            instances:
+              - name: controlplane-0
+                target: nuc-1
+                wait_for_ipv4: true
+              - name: controlplane-1
+                target: nuc-2
+              - name: controlplane-2
+                target: nuc-3
+              - name: worker-0
+                target: nuc-1
+              - name: worker-1
+                target: nuc-2
+
+  # A node's placement overrides its round-robin member.
+  - name: placement overrides the round-robin target
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      incus:
+        targets: [nuc-1, nuc-2]
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              <<: *cp1-node
+              placement: nuc-2
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                target: nuc-2
+              - name: worker
+                target: nuc-1
+
+  # Without incus.targets, Incus picks the member.
+  - name: no targets leaves placement to incus
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            remote: null
+            instances:
+              - name: controlplane
+                target: null
+              - name: worker
+                target: null
+
+  # incus.network attaches to the LAN network, with declared addresses and MACs for DHCP reservations.
+  - name: lan network uses declared addresses without static leases
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        remote: home
+        targets: [nuc-1, nuc-2, nuc-3]
+        network: lan
+        storage_pool: local
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.31:50000
+              node: 192.168.3.31
+              mac_address: "02:00:00:00:00:31"
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.41:50000
+              node: 192.168.3.41
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            network_name: lan
+            create_network: false
+            static_dhcp_leases: false
+            default_storage_pool: local
+            instances:
+              - name: controlplane
+                target: nuc-1
+                ipv4: 192.168.3.31
+                wait_for_ipv4: false
+                network_config:
+                  hwaddr: "02:00:00:00:00:31"
+              - name: worker
+                target: nuc-1
+                ipv4: 192.168.3.41
+                wait_for_ipv4: false
+                network_config: {}
+
+  # On incus.network, DHCP alone gives no addresses, so each node MUST declare one.
+  - name: lan network without node addresses fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        network: lan
+      cluster:
+        driver: talos
+    expectError: true

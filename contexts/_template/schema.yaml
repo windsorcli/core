@@ -100,11 +100,11 @@ $defs:
         mac_address:
           type: string
           pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
-          description: Fixed guest NIC MAC address on Hyper-V and Proxmox, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
+          description: Fixed guest NIC MAC address on Hyper-V, Proxmox, and Incus, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
         placement:
           type: string
           minLength: 1
-          description: On Proxmox, the node that hosts this VM. It MUST be listed in proxmox.nodes. Unset follows the round-robin placement.
+          description: The Proxmox node or Incus cluster member that hosts this VM. On Proxmox it MUST be listed in proxmox.nodes. Unset follows the round-robin placement.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -513,6 +513,38 @@ properties:
           and worker N takes vm_id_start + 9 + N. Unset lets Proxmox pick the
           next free ID.
     description: Proxmox VE infrastructure configuration
+
+  # Incus configuration, read only when platform == 'incus' and workstation.runtime is unset.
+  incus:
+    type: object
+    additionalProperties: false
+    properties:
+      remote:
+        type: string
+        minLength: 1
+        description: Incus client remote that hosts the VMs (e.g. a cluster added with `incus remote add`). Unset uses the client's default remote.
+      targets:
+        type: array
+        items:
+          type: string
+          minLength: 1
+        minItems: 1
+        description: Member names of one Incus cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Repeating a name gives that member more VMs. Unset leaves placement to Incus.
+      network:
+        type: string
+        minLength: 1
+        description: >-
+          Existing network the VMs attach to, defined on every member (e.g. a
+          macvlan or bridge network on the LAN). Incus serves no DHCP on it, so
+          each node MUST declare its address in cluster.controlplanes.nodes or
+          cluster.workers.nodes, reserved on the LAN's DHCP server. Unset creates
+          a NAT bridge from network.cidr_block.
+      storage_pool:
+        type: string
+        minLength: 1
+        default: default
+        description: Existing storage pool for root and data disks, present on every member. IncusOS names its pool local.
+    description: Incus infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
