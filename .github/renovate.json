@@ -140,7 +140,7 @@
       "automerge": false
     },
     {
-      "description": "Review Grafana plugin image bumps by hand: update the checksum, check Grafana support, and run task grafana:plugins",
+      "description": "Review Grafana plugin image bumps by hand: check Grafana support, and run task grafana:plugins to set the checksum and the image tag",
       "matchFileNames": ["images/grafana-plugins/Dockerfile"],
       "automerge": false
     },

@@ -32,10 +32,25 @@ check "the committed tag matches the image content" scripts/grafana-plugins.sh -
 
 echo "# test" >> "$work/images/grafana-plugins/Dockerfile"
 check "a change to the image fails the check" sh -c '! scripts/grafana-plugins.sh --check'
-check "the script writes the new tag" scripts/grafana-plugins.sh
+check "the script writes the new tag" scripts/grafana-plugins.sh --write-tag
 check "the check passes after the script writes the tag" scripts/grafana-plugins.sh --check
 check "the image line keeps its artifact tag" \
   grep -qE "reference: ghcr.io/windsorcli/grafana-plugins:[0-9a-f]{12}  # artifact: type=image$" "$RELEASE"
+
+# A fetch line that reads a local zip, so the checksum step needs no network.
+echo "fake plugin" > "$work/fake-1.0.0.zip"
+fake_sum=$(sha256sum "$work/fake-1.0.0.zip" | cut -d' ' -f1)
+cat > "$work/images/grafana-plugins/Dockerfile" <<EOF
+ARG FAKE_VERSION=1.0.0
+ARG FAKE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
+RUN fetch fake-plugin "file://$work/fake-\${FAKE_VERSION}.zip" "\$FAKE_SHA256"
+EOF
+check "the script writes the checksums and the tag" scripts/grafana-plugins.sh
+check "the Dockerfile has the checksum of the zip" \
+  grep -qx "ARG FAKE_SHA256=$fake_sum" images/grafana-plugins/Dockerfile
+check "the check passes after the script writes the checksums" scripts/grafana-plugins.sh --check
+check "the script fails when the zip is missing" sh -c \
+  'sed -i.bak "s/FAKE_VERSION=1.0.0/FAKE_VERSION=9.9.9/" images/grafana-plugins/Dockerfile && ! scripts/grafana-plugins.sh'
 
 # expect <file> <path>=<value> ... -> records a failure for each path whose value in file differs
 expect() {

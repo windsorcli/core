@@ -11,7 +11,7 @@ spec:
     extraContainerVolumes:
       - name: plugins
         image:
-          reference: ghcr.io/windsorcli/grafana-plugins:0c17244e495c  # artifact: type=image
+          reference: ghcr.io/windsorcli/grafana-plugins:e2437a6b27a6  # artifact: type=image
           pullPolicy: IfNotPresent
     extraVolumeMounts:
       - name: plugins

@@ -1,5 +1,5 @@
 # Grafana plugins that core mounts as an image volume, one directory for each plugin.
-# Run task grafana:plugins after each change to this file.
+# Run task grafana:plugins after each change to this file. The task sets each checksum and the image tag.
 
 FROM --platform=$BUILDPLATFORM docker.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS fetch
 

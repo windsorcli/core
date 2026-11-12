@@ -37,7 +37,7 @@ tasks:
       - scripts/talos-images.sh --verify
 
   grafana:plugins:
-    desc: Set the Grafana plugin image tag from the content of images/grafana-plugins
+    desc: Set the Grafana plugin checksums from the plugin downloads and the image tag from images/grafana-plugins
     cmds:
       - scripts/grafana-plugins.sh
 
@@ -69,7 +69,7 @@ tasks:
       - scripts/test-prometheus-rules.sh
 
   test:grafana-plugins:
-    desc: Test the Grafana plugin image tag script and the Grafana plugin settings
+    desc: Test the Grafana plugin checksum and tag script and the Grafana plugin settings
     silent: true
     cmds:
       - scripts/test-grafana-plugins.sh
