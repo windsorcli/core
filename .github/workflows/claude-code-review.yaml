@@ -410,8 +410,10 @@ jobs:
       !cancelled() &&
       needs.resolve-threads.result == 'success' &&
       needs.resolve-threads.outputs.count != '0'
+    # GitHub rejects the resolveReviewThread mutation unless the token also
+    # holds contents: write. No model runs in this job.
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
