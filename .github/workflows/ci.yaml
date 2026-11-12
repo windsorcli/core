@@ -107,7 +107,7 @@ jobs:
       - name: Validate chart sources
         run: task charts:check
 
-      # Fail if config-talos-images.yaml has drifted from the pinned Talos versions.
+      # Fail if the talos_images table in config-talos.yaml has drifted from the pinned Talos versions.
       - name: Validate Talos image table
         run: task talos:images:check
 

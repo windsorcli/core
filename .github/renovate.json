@@ -128,8 +128,9 @@
       "enabled": false
     },
     {
-      "description": "Generate the Talos image table with task talos:images, since Talos selects these images",
-      "matchFileNames": ["contexts/_template/facets/config-talos-images.yaml"],
+      "description": "Generate the talos_images table with task talos:images, since Talos selects these images",
+      "matchFileNames": ["contexts/_template/facets/config-talos.yaml"],
+      "matchDepNames": ["registry.k8s.io/coredns/coredns", "registry.k8s.io/etcd", "ghcr.io/siderolabs/flannel", "registry.k8s.io/networking/kube-network-policies", "registry.k8s.io/pause"],
       "enabled": false
     },
     {
