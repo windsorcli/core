@@ -13,5 +13,15 @@
         "logMessageField": "body.message"
       }
     }
+  },
+  {
+    "op": "add",
+    "path": "/spec/values/extraVolumeMounts/-",
+    "value": {
+      "name": "plugins",
+      "mountPath": "/var/lib/grafana/plugins/quickwit-quickwit-datasource",
+      "subPath": "quickwit-quickwit-datasource",
+      "readOnly": true
+    }
   }
 ]

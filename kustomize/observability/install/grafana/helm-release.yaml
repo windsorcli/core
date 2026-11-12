@@ -30,6 +30,13 @@ spec:
         interval_year: YYYY
       default:
         timezone: ${timezone:-utc}
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+        check_for_plugin_updates: false
+      plugins:
+        preinstall_disabled: true
+        public_key_retrieval_disabled: true
     image:
       registry: docker.io
       repository: grafana/grafana
@@ -66,6 +73,20 @@ spec:
         providers: []
     dashboards: {}
     plugins: []
+    extraContainerVolumes:
+      - name: plugins
+        image:
+          reference: ghcr.io/windsorcli/grafana-plugins:0a425f12bd83  # artifact: type=image
+          pullPolicy: IfNotPresent
+    extraVolumeMounts:
+      - name: plugins
+        mountPath: /var/lib/grafana/plugins/grafana-metricsdrilldown-app
+        subPath: grafana-metricsdrilldown-app
+        readOnly: true
+      - name: plugins
+        mountPath: /var/lib/grafana/plugins/grafana-advisor-app
+        subPath: grafana-advisor-app
+        readOnly: true
     datasources:
       datasources.yaml:
         apiVersion: 1

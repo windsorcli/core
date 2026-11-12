@@ -168,6 +168,8 @@ _Enabled when `observability.dashboards == 'grafana'`._
 
 Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate.
 
+Grafana mounts the metrics drilldown app and the advisor app from the `ghcr.io/windsorcli/grafana-plugins` image as a read-only image volume. The `quickwit` variant mounts the Quickwit datasource from the same image. CI builds the image from `images/grafana-plugins/`. Image volumes need Kubernetes 1.36 or later. Grafana does not download plugins and does not call grafana.com. To change a plugin, edit the Dockerfile and run `task grafana:plugins`. The task sets the image tag in the HelmRelease.
+
 | Variant | Enabled when | Effect |
 |---|---|---|
 | `prometheus` | `observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier. |

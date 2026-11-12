@@ -36,6 +36,16 @@ tasks:
     cmds:
       - scripts/talos-images.sh --verify
 
+  grafana:plugins:
+    desc: Set the Grafana plugin image tag from the content of images/grafana-plugins
+    cmds:
+      - scripts/grafana-plugins.sh
+
+  grafana:plugins:check:
+    desc: Verify the Grafana plugin image tag matches images/grafana-plugins (CI guard)
+    cmds:
+      - scripts/grafana-plugins.sh --check
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true
@@ -43,19 +53,26 @@ tasks:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
-    desc: Run all tests (Terraform, Blueprint, Prometheus rules, and Composition functions)
+    desc: Run all tests (Terraform, Blueprint, Prometheus rules, Composition functions, and Grafana plugins)
     silent: true
     cmds:
       - task: test:terraform
       - task: test:blueprint
       - task: test:prometheus-rules
       - task: test:composition-functions
+      - task: test:grafana-plugins
 
   test:prometheus-rules:
     desc: Unit-test PrometheusRule alerting rules via promtool
     silent: true
     cmds:
       - scripts/test-prometheus-rules.sh
+
+  test:grafana-plugins:
+    desc: Test the Grafana plugin image tag script and the Grafana plugin settings
+    silent: true
+    cmds:
+      - scripts/test-grafana-plugins.sh
 
   test:composition-functions:
     desc: Unit-test embedded Crossplane Composition Python functions
