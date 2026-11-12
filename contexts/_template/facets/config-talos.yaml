@@ -124,7 +124,6 @@ config:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
           inlineManifests: ${[talos_common.cert_rotation.approver_manifest]}
-          # Turns off cluster discovery, so nodes do not connect to discovery.talos.dev.
           discovery:
             enabled: false
         machine:
