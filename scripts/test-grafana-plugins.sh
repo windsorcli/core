@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Tests scripts/grafana-plugins.sh on a copy of the image directory and the Grafana
-# HelmRelease, and checks that the HelmRelease turns off each Grafana plugin download.
+# Tests scripts/grafana-plugins.sh on a copy of the image directory and the grafana/quickwit
+# patch. Checks that the Grafana HelmRelease turns off each plugin download, and that only
+# grafana/quickwit mounts the plugin image.
 # The chart renders an extraVolumes entry as an emptyDir, so the image volume MUST be in extraContainerVolumes.
 set -euo pipefail
 
-RELEASE="kustomize/observability/install/grafana/helm-release.yaml"
+BASE="kustomize/observability/install/grafana/helm-release.yaml"
+RELEASE="kustomize/observability/install/grafana/quickwit/patches/helm-release.yaml"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
@@ -35,39 +37,38 @@ check "the check passes after the script writes the tag" scripts/grafana-plugins
 check "the image line keeps its artifact tag" \
   grep -qE "reference: ghcr.io/windsorcli/grafana-plugins:[0-9a-f]{12}  # artifact: type=image$" "$RELEASE"
 
-# value <path> [yq flags] -> the value at path in the HelmRelease
-value() {
-  local path="$1"
+# expect <file> <path>=<value> ... -> records a failure for each path whose value in file differs
+expect() {
+  local file="$1" setting path want have
   shift
-  yq "$@" "$path" "$RELEASE"
+  for setting in "$@"; do
+    path="${setting%=*}"
+    want="${setting##*=}"
+    have=$(yq -o json "$path" "$file" | tr -d ' \n')
+    if [ "$have" = "$want" ]; then
+      echo "ok: $file $path is $want"
+    else
+      echo "FAIL: $file $path is '$have', want '$want'"
+      fail=1
+    fi
+  done
 }
 
-for setting in \
+expect "$BASE" \
   '.spec.values."grafana.ini".plugins.preinstall_disabled=true' \
   '.spec.values."grafana.ini".plugins.public_key_retrieval_disabled=true' \
   '.spec.values."grafana.ini".analytics.reporting_enabled=false' \
   '.spec.values."grafana.ini".analytics.check_for_updates=false' \
   '.spec.values."grafana.ini".analytics.check_for_plugin_updates=false' \
   '.spec.values.plugins=[]' \
+  '.spec.values.extraContainerVolumes=null' \
+  '.spec.values.extraVolumeMounts=null'
+expect "$RELEASE" \
   '[.spec.values.extraContainerVolumes[] | select(.name == "plugins") | .image.reference | test("^ghcr.io/windsorcli/grafana-plugins:")]=[true]' \
-  '[.spec.values.extraVolumes[]? | select(.name == "plugins")] | length=0'; do
-  path="${setting%=*}"
-  want="${setting##*=}"
-  have=$(value "$path" -o json | tr -d ' \n')
-  if [ "$have" = "$want" ]; then
-    echo "ok: $path is $want"
-  else
-    echo "FAIL: $path is '$have', want '$want'"
-    fail=1
-  fi
-done
+  '[.spec.values.extraVolumes[]? | select(.name == "plugins")] | length=0'
 
 fetched=$(grep -oE '^ *fetch [a-z0-9-]+ ' images/grafana-plugins/Dockerfile | awk '{print $2}')
-mounts=$( {
-  yq '.spec.values.extraVolumeMounts[] | select(.name == "plugins") | .subPath' "$RELEASE"
-  find kustomize/observability/install/grafana -name patch.json -print0 \
-    | xargs -0 -I{} yq -p json -oy '.[] | select(.path == "/spec/values/extraVolumeMounts/-") | .value | select(.name == "plugins") | .subPath' {}
-} )
+mounts=$(yq '.spec.values.extraVolumeMounts[] | select(.name == "plugins") | .subPath' "$RELEASE")
 for sub in $mounts; do
   if echo "$fetched" | grep -qx "$sub"; then
     echo "ok: the image holds the mounted plugin $sub"

@@ -7,3 +7,14 @@ spec:
   dependsOn:
     - name: quickwit
       namespace: system-observability
+  values:
+    extraContainerVolumes:
+      - name: plugins
+        image:
+          reference: ghcr.io/windsorcli/grafana-plugins:0c17244e495c  # artifact: type=image
+          pullPolicy: IfNotPresent
+    extraVolumeMounts:
+      - name: plugins
+        mountPath: /var/lib/grafana/plugins/quickwit-quickwit-datasource
+        subPath: quickwit-quickwit-datasource
+        readOnly: true

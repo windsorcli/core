@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Set the tag of the Grafana plugin image in the Grafana HelmRelease. The tag is the
+# Set the tag of the Grafana plugin image in the grafana/quickwit HelmRelease patch. The tag is the
 # first 12 characters of the SHA-256 of the files in images/grafana-plugins, so each
 # change to the image gets a new tag. CI pushes each tag that ghcr.io does not have yet.
 #
-#   scripts/grafana-plugins.sh           write the tag into the HelmRelease
+#   scripts/grafana-plugins.sh           write the tag into the patch
 #   scripts/grafana-plugins.sh --check   verify the tag; non-zero on drift (CI)
 #   scripts/grafana-plugins.sh --tag     print the tag
 
@@ -12,7 +12,7 @@ set -euo pipefail
 IMAGE_DIR="images/grafana-plugins"
 IMAGE="ghcr.io/windsorcli/grafana-plugins"
 IMAGE_RE="ghcr\\.io/windsorcli/grafana-plugins"
-RELEASE="kustomize/observability/install/grafana/helm-release.yaml"
+RELEASE="kustomize/observability/install/grafana/quickwit/patches/helm-release.yaml"
 MODE="${1:-}"
 
 # image_tag -> the tag for the current content of IMAGE_DIR

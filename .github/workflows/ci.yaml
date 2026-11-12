@@ -115,7 +115,7 @@ jobs:
       - name: Verify Talos image table
         run: task talos:images:verify
 
-      # Fail if the Grafana plugin image tag in the Grafana HelmRelease differs from the content of images/grafana-plugins.
+      # Fail if the Grafana plugin image tag in the grafana/quickwit patch differs from the content of images/grafana-plugins.
       - name: Validate Grafana plugin image tag
         run: task grafana:plugins:check
 
