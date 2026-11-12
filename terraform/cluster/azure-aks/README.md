@@ -72,8 +72,10 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.9.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | 3.9.1 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | 0.14.2 |
 
 ## Providers
 
@@ -81,8 +83,8 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.9.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
-| <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
 
@@ -92,37 +94,37 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_disk_encryption_set.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/disk_encryption_set) | resource |
-| [azurerm_federated_identity_credential.cert_manager](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential) | resource |
-| [azurerm_federated_identity_credential.external_dns](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential) | resource |
-| [azurerm_key_vault.key_vault](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) | resource |
-| [azurerm_key_vault_access_policy.key_vault_access_policy](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_access_policy) | resource |
-| [azurerm_key_vault_access_policy.key_vault_access_policy_disk](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_access_policy) | resource |
-| [azurerm_key_vault_key.key_vault_key](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_key) | resource |
-| [azurerm_kubernetes_cluster.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/kubernetes_cluster) | resource |
-| [azurerm_kubernetes_cluster_node_pool.pools](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/kubernetes_cluster_node_pool) | resource |
-| [azurerm_log_analytics_workspace.aks_logs](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/log_analytics_workspace) | resource |
-| [azurerm_monitor_data_collection_rule.container_insights](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_data_collection_rule) | resource |
-| [azurerm_monitor_data_collection_rule_association.aks_dcr](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_data_collection_rule_association) | resource |
-| [azurerm_monitor_diagnostic_setting.aks_cluster](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_diagnostic_setting) | resource |
-| [azurerm_resource_group.aks](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azurerm_role_assignment.aks_rbac_admin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.cp_disk_encryption_set_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.external_dns_private_zones](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.external_dns_zones](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.kubelet_vmss_disk_manager](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.node_pool_disk_encryption_set_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.subnet_network_contributor_cp](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_definition.aks_kubelet_vmss_disk_manager](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_definition) | resource |
-| [azurerm_user_assigned_identity.cert_manager](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
-| [azurerm_user_assigned_identity.external_dns](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
-| [null_resource.convert_kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [random_string.key](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
-| [time_static.expiry](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
-| [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
-| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscription) | data source |
+| [azurerm_disk_encryption_set.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/disk_encryption_set) | resource |
+| [azurerm_federated_identity_credential.cert_manager](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/federated_identity_credential) | resource |
+| [azurerm_federated_identity_credential.external_dns](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/federated_identity_credential) | resource |
+| [azurerm_key_vault.key_vault](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault) | resource |
+| [azurerm_key_vault_access_policy.key_vault_access_policy](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault_access_policy) | resource |
+| [azurerm_key_vault_access_policy.key_vault_access_policy_disk](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault_access_policy) | resource |
+| [azurerm_key_vault_key.key_vault_key](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault_key) | resource |
+| [azurerm_kubernetes_cluster.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/kubernetes_cluster) | resource |
+| [azurerm_kubernetes_cluster_node_pool.pools](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/kubernetes_cluster_node_pool) | resource |
+| [azurerm_log_analytics_workspace.aks_logs](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/log_analytics_workspace) | resource |
+| [azurerm_monitor_data_collection_rule.container_insights](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/monitor_data_collection_rule) | resource |
+| [azurerm_monitor_data_collection_rule_association.aks_dcr](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/monitor_data_collection_rule_association) | resource |
+| [azurerm_monitor_diagnostic_setting.aks_cluster](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/monitor_diagnostic_setting) | resource |
+| [azurerm_resource_group.aks](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/resource_group) | resource |
+| [azurerm_role_assignment.aks_rbac_admin](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.cp_disk_encryption_set_reader](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.external_dns_private_zones](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.external_dns_zones](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.kubelet_vmss_disk_manager](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.node_pool_disk_encryption_set_reader](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.subnet_network_contributor_cp](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_definition.aks_kubelet_vmss_disk_manager](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_definition) | resource |
+| [azurerm_user_assigned_identity.cert_manager](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/user_assigned_identity) | resource |
+| [azurerm_user_assigned_identity.external_dns](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/user_assigned_identity) | resource |
+| [null_resource.convert_kubeconfig](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [random_string.key](https://registry.terraform.io/providers/hashicorp/random/3.9.1/docs/resources/string) | resource |
+| [time_static.expiry](https://registry.terraform.io/providers/hashicorp/time/0.14.2/docs/resources/static) | resource |
+| [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/client_config) | data source |
+| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/subscription) | data source |
 
 ## Inputs
 

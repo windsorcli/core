@@ -28,14 +28,15 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.9.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | 0.14.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.9.0 |
-| <a name="provider_time"></a> [time](#provider\_time) | 0.14.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
 
@@ -45,18 +46,18 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_key_vault.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) | resource |
-| [azurerm_key_vault_key.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_key) | resource |
-| [azurerm_network_security_group.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group) | resource |
-| [azurerm_private_dns_zone.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
-| [azurerm_private_dns_zone_virtual_network_link.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) | resource |
-| [azurerm_resource_group.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azurerm_role_assignment.azuredb_cmk](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_assignment.key_vault_admin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_subnet_network_security_group_association.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) | resource |
-| [azurerm_user_assigned_identity.azuredb_cmk](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
-| [time_static.postgres_key_expiry](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
-| [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
+| [azurerm_key_vault.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault) | resource |
+| [azurerm_key_vault_key.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/key_vault_key) | resource |
+| [azurerm_network_security_group.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/network_security_group) | resource |
+| [azurerm_private_dns_zone.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/private_dns_zone) | resource |
+| [azurerm_private_dns_zone_virtual_network_link.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/private_dns_zone_virtual_network_link) | resource |
+| [azurerm_resource_group.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/resource_group) | resource |
+| [azurerm_role_assignment.azuredb_cmk](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.key_vault_admin](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_subnet_network_security_group_association.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet_network_security_group_association) | resource |
+| [azurerm_user_assigned_identity.azuredb_cmk](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/user_assigned_identity) | resource |
+| [time_static.postgres_key_expiry](https://registry.terraform.io/providers/hashicorp/time/0.14.2/docs/resources/static) | resource |
+| [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/client_config) | data source |
 
 ## Inputs
 

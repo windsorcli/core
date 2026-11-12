@@ -19,13 +19,14 @@ extensions baked in.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.1 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_local"></a> [local](#provider\_local) | 2.8.0 |
+| <a name="provider_local"></a> [local](#provider\_local) | 2.9.1 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
@@ -41,7 +42,7 @@ extensions baked in.
 
 | Name | Type |
 |------|------|
-| [local_sensitive_file.talosconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
+| [local_sensitive_file.talosconfig](https://registry.terraform.io/providers/hashicorp/local/2.9.1/docs/resources/sensitive_file) | resource |
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
 | [terraform_data.endpoint_check](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [talos_client_configuration.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/client_configuration) | data source |

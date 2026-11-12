@@ -18,7 +18,7 @@ tag condition like AWS's isn't available here.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.9.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
 
 ## Providers
 
@@ -34,10 +34,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_federated_identity_credential.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential) | resource |
-| [azurerm_role_assignment.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_role_definition.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_definition) | resource |
-| [azurerm_user_assigned_identity.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
+| [azurerm_federated_identity_credential.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/federated_identity_credential) | resource |
+| [azurerm_role_assignment.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_assignment) | resource |
+| [azurerm_role_definition.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/role_definition) | resource |
+| [azurerm_user_assigned_identity.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/user_assigned_identity) | resource |
 
 ## Inputs
 

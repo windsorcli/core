@@ -3,7 +3,7 @@
 
 provider "registry.terraform.io/hashicorp/external" {
   version     = "2.4.2"
-  constraints = "~> 2.3"
+  constraints = "2.4.2"
   hashes = [
     "h1:4UInMFuK4GNw4uf2vkUwwDtc0CajvJ88BkAE6xLKOa4=",
     "h1:8KPRXwNezVs9S/xEpGcKkPNMez+Kv5bKJNfLWivGekY=",

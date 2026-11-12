@@ -18,7 +18,7 @@ Pairs with the `cluster/talos` module.
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.5.0 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
-| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | 0.14.2 |
 
 ## Providers
 
@@ -44,7 +44,7 @@ No modules.
 | [hyperv_virtual_switch.main](https://registry.terraform.io/providers/windsorcli/hyperv/0.5.0/docs/resources/virtual_switch) | resource |
 | [hyperv_vm.instances](https://registry.terraform.io/providers/windsorcli/hyperv/0.5.0/docs/resources/vm) | resource |
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
-| [time_sleep.guest_ipv4](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+| [time_sleep.guest_ipv4](https://registry.terraform.io/providers/hashicorp/time/0.14.2/docs/resources/sleep) | resource |
 | [hyperv_iso_volume.cidata](https://registry.terraform.io/providers/windsorcli/hyperv/0.5.0/docs/data-sources/iso_volume) | data source |
 | [hyperv_vm_state.guest](https://registry.terraform.io/providers/windsorcli/hyperv/0.5.0/docs/data-sources/vm_state) | data source |
 | [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |

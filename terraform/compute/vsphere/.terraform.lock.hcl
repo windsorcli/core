@@ -27,7 +27,7 @@ provider "registry.terraform.io/siderolabs/talos" {
 
 provider "registry.terraform.io/vmware/vsphere" {
   version     = "2.17.1"
-  constraints = "~> 2.17"
+  constraints = "2.17.1"
   hashes = [
     "h1:2UFi9Usj122Axo2xUt8+qeGPHVZO0MgPgpYFSN3c1RA=",
     "h1:DjGeALy2aVtBv8BskOCSOnnABpTPGCELwLCsrrdVTd8=",

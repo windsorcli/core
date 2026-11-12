@@ -35,14 +35,16 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.68.0 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.1 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.68.0 |
-| <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
+| <a name="provider_local"></a> [local](#provider\_local) | 2.9.1 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 
 ## Modules
 
@@ -112,8 +114,8 @@ No modules.
 | [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/security_group) | resource |
 | [aws_sqs_queue.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/sqs_queue) | resource |
 | [aws_sqs_queue_policy.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/sqs_queue_policy) | resource |
-| [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
-| [null_resource.create_kubeconfig_dir](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/2.9.1/docs/resources/sensitive_file) | resource |
+| [null_resource.create_kubeconfig_dir](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/caller_identity) | data source |
 | [aws_eks_addon_version.default](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/eks_addon_version) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/region) | data source |
