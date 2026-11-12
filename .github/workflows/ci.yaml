@@ -345,13 +345,12 @@ jobs:
         if: matrix.mode != 'upgrade'
         run: windsor show blueprint
 
-      # Mirrors each registry that names an image, starts the workstation registry, and outputs its container IP.
+      # Mirrors every image registry to the workstation registry, starts it, and outputs its container IP.
       - name: Prepare registry
         id: prepare_registry
         if: matrix.mode == 'registry'
         run: |
-          windsor show artifacts -o yaml > "$RUNNER_TEMP/artifacts.yaml"
-          yq -i '.docker.registries = (load(strenv(RUNNER_TEMP) + "/artifacts.yaml") | [.artifacts[] | select(.kind == "image") | .reference | split("/")[0]] | unique | map({"key": ., "value": {"endpoint": "http://charts.test:5000/windsor/" + .}}) | from_entries)' contexts/local/values.yaml
+          yq -i '.docker.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/local/values.yaml
           windsor apply terraform workstation
           echo "ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
