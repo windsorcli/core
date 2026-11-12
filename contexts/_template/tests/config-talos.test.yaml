@@ -1190,6 +1190,8 @@ cases:
             cluster:
               coreDNS:
                 image: registry.k8s.io/coredns/coredns:v1.14.7
+              discovery:
+                enabled: false
       terraform:
         - name: cluster
           path: cluster/talos
@@ -1212,11 +1214,48 @@ cases:
             cluster:
               coreDNS:
                 image: registry.k8s.io/coredns/coredns:v1.14.7
+              discovery:
+                enabled: false
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
             talos_version: "1.14.2"
+
+  - name: registry mode turns off Talos discovery on a cluster with workers
+    values:
+      platform: metal
+      charts:
+        registry: registry.example.com/windsor
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              discovery:
+                enabled: false
+
+  - name: Talos discovery stays at the Talos default outside registry mode
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              discovery: {}
 
   - name: registry mode accepts a node image of a pinned Talos version
     values:
