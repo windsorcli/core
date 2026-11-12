@@ -124,6 +124,9 @@ config:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
           inlineManifests: ${[talos_common.cert_rotation.approver_manifest]}
+          # Turns off cluster discovery, so nodes do not connect to discovery.talos.dev.
+          discovery:
+            enabled: false
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
@@ -419,15 +422,6 @@ config:
       # artifact: type=image name=registry.k8s.io/kube-proxy
       kubernetes_image_tag: "v1.36.5"
       kubernetes_version: "${trimPrefix(talos.kubernetes_image_tag, 'v')}"
-
-  # Registry mode turns off cluster discovery, so nodes do not connect to discovery.talos.dev.
-  - name: talos_common
-    when: (charts.registry ?? '') != ''
-    value:
-      common_patch:
-        cluster:
-          discovery:
-            enabled: false
 
   # Sets the CoreDNS image from the talos_images entry of the Talos version.
   - name: talos_common
