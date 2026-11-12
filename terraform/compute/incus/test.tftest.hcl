@@ -367,6 +367,27 @@ run "lan_network_without_static_leases" {
   }
 }
 
+# Without static leases, an instance that waits for an IPv4 fails validation.
+run "lan_network_rejects_wait_for_ipv4" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    create_network     = false
+    network_name       = "lan"
+    static_dhcp_leases = false
+    instances = [
+      {
+        name  = "controlplane"
+        image = "ubuntu/22.04"
+        ipv4  = "192.168.3.31"
+      }
+    ]
+  }
+
+  expect_failures = [var.static_dhcp_leases]
+}
+
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 # Also validates that disks can reference pools defined in storage_pools.

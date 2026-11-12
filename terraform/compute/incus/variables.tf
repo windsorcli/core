@@ -30,6 +30,10 @@ variable "static_dhcp_leases" {
   description = "Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs"
   type        = bool
   default     = true
+  validation {
+    condition     = var.static_dhcp_leases || alltrue([for instance in var.instances : !instance.wait_for_ipv4])
+    error_message = "With static_dhcp_leases false, every instance MUST set wait_for_ipv4 to false, since Incus reports no guest address"
+  }
 }
 
 variable "network_type" {
