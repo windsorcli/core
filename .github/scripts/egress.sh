@@ -6,14 +6,18 @@
 #
 # Usage:
 #   egress.sh block   Reject and log each new connection from the network to
-#                     a host outside it, except DNS. Then probe the block.
+#                     a host outside it, except DNS. Reject each connection
+#                     to the cluster pod and service CIDRs with no log entry.
+#                     Then probe the block.
 #   egress.sh check   Fail when the chain logged a connection, and list each
 #                     destination with its count.
 #
 # Environment:
-#   EGRESS_NETWORK  Docker network to block. Default: windsor-local.
-#   EGRESS_DNS      DNS container on that network. Default: dns.test.
-#   EGRESS_PROBE    Container that runs the probes. Default: charts.test.
+#   EGRESS_NETWORK       Docker network to block. Default: windsor-local.
+#   EGRESS_DNS           DNS container on that network. Default: dns.test.
+#   EGRESS_PROBE         Container that runs the probes. Default: charts.test.
+#   EGRESS_POD_CIDR      Cluster pod CIDR. Default: 10.244.0.0/16.
+#   EGRESS_SERVICE_CIDR  Cluster service CIDR. Default: 10.96.0.0/12.
 
 set -euo pipefail
 
@@ -22,6 +26,8 @@ LOG_PREFIX="windsor-egress: "
 NETWORK="${EGRESS_NETWORK:-windsor-local}"
 DNS_CONTAINER="${EGRESS_DNS:-dns.test}"
 PROBE="${EGRESS_PROBE:-charts.test}"
+POD_CIDR="${EGRESS_POD_CIDR:-10.244.0.0/16}"
+SERVICE_CIDR="${EGRESS_SERVICE_CIDR:-10.96.0.0/12}"
 
 block() {
   local cidr dns
@@ -33,6 +39,8 @@ block() {
   sudo iptables -A "$CHAIN" -p udp --dport 53 -j RETURN
   sudo iptables -A "$CHAIN" -p tcp --dport 53 -j RETURN
   sudo iptables -A "$CHAIN" -m conntrack ! --ctstate NEW -j RETURN
+  sudo iptables -A "$CHAIN" -d "$POD_CIDR" -j REJECT
+  sudo iptables -A "$CHAIN" -d "$SERVICE_CIDR" -j REJECT
   sudo iptables -A "$CHAIN" -j REJECT
   sudo iptables -I DOCKER-USER -s "$cidr" -j "$CHAIN"
 
@@ -45,7 +53,8 @@ block() {
     exit 1
   fi
 
-  sudo iptables -I "$CHAIN" 5 -j LOG --log-prefix "$LOG_PREFIX"
+  # Inserts the LOG rule just before the final REJECT.
+  sudo iptables -I "$CHAIN" "$(sudo iptables -S "$CHAIN" | grep -c '^-A')" -j LOG --log-prefix "$LOG_PREFIX"
   sudo iptables -L "$CHAIN" -v -n
 }
 
