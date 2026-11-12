@@ -756,6 +756,21 @@ cases:
               inlineManifests:
                 - name: kubelet-csr-approver
 
+  - name: common patch turns off Talos discovery
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              discovery:
+                enabled: false
+
   - name: no ntp_servers omits machine.time patch
     values:
       platform: metal

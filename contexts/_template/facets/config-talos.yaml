@@ -124,6 +124,8 @@ config:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
           inlineManifests: ${[talos_common.cert_rotation.approver_manifest]}
+          discovery:
+            enabled: false
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
