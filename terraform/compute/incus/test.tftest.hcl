@@ -319,6 +319,54 @@ run "instance_id_flows_to_controlplanes" {
   }
 }
 
+# Without static leases, the guest reports no address and the outputs carry the declared one.
+run "lan_network_without_static_leases" {
+  command = apply
+
+  override_module {
+    target = module.instances["controlplane"]
+    outputs = {
+      name        = "controlplane"
+      mac_address = "02:00:00:00:00:31"
+      type        = "virtual-machine"
+      ipv4        = ""
+      ipv6        = null
+      image       = "ubuntu/22.04"
+      status      = "Running"
+    }
+  }
+
+  variables {
+    context_id         = "test"
+    remote             = "cluster"
+    create_network     = false
+    network_name       = "lan"
+    static_dhcp_leases = false
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        image          = "ubuntu/22.04"
+        type           = "virtual-machine"
+        target         = "member-2"
+        ipv4           = "192.168.3.31"
+        wait_for_ipv4  = false
+        network_config = { hwaddr = "02:00:00:00:00:31" }
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(incus_network.main) == 0
+    error_message = "No network should be created on an existing LAN network"
+  }
+
+  assert {
+    condition     = output.controlplanes[0].endpoint == "192.168.3.31:50000"
+    error_message = "controlplanes[].endpoint should fall back to the declared ipv4"
+  }
+}
+
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 # Also validates that disks can reference pools defined in storage_pools.

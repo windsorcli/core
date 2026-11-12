@@ -26,6 +26,12 @@ variable "network_description" {
   default     = null
 }
 
+variable "static_dhcp_leases" {
+  description = "Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs"
+  type        = bool
+  default     = true
+}
+
 variable "network_type" {
   description = "The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created"
   type        = string

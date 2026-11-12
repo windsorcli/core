@@ -4,7 +4,7 @@ description: Talos VMs on Incus.
 ---
 
 VM substrate for Talos clusters on Incus (LXD's fork). Provisions Talos
-VMs as full-VM instances on the local Incus daemon — pick this over
+VMs as full-VM instances on an Incus daemon or cluster. Pick this over
 `compute/docker` when you need full-VM isolation or kernel features
 Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
 `cluster/talos` module.
@@ -16,6 +16,20 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Rule | Longest id kept |
 | --- | --- | --- |
 | Bridge network `net-<id>` | 15 characters, the Linux interface name limit | 11 |
+
+## Clusters
+
+`remote` names an Incus client remote, such as a cluster added with `incus remote add`. Each instance's `target` names the cluster member that hosts it. An instance without a `target` goes wherever Incus places it.
+
+The `platform-incus` facet sets these from `incus.remote` and `incus.targets`. Control plane N and worker N take entry (N - 1) of `incus.targets`, modulo its length. A node's `placement` in `cluster.controlplanes.nodes` or `cluster.workers.nodes` overrides the round-robin entry.
+
+## LAN networks
+
+With `create_network = false`, the instances attach to the existing network in `network_name`. On a cluster, that network MUST exist on every member that hosts an instance.
+
+Incus serves DHCP only on a bridge it manages. On a macvlan network, or a bridge to the LAN, the LAN's DHCP server assigns addresses and Incus can't report them for a Talos guest. Set `static_dhcp_leases = false` and `wait_for_ipv4 = false` on each instance there. The module then leaves `ipv4` and `ipv6` off the NIC and reports them only in the outputs. Reserve each address on the LAN's DHCP server against the MAC set in `network_config.hwaddr`.
+
+The facet does this when `incus.network` is set. Each node then declares its reserved address, and optionally its `mac_address`, in `cluster.controlplanes.nodes` or `cluster.workers.nodes`.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -66,6 +80,7 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | <a name="input_network_type"></a> [network\_type](#input\_network\_type) | The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created | `string` | `"bridge"` | no |
 | <a name="input_project"></a> [project](#input\_project) | Name of the project where resources will be created | `string` | `null` | no |
 | <a name="input_remote"></a> [remote](#input\_remote) | Name of the Incus remote to use. If not set, uses provider default (usually 'local'). | `string` | `null` | no |
+| <a name="input_static_dhcp_leases"></a> [static\_dhcp\_leases](#input\_static\_dhcp\_leases) | Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs | `bool` | `true` | no |
 | <a name="input_storage_pools"></a> [storage\_pools](#input\_storage\_pools) | Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Pools with null driver are skipped (allows conditional pool creation). The 'default' pool is assumed to exist. | <pre>map(object({<br/>    driver = optional(string)          # Storage driver: dir, zfs, btrfs, lvm, ceph. Null = skip pool creation.<br/>    source = optional(string)          # Source device/path for the pool (driver-specific)<br/>    size   = optional(string)          # Pool size (for loop-file backed pools)<br/>    config = optional(map(string), {}) # Driver-specific configuration options<br/>  }))</pre> | `{}` | no |
 
 ## Outputs
