@@ -345,21 +345,24 @@ jobs:
         if: matrix.mode != 'upgrade'
         run: windsor show blueprint
 
-      # Mirrors each registry that names an image, and copies each tagged chart and image into the workstation registry.
+      # Mirrors every image registry to the workstation registry, starts it, and outputs its container IP.
+      - name: Prepare registry
+        id: prepare_registry
+        if: matrix.mode == 'registry'
+        run: |
+          yq -i '.docker.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/local/values.yaml
+          windsor apply terraform workstation
+          echo "ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      # Copies each tagged chart and image into the workstation registry over plain HTTP at its container IP.
       - name: Fill registry
         id: fill_registry
         if: matrix.mode == 'registry'
         timeout-minutes: 60
-        # Flux Mirror pushes over plain HTTP to a private IP, which reaches the same registry as charts.test:5000.
-        run: |
-          windsor show artifacts -o yaml > "$RUNNER_TEMP/artifacts.yaml"
-          yq -i '.docker.registries = (load(strenv(RUNNER_TEMP) + "/artifacts.yaml") | [.artifacts[] | select(.kind == "image") | .reference | split("/")[0]] | unique | map({"key": ., "value": {"endpoint": "http://charts.test:5000/windsor/" + .}}) | from_entries)' contexts/local/values.yaml
-          windsor apply terraform workstation
-          flux plugin install mirror@0.16.0
-          export REGISTRY="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}'):5000"
-          windsor show artifacts --charts-to "$REGISTRY/windsor" -o flux-mirror \
-            | yq '.artifacts[].destination |= sub("^charts[.]test:5000", strenv(REGISTRY))' \
-            | flux mirror sync --no-progress -
+        uses: windsorcli/action/mirror@main
+        with:
+          charts-to: charts.test:5000/windsor
+          push-host: ${{ steps.prepare_registry.outputs.ip }}:5000
 
       # Rejects and logs each new connection from the workstation network to a host outside it, except DNS.
       - name: Block egress
@@ -424,7 +427,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.block_egress.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}" || bad "${{ steps.check_egress.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.prepare_registry.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.block_egress.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}" || bad "${{ steps.check_egress.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
