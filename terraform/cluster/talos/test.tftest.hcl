@@ -396,3 +396,51 @@ run "common_config_patches_rejects_malformed_document" {
 
   expect_failures = [var.common_config_patches]
 }
+
+# Verifies that the control plane patch pins the etcd and CoreDNS images that Talos 1.14.2 selects
+run "controlplane_images_default" {
+  command = plan
+
+  variables {
+    controlplanes = [
+      {
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+  }
+
+  assert {
+    condition     = yamldecode(local.controlplane_images_patch).cluster.etcd.image == "registry.k8s.io/etcd:3.7.1"
+    error_message = "The control plane patch should pin the default etcd image"
+  }
+  assert {
+    condition     = yamldecode(local.controlplane_images_patch).cluster.coreDNS.image == "registry.k8s.io/coredns/coredns:v1.14.7"
+    error_message = "The control plane patch should pin the default CoreDNS image"
+  }
+}
+
+# Verifies that etcd_image and coredns_image set the images of the control plane patch
+run "controlplane_images_override" {
+  command = plan
+
+  variables {
+    etcd_image    = "registry.k8s.io/etcd:v3.6.14"
+    coredns_image = "registry.k8s.io/coredns/coredns:v1.14.6"
+    controlplanes = [
+      {
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+  }
+
+  assert {
+    condition     = yamldecode(local.controlplane_images_patch).cluster.etcd.image == "registry.k8s.io/etcd:v3.6.14"
+    error_message = "The control plane patch should use etcd_image"
+  }
+  assert {
+    condition     = yamldecode(local.controlplane_images_patch).cluster.coreDNS.image == "registry.k8s.io/coredns/coredns:v1.14.6"
+    error_message = "The control plane patch should use coredns_image"
+  }
+}

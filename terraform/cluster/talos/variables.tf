@@ -11,6 +11,7 @@ variable "kubernetes_version" {
   # artifact: type=image name=registry.k8s.io/kube-controller-manager
   # artifact: type=image name=registry.k8s.io/kube-scheduler
   # artifact: type=image name=ghcr.io/siderolabs/kubelet
+  # artifact: type=image name=registry.k8s.io/kube-proxy
   default = "v1.37.2"
   validation {
     condition     = can(regex("^v?1\\.\\d+\\.\\d+$", var.kubernetes_version))
@@ -27,6 +28,22 @@ variable "talos_version" {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
   }
+}
+
+variable "etcd_image" {
+  description = "The etcd image of the control plane nodes. The default is the image that Talos 1.14.2 selects."
+  type        = string
+  nullable    = false
+  # artifact: type=image name=registry.k8s.io/etcd
+  default = "registry.k8s.io/etcd:3.7.1"
+}
+
+variable "coredns_image" {
+  description = "The CoreDNS image of the cluster. The default is the image that Talos 1.14.2 selects."
+  type        = string
+  nullable    = false
+  # artifact: type=image name=registry.k8s.io/coredns/coredns
+  default = "registry.k8s.io/coredns/coredns:v1.14.7"
 }
 
 # Pre-generated cluster identity from an upstream module.

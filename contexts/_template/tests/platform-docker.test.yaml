@@ -536,6 +536,8 @@ cases:
           inputs:
             talos_version: "1.13.11"
             kubernetes_version: "1.36.5"
+            etcd_image: registry.k8s.io/etcd:v3.6.14
+            coredns_image: registry.k8s.io/coredns/coredns:v1.14.7
 
   # docker and docker-desktop pin Talos below 1.14.
   - name: Docker Desktop pins Talos below 1.14
@@ -563,3 +565,5 @@ cases:
           inputs:
             talos_version: "1.13.11"
             kubernetes_version: "1.36.5"
+            etcd_image: registry.k8s.io/etcd:v3.6.14
+            coredns_image: registry.k8s.io/coredns/coredns:v1.14.7
