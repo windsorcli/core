@@ -120,7 +120,7 @@ variable "ready_gate_image" {
   description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
   type        = string
   # artifact: type=image name=docker.io/alpine/k8s
-  default  = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
+  default  = "alpine/k8s:1.37.2@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0"
   nullable = false
 
   validation {
