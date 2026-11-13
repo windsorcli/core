@@ -23,12 +23,12 @@ requires:
       the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
   - when: >-
       any(
-        values(docker.registries ?? {}),
+        values(registries ?? {}),
         ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == '')
       )
-    message: The username and password of a docker.registries entry must be set together.
+    message: The username and password of an entry in registries must be set together.
   - when: talos_registries.credentials_conflict == true
-    message: docker.registries entries with the same endpoint host need the same username and password.
+    message: Entries in registries with the same endpoint host need the same username and password.
   # Registry mode copies only the images of the Talos versions in talos_images.
   - when: (charts.registry ?? '') != '' && !(talos.talos_version in talos_images)
     message: Registry mode supports only the Talos versions that this blueprint pins. Use a pinned Talos version, or turn off registry mode.
@@ -49,12 +49,12 @@ requires:
 # layers in the common defaults.
 config:
 
-  # docker.registries entries with an endpoint, parsed for the Talos registry documents.
+  # Entries in registries with an endpoint, parsed for the Talos registry documents.
   - name: talos_registries
     value:
       endpoints: >-
         ${map(
-          sortBy(filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''), get(#, 0)),
+          sortBy(filter(toPairs(registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''), get(#, 0)),
           let entry = get(#, 1);
           let parts = split(entry.endpoint contains '://' ? entry.endpoint : 'https://' + entry.endpoint, '/');
           ({
@@ -143,7 +143,7 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # RegistryMirrorConfig documents for the docker.registries endpoints and the resolved workstation caches.
+      # RegistryMirrorConfig documents for the registries endpoints and the resolved workstation caches.
       registry_mirror_documents: >-
         ${let caches = type(talos_registry_mirrors.mirrors) == 'map' ? talos_registry_mirrors.mirrors : {};
         let endpoints = map(talos_registries.endpoints, [#.registry, { endpoints: [#.url], skipFallback: true }]);
