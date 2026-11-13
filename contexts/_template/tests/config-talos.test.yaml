@@ -1233,7 +1233,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.14.2"
+            talos_version: "1.14.5"
 
   - name: registry mode accepts a node image of a pinned Talos version
     values:
@@ -1244,7 +1244,7 @@ cases:
       cluster:
         <<: *registry-cluster
         controlplanes:
-          image: windsor:talos/v1.14.2/amd64
+          image: windsor:talos/v1.14.5/amd64
           nodes:
             controlplane-1:
               endpoint: 10.5.0.10:50000
