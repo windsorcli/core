@@ -100,7 +100,7 @@ cases:
             cluster_endpoint: https://10.5.0.5:6443
             controlplane_vip: true
 
-  - name: docker.registries mirror bakes into compute and reaches cluster
+  - name: registries mirror bakes into compute and reaches cluster
     values:
       platform: hyperv
       gateway:
@@ -118,12 +118,11 @@ cases:
               node: 10.5.0.10
         workers:
           count: 0
-      docker:
-        registries:
-          ghcr.io:
-            endpoint: registry.example.com
-            username: robot
-            password: secret
+      registries:
+        ghcr.io:
+          endpoint: registry.example.com
+          username: robot
+          password: secret
     terraformOutputs:
       compute:
         controlplanes: []

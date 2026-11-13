@@ -405,7 +405,7 @@ jobs:
         id: prepare_registry
         if: matrix.mode == 'registry'
         run: |
-          yq -i '.docker.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/local/values.yaml
+          yq -i '.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/local/values.yaml
           windsor apply terraform workstation
           echo "ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 

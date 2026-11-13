@@ -57,11 +57,11 @@ config:
 
   # Registry pull-through cache: upstream → mirror map used by workstation
   # Terraform (runs the containers) and Talos registry config (redirects pulls).
-  # Empty when services.registries is false; else docker.registries or defaults.
+  # Empty when services.registries is false; else registries or defaults.
   - name: workstation_registries
     value:
       registries: |
-        ${(workstation.services.registries ?? true) == false ? {} : fromPairs(concat(filter(toPairs(docker.registries ?? {
+        ${(workstation.services.registries ?? true) == false ? {} : fromPairs(concat(filter(toPairs(registries ?? {
           "gcr.io": { "remote": "https://gcr.io" },
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },

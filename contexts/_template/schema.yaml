@@ -875,8 +875,40 @@ properties:
               sensitive: true
               description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
           additionalProperties: false
-        description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror, and nodes pull its images only from that mirror. An entry with only hostname is a workstation pull-through cache.
+        description: "[DEPRECATED] Use the top-level registries key."
     additionalProperties: false
+
+  registries:
+    type: object
+    propertyNames:
+      anyOf:
+        - $ref: '#/$defs/dnsHostname'
+        - const: '*'
+    additionalProperties:
+      type: object
+      properties:
+        remote:
+          $ref: '#/$defs/httpUrl'
+          description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
+        local:
+          $ref: '#/$defs/dnsHostname'
+          description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
+        hostname:
+          $ref: '#/$defs/dnsHostname'
+          description: Hostname of the workstation pull-through cache (e.g. registry.test). Lowercase DNS-labels separated by dots.
+        endpoint:
+          type: string
+          pattern: '^(https?://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$'
+          description: Cluster mirror as an optional http or https scheme, host, optional port, and optional path (e.g. harbor.example.com:8443/windsor). The default scheme is https.
+        username:
+          type: string
+          description: Username for the mirror at endpoint. Set together with password.
+        password:
+          type: string
+          sensitive: true
+          description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
+      additionalProperties: false
+    description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror, and nodes pull its images only from that mirror. An entry with only hostname is a workstation pull-through cache.
 
   # Cluster topology preset — selects between a single-node cluster, a
   # multi-node cluster without HA guarantees, and a fully HA cluster
@@ -1633,7 +1665,7 @@ properties:
           registries:
             type: boolean
             default: true
-            description: Create registry proxy containers (from docker.registries when true)
+            description: Create registry proxy containers (from registries when true)
         additionalProperties: false
         description: Toggle workstation services
       git:
