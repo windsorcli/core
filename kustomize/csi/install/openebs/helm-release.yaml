@@ -82,3 +82,6 @@ spec:
         repo: openebs/kubectl
         # artifact: type=image name=docker.io/openebs/kubectl
         tag: 1.32.4@sha256:9524faf8e3cefb47fa28244a5d15f95ec21a73d963273798e593e61f80712333
+    global:
+      analytics:
+        enabled: false
