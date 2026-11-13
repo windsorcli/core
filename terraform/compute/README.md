@@ -1,7 +1,7 @@
 ---
 title: Compute
 description: Talos compute substrate across Docker, Hyper-V, Incus, and Proxmox VE.
-stack_backing: Docker · Hyper-V · Incus · Proxmox · Hetzner
+stack_backing: Docker · Hyper-V · Incus · Proxmox · Hetzner · EC2
 ---
 
 The compute category has three drivers that provision Talos nodes on
@@ -11,7 +11,8 @@ Windows host. `incus` runs them as VMs on Linux. `proxmox` runs them
 as VMs on the nodes of a Proxmox VE cluster. The driver is selected by `platform`. Managed-cloud platforms (`aws`, `azure`) and
 bare-metal (`metal`) don't use a compute module: EKS and AKS
 provision their own nodes, and `metal` expects nodes that already
-exist.
+exist. The one exception is `compute.driver: aws-ec2` on `metal`,
+which launches the declared nodes as EC2 instances first.
 
 Compute always runs before the `cluster/talos` module, which then
 reaches the provisioned nodes through the Talos API. Node sizing
@@ -229,6 +230,7 @@ operator's workstation in cleartext.
 
 ## Modules
 
+- [aws-ec2](aws-ec2/) — Launches Talos Linux nodes on EC2 at fixed private IPs for the metal platform.
 - [docker](docker/) — Talos containers on Docker.
 - [hcloud](hcloud/) — Provisions Talos Linux nodes on Hetzner Cloud.
 - [hyperv](hyperv/) — Talos VMs on Hyper-V (Windows host).

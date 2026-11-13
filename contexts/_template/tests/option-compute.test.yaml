@@ -1,0 +1,124 @@
+# option-compute.yaml facet tests: compute.driver aws-ec2 launches the metal platform's declared nodes on EC2 before cluster/talos bootstraps them.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.150.0.0/16
+    loadbalancer_driver: none
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      instance_type: m6a.2xlarge
+      nodes:
+        controlplane-1:
+          endpoint: 10.150.1.37:50000
+          node: 10.150.1.37
+          hostname: controlplane-1
+    workers:
+      count: 0
+
+  cluster-workers: &workers-cluster
+    driver: talos
+    controlplanes:
+      instance_type: m6a.2xlarge
+      nodes:
+        controlplane-1:
+          endpoint: 10.150.1.37:50000
+          node: 10.150.1.37
+          hostname: controlplane-1
+    workers:
+      count: 1
+      instance_type: m6a.large
+      nodes:
+        worker-1:
+          endpoint: 10.150.1.40:50000
+          node: 10.150.1.40
+          hostname: worker-1
+
+  aws: &default-aws
+    region: us-east-2
+
+  compute: &default-compute
+    driver: aws-ec2
+    aws_ec2:
+      subnet_id: subnet-0123456789abcdef0
+      root_volume_size: 200
+      tags:
+        run_id: abc123
+
+cases:
+  - name: aws-ec2 launches the control plane before Talos bootstraps it
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      aws: *default-aws
+      compute: *default-compute
+    expect:
+      terraform:
+        - name: compute
+          path: compute/aws-ec2
+          inputs:
+            region: us-east-2
+            subnet_id: subnet-0123456789abcdef0
+            controlplanes:
+              - endpoint: 10.150.1.37:50000
+                node: 10.150.1.37
+                hostname: controlplane-1
+            workers: []
+            controlplane_instance_type: m6a.2xlarge
+            root_volume_size: 200
+            tags:
+              run_id: abc123
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - pki
+            - compute
+          inputs:
+            cluster_endpoint: https://10.150.1.37:6443
+
+  - name: aws-ec2 launches workers with their own instance type
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *workers-cluster
+      aws: *default-aws
+      compute: *default-compute
+    expect:
+      terraform:
+        - name: compute
+          path: compute/aws-ec2
+          inputs:
+            workers:
+              - endpoint: 10.150.1.40:50000
+                node: 10.150.1.40
+                hostname: worker-1
+            worker_instance_type: m6a.large
+
+  - name: aws-ec2 without a subnet fails
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      aws: *default-aws
+      compute:
+        driver: aws-ec2
+    expectError: true
+
+  - name: metal without a compute driver launches nothing
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      terraform:
+        - name: compute

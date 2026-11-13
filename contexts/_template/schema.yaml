@@ -1002,6 +1002,52 @@ properties:
         description: Load balancer mode (only 'arp' is currently supported; use for flat L2 networks with ARP broadcasts)
     additionalProperties: false
 
+  compute:
+    type: object
+    additionalProperties: false
+    description: Compute driver that launches the metal platform's declared nodes instead of expecting them to exist.
+    properties:
+      driver:
+        type: string
+        enum:
+          - aws-ec2
+        description: aws-ec2 launches each node in cluster.controlplanes.nodes and cluster.workers.nodes as a Talos EC2 instance at its node address, in aws.region.
+      aws_ec2:
+        type: object
+        additionalProperties: false
+        properties:
+          subnet_id:
+            type: string
+            pattern: '^subnet-[0-9a-f]+$'
+            description: Existing subnet the nodes launch in. Every node address must fall inside it.
+          ami_id:
+            type: string
+            pattern: '^ami-[0-9a-f]+$'
+            description: AMI to boot instead of the published Talos AMI for talos.talos_version.
+          root_volume_size:
+            type: integer
+            minimum: 8
+            description: Root volume size in GB. Defaults to 100.
+          root_volume_iops:
+            type: integer
+            minimum: 3000
+            description: Provisioned gp3 IOPS. Defaults to 3000.
+          root_volume_throughput:
+            type: integer
+            minimum: 125
+            description: Provisioned gp3 throughput in MB/s. Defaults to 125.
+          kms_key_id:
+            type: string
+            description: KMS key that encrypts the root volume. Defaults to alias/aws/ebs.
+          allowed_cidr:
+            type: string
+            description: CIDR allowed to reach the Talos API, the Kubernetes API and NodePorts. Defaults to the VPC CIDR.
+          tags:
+            type: object
+            additionalProperties:
+              type: string
+            description: Additional tags for every resource.
+
   # Cluster configuration
   cluster:
     type: object
