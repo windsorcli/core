@@ -104,6 +104,8 @@ spec:
       replicaSoftAntiAffinity: true
       allowVolumeCreationWithDegradedAvailability: true
       nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
+      upgradeChecker: false
+      allowCollectingLonghornUsageMetrics: false
     longhornUI:
       replicas: 1
     csi:
