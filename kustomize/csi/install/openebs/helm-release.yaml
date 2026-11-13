@@ -21,6 +21,8 @@ spec:
   values:
     localpv-provisioner:
       enabled: false
+      analytics:
+        enabled: false
       localpv:
         image:
           registry: docker.io
