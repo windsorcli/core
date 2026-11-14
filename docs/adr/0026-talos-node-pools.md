@@ -180,10 +180,15 @@ cost almost nothing, because every compute module already takes them for each
 instance. Labels and taints alone would not lower the risk, because the
 naming and address work is the same.
 
-Phase 2 delivers `image`, `disks`, and `volumes` for each pool, after a customer
-needs them. A GPU pool needs its own Talos schematic and so its own image. A
-storage pool needs a data disk, and no compute module creates one today. Phase 2
-MUST NOT start without a decision on module-level data disks.
+Phase 2 delivers `image`, `disks`, and `volumes` for each pool, after phase 1
+merges. Phase 2 is part of M11. A GPU pool needs its own Talos schematic and
+so its own image. A storage pool needs a data disk, and no compute module
+creates one today. Phase 2 therefore adds an optional `data_disks` list for
+each instance in `compute/vsphere`, `compute/hyperv`, and `compute/proxmox`.
+The pool field `disks` then means that the module creates the disk and Talos
+partitions it. The phase 2 PR for each platform MUST state what happens to
+the disk when a node is removed. `compute/vsphere` sets `ignore_changes` on
+`disk`, so the PR MUST also state how it treats a disk added to an existing VM.
 
 ## Upgrade stability
 
@@ -212,6 +217,8 @@ pass before the first platform PR merges.
 - The nodes of `cluster.workers` cannot get labels or taints. A user who wants
   them moves the nodes to a pool. This replaces the VMs, because the names
   change. The migration guide MUST say so.
+- A user who needs a storage pool before phase 2 attaches the data disk by
+  hand and sets `cluster.workers.disks`, as today.
 - A pool with `count: 1` that grows keeps its first node. A `cluster.workers`
   group with one node does not, and keeps the old rule.
 
