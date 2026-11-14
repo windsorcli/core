@@ -61,12 +61,12 @@ resource "null_resource" "upgrade_controlplane" {
   for_each = local.upgrade_image != "" ? { for n in var.controlplanes : n.node => n } : {}
 
   triggers = {
-    upgrade_image = local.upgrade_image
+    upgrade_image = coalesce(each.value.install_image, local.upgrade_image)
     node          = each.value.node
   }
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
+    command = "windsor upgrade node --node ${each.value.node} --image ${coalesce(each.value.install_image, local.upgrade_image)} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -79,12 +79,12 @@ resource "null_resource" "upgrade_worker" {
   depends_on = [null_resource.upgrade_controlplane]
 
   triggers = {
-    upgrade_image = local.upgrade_image
+    upgrade_image = coalesce(each.value.install_image, local.upgrade_image)
     node          = each.value.node
   }
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
+    command = "windsor upgrade node --node ${each.value.node} --image ${coalesce(each.value.install_image, local.upgrade_image)} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path

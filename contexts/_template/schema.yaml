@@ -108,6 +108,10 @@ $defs:
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
+        install_image:
+          type: string
+          minLength: 1
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5 for an Image Factory overlay. Its schematic MUST carry any system extensions the storage driver installs. Unset uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
