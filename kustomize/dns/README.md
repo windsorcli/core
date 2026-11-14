@@ -404,7 +404,7 @@ PowerDNS Authoritative in `system-dns`: a Deployment, a ConfigMap, the `pdns` Se
 - [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for Route53 wiring.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for Azure DNS wiring.
 - [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) for coredns and etcd wiring.
-- [contexts/_template/facets/addon-private-dns-pdns.yaml](../../contexts/_template/facets/addon-private-dns-pdns.yaml) for PowerDNS wiring.
+- PowerDNS wiring also lives in the addon-private-dns facet.
 - [terraform/dns/zone/route53/](../../terraform/dns/zone/route53/) for the Route53 zone creation (separate from this add-on).
 - [terraform/dns/zone/azure-dns/](../../terraform/dns/zone/azure-dns/) for the Azure DNS zone creation.
 - Related add-ons: [pki](../pki/) (etcd certs), [database](../database/) (pdns-db), [gateway](../gateway/) (HTTPRoute source), [policy](../policy/).
