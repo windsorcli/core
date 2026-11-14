@@ -412,7 +412,7 @@ config:
     value:
       # Remove once Colima's VM image is Ubuntu 26.04 or newer.
       # artifact: type=image name=ghcr.io/siderolabs/talos
-      talos_image_tag: "v1.13.11"
+      talos_image_tag: "v1.13.12"
       talos_version: "${trimPrefix(talos.talos_image_tag, 'v')}"
       # artifact: type=image name=registry.k8s.io/kube-apiserver
       # artifact: type=image name=registry.k8s.io/kube-controller-manager
