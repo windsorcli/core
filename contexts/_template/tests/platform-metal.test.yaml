@@ -418,7 +418,8 @@ cases:
           driver: flannel
     expectError: true
 
-  - name: cluster.vip on metal fails composition
+  # The VIP interface takes DHCP by default, since bare-metal nodes normally lease addresses.
+  - name: metal cluster.vip passes a DHCP VIP interface to the cluster step
     values:
       platform: metal
       gateway:
@@ -427,6 +428,63 @@ cases:
       cluster:
         <<: *default-cluster
         endpoint: https://10.5.0.5:6443
+        vip: true
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: true
+
+  - name: metal cluster.vip with network.dhcp false passes a static VIP interface
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: false
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.5.0.5:6443
+        vip: true
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: false
+
+  - name: metal without cluster.vip passes no VIP interface
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.5.0.5:6443
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            vip_interface: null
+
+  - name: metal cluster.vip without cluster.endpoint fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
         vip: true
     expectError: true
 
