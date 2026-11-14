@@ -229,7 +229,7 @@ pass before the first platform PR merges.
 ## Consequences
 
 - A context can add GPU, storage, and general pools to a Talos cluster on the
-  three large static platforms, with labels and taints.
+  static platforms, with labels and taints.
 - `cluster.pools` has fields that differ by platform. The schema allows them
   all, and `requires` rules reject the wrong ones. The guide MUST list them.
 - The nodes of `cluster.workers` cannot get labels or taints. A user who wants
