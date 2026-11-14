@@ -617,8 +617,8 @@ cases:
     values:
       platform: metal
       # Explicit multi-node + controlplanes.schedulable: isolates this case
-      # from the single-node-topology patches (leader-elect, etcd compaction),
-      # covered separately by option-single-node tests.
+      # from the single-node-topology patches (covered by option-single-node
+      # tests). The one-control-plane leader-elect and etcd patches still apply.
       topology: multi-node
       gateway:
         enabled: false
@@ -672,6 +672,104 @@ cases:
       terraform:
         - name: cluster
           path: cluster/talos
+
+  # One control plane with workers: topology resolves to multi-node, but the
+  # control plane has no peer, so leader election stays off and etcd keeps
+  # fewer WALs and snapshots. The control plane stays unschedulable.
+  - name: one control plane with two workers disables leader election and trims etcd
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
+              hostname: worker-2
+        cni:
+          driver: flannel
+    expect:
+      config:
+        topology: multi-node
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              controllerManager:
+                extraArgs:
+                  leader-elect: "false"
+              scheduler:
+                extraArgs:
+                  leader-elect: "false"
+              etcd:
+                extraArgs:
+                  auto-compaction-mode: revision
+                  auto-compaction-retention: "1000"
+                  max-snapshots: "3"
+                  max-wals: "3"
+
+  # Three control planes: leader election and the etcd defaults stay upstream.
+  - name: three control planes keep leader election and etcd defaults
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+            controlplane-2:
+              endpoint: 10.5.0.11:50000
+              node: 10.5.0.11
+              hostname: controlplane-2
+            controlplane-3:
+              endpoint: 10.5.0.12:50000
+              node: 10.5.0.12
+              hostname: controlplane-3
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
+              hostname: worker-2
+        cni:
+          driver: flannel
+    expect:
+      config:
+        topology: ha
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              controllerManager:
+                extraArgs: {}
+              scheduler:
+                extraArgs: {}
+              etcd: {}
 
   - name: oidc username_claim and groups_claim overrides pass through
     values:
