@@ -1,6 +1,6 @@
 ---
 title: "ADR-0026: Talos nodes of different sizes use cluster.pools"
-description: Extend cluster.pools to vSphere, Hyper-V, and Proxmox so one Talos context creates worker nodes of different sizes and targets them with labels and taints, with no change to the node names or Terraform addresses of existing contexts.
+description: Extend cluster.pools to vSphere, Hyper-V, Proxmox, and metal so one Talos context creates worker nodes of different sizes and targets them with labels and taints, with no change to the node names or Terraform addresses of existing contexts.
 ---
 
 # ADR-0026: Talos nodes of different sizes use cluster.pools
@@ -10,8 +10,8 @@ description: Extend cluster.pools to vSphere, Hyper-V, and Proxmox so one Talos 
 Proposed (2026-11-14). Builds on [ADR-0023](0023-node-addresses-from-dhcp-or-explicit.md),
 which fixed how static-node platforms get node addresses, and on
 [ADR-0025](0025-proxmox-multi-node-placement.md), which fixed Proxmox placement.
-Scope is `platform: vsphere`, `hyperv`, and `proxmox` with `cluster.driver: talos`.
-Section 7 states what happens on `incus`, `docker`, and `metal`.
+Scope is `platform: vsphere`, `hyperv`, `proxmox`, and `metal` with `cluster.driver: talos`.
+Section 7 states what happens on `incus` and `docker`.
 
 ## Context
 
@@ -47,6 +47,8 @@ These facts from `main` (5709569b) decide the design:
 - No compute module for `vsphere`, `hyperv`, or `proxmox` creates a data
   disk. `cluster.workers.disks` only tells Talos how to partition a disk that
   the VM already has.
+- `platform: metal` has no compute step. The operator supplies the machines,
+  and the facet passes `cluster.workers.nodes` to `terraform/cluster/talos`.
 - `cluster.pools` is not read on the static platforms. The schema comment says
   they "continue to use cluster.workers".
 
@@ -54,7 +56,7 @@ These facts from `main` (5709569b) decide the design:
 
 ### 1. Use `cluster.pools` on the static Talos platforms
 
-`vsphere`, `hyperv`, and `proxmox` MUST read `cluster.pools`. One pool is one
+`vsphere`, `hyperv`, `proxmox`, and `metal` MUST read `cluster.pools`. One pool is one
 group of worker nodes with the same size, labels, and taints. This gives one
 concept on every platform: a user who knows pools on AWS reads the same
 fields on vSphere, and an `omni` machine set later maps to a pool.
@@ -79,8 +81,15 @@ Every node also gets `windsorcli.dev/pool=<pool name>`. A user label with one
 of the two `windsorcli.dev/pool*` keys MUST be rejected.
 
 The fields `autoscaling`, `lifecycle`, and `instance_types` have no meaning on a
-static platform. A context that sets them on `vsphere`, `hyperv`, or `proxmox`
-MUST fail composition with a message that names the field.
+static platform. A context that sets them on `vsphere`, `hyperv`, `proxmox`, or
+`metal` MUST fail composition with a message that names the field.
+
+On `metal`, Windsor does not create the machines, so `cpu`, `memory`, and
+`root_disk_size` have no effect. A pool on `metal` MUST fail composition when
+it sets one of them. A pool on `metal` keeps `class`, `labels`, `taints`,
+`count`, and `nodes`. The pool fields `image` and `disks` of phase 2 are not
+used on `metal`, where `install_image` and `disks` are set for each node in
+`nodes`.
 
 ### 3. The rule for `cluster.workers` when `pools` is set
 
@@ -145,8 +154,13 @@ names the pool, as `workers_missing` does for the workers. The check MUST use
 the user's vocabulary: "give each node of pool gpu an address under
 cluster.pools.gpu.nodes".
 
+On `metal`, `nodes` is always required, because there is no DHCP mode and
+Windsor creates no machine. A pool `<p>` with `count: N` MUST have the entries
+`<p>-1` to `<p>-N`. The entry key names the node only; no VM or Terraform
+address exists.
+
 The Hyper-V NAT port forwards and `talos_node_targets` MUST include the pool
-nodes.
+nodes. `talos_node_targets` on `metal` MUST include them too.
 
 ### 6. Where labels and taints go
 
@@ -155,8 +169,8 @@ Each node gets a Talos config patch with `machine.nodeLabels` and
 
 - vSphere: the patch joins `per_node_config_patches`. The module bakes it into
   the guestinfo of the VM.
-- Hyper-V and Proxmox: the patch joins `config_patches` of the node in
-  `terraform/cluster/talos`.
+- Hyper-V, Proxmox, and `metal`: the patch joins `config_patches` of the node
+  in `terraform/cluster/talos`.
 
 The `cluster` step reads the node list from the compute output. The facet MUST
 add the patch to each node by node name.
@@ -167,7 +181,11 @@ add the patch to each node by node name.
 2. `hyperv` second. The M6 milestone has no open issue, so the gate is clear.
 3. `proxmox` third. The M9 milestone has no open issue. The `vm_id` rule in
    section 4 is its only new work.
-4. `incus`, `docker`, and `metal` MUST reject `cluster.pools`. The message is
+4. `metal`. It has no compute step, so the work is the facet wiring only:
+   pool `nodes` into the `cluster` step and `talos_node_targets`, with the
+   patch from section 6. It can follow the schema PR at any time. It is
+   community grade and MUST NOT block the release.
+5. `incus` and `docker` MUST reject `cluster.pools`. The message is
    "cluster.pools is not supported on platform <p>; use cluster.workers". They
    are community grade and MUST NOT block the release. A later ADR MAY add them.
 
