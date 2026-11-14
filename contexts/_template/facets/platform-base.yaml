@@ -40,8 +40,8 @@ requires:
     paths:
       - cluster.endpoint
     message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
-  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
-    message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
+  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv', 'metal'])
+    message: cluster.vip is supported on incus, proxmox, vsphere, hyperv, and metal.
   - when: lb_effective.driver == 'metallb'
     paths:
       - network.loadbalancer_ips.start
