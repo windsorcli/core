@@ -316,8 +316,7 @@ cases:
     values:
       platform: metal
       # Explicit multi-node to isolate the test from the node-layout-driven
-      # single-node auto-derivation (single-node would add leader-elect and
-      # etcd compaction patches that are covered by option-single-node tests).
+      # single-node auto-derivation (covered by option-single-node tests).
       topology: multi-node
       gateway:
         enabled: false

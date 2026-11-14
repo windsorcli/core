@@ -221,10 +221,15 @@ config:
           time:
             servers: ${network.ntp_servers}
 
-  # Single-node topology: no peers, so disable leader election (avoids a ~2s etcd
-  # lease write) and enable etcd auto-compaction (upstream default is off).
+  # One control plane, with or without workers: no peer controller-manager or
+  # scheduler, and no etcd peer to catch up. Disable leader election (avoids a
+  # ~2s etcd lease write) and enable etcd auto-compaction (upstream default is
+  # off). Scaling to 3 control planes drops this patch from every node, and the
+  # cluster/talos module re-applies the first control plane and waits for its
+  # health check before the new ones get their config, so leader election is
+  # back on before a second controller-manager or scheduler starts.
   - name: talos_common
-    when: topology == 'single-node'
+    when: cluster_nodes_effective.controlplanes == 1
     value:
       common_patch:
         cluster:
