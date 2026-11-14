@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pdns
+  namespace: system-dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 5300
+          protocol: UDP
+        - port: 5300
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: external-dns
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-zone-init
+      ports:
+        - port: 8081
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pdns-db
+  namespace: system-dns
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: pdns-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns
+      ports:
+        - port: 5432
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: pdns-db
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: system-database

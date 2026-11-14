@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdns
+  namespace: system-dns
+  labels:
+    app.kubernetes.io/name: pdns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pdns
+    spec:
+      serviceAccountName: pdns
+      priorityClassName: windsorcli-platform-critical
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 953
+        runAsGroup: 953
+        seccompProfile:
+          type: RuntimeDefault
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
+      initContainers:
+        - name: wait-for-db
+          # artifact: type=image name=ghcr.io/cloudnative-pg/postgresql
+          image: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
+          command: ["/bin/sh", "-c"]
+          args:
+            - until pg_isready -h pdns-db-rw -p 5432; do sleep 2; done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: pdns
+          # artifact: type=image name=docker.io/powerdns/pdns-auth-51
+          image: docker.io/powerdns/pdns-auth-51:5.1.5@sha256:77ff4efdbb9ec30e9309c8a1cbed6121a67fa3be25c848bbbfa756fc75bf9a27
+          env:
+            - name: TEMPLATE_FILES
+              value: gpgsql
+            - name: PDNS_AUTH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-api
+                  key: api-key
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: host
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: dbname
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: password
+          ports:
+            - name: dns-udp
+              containerPort: 5300
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 5300
+              protocol: TCP
+            - name: api
+              containerPort: 8081
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: dns-tcp
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: dns-tcp
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/powerdns/pdns.conf
+              subPath: pdns.conf
+            - name: config
+              mountPath: /etc/powerdns/templates.d/gpgsql.j2
+              subPath: gpgsql.j2
+            - name: conf-d
+              mountPath: /etc/powerdns/pdns.d
+      volumes:
+        - name: config
+          configMap:
+            name: pdns-config
+        - name: conf-d
+          emptyDir: {}

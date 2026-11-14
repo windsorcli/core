@@ -1,0 +1,134 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: private-dns-pdns
+  description: Self-hosted PowerDNS for private DNS zones
+
+when: dns.private.driver == 'pdns'
+
+requires:
+  - paths:
+      - dns.private_domain
+    message: Self-hosted private DNS serves and publishes records into this zone.
+  - when: dev != true
+    paths:
+      - dns.private.pdns.api_key
+    message: The PowerDNS API needs an API key outside dev mode.
+  - when: database.postgres.enabled == false
+    message: The pdns driver stores its zones in the in-cluster PostgreSQL database; unset database.postgres.enabled or set it to true.
+  # Workstation contexts reach PowerDNS through the node port instead.
+  - when: >-
+      gateway.enabled == true && (workstation.runtime ?? '') == '' &&
+      gateway_exposure.internal == 'NodePort'
+    message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
+
+# The zones live in the pdns-db CloudNativePG cluster, so the database operator is required.
+config:
+  - name: database
+    value:
+      postgres:
+        enabled: "${database.postgres.enabled != false}"
+
+# =============================================================================
+# Kustomize: PowerDNS + external-dns
+# =============================================================================
+#
+# One kustomization. The install tier waits on the operator (database-install),
+# then applies the pdns-db Cluster, PowerDNS, and the zone-init Job. The health
+# check on the Cluster's Ready condition holds the external-dns instances back
+# until the database accepts connections.
+#
+# Gateway dependency by driver:
+#   - Cilium: wait for cni (LBIPAM serves the LoadBalancer Service).
+#   - Envoy: wait for gateway-install (route CRDs), only when the gateway exists.
+#
+# Conditional components:
+#   - pdns/prometheus:     ServiceMonitor on the API metrics endpoint.
+#   - pdns/ha:             two PowerDNS replicas, three database instances.
+#   - pdns/loadbalancer:   Service type LoadBalancer (Cilium only).
+#   - pdns/cilium:         LBIPAM annotation to share the gateway IP.
+#   - pdns/gateway:        TCPRoute/UDPRoute on port 53 (Envoy only).
+#
+# external-dns has no topology: ha component: it has no confirmed leader
+# election at the pinned version.
+#
+flux:
+
+  - name: dns
+    dependsOn:
+      - database-install
+      - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
+    install:
+      components:
+        - pdns
+        - pdns/database
+        - pdns/zone-init
+        - pdns/network-policy
+        - "${telemetry.metrics.enabled ? 'pdns/prometheus' : ''}"
+        - "${topology == 'ha' ? 'pdns/ha' : ''}"
+        - "${gateway.driver == 'cilium' ? 'pdns/loadbalancer' : ''}"
+        - "${gateway.driver == 'cilium' ? 'pdns/cilium' : ''}"
+        - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'pdns/gateway' : ''}"
+      substitutions:
+        private_domain: ${dns.private_domain}
+        public_domain: "${dns_private_effective.public_zone == true ? dns.public_domain : ''}"
+        dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
+      healthCheckExprs:
+        - apiVersion: postgresql.cnpg.io/v1
+          kind: Cluster
+          current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+      timeout: 20m
+      interval: 5m
+    # One external-dns instance per zone, writing through the PowerDNS API.
+    resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
+      - name: public
+        when: dns_private_effective.public_zone == true
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/pdns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/pdns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: ${dns.private_domain}
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+
+  # API key, supplied case.
+  - name: dns
+    when: (dns.private.pdns.api_key ?? '') != ''
+    secrets:
+      pdns-api:
+        data:
+          username: ${'pdns'}
+          api-key: ${dns.private.pdns.api_key}
+  # API key, dev default.
+  - name: dns
+    when: (dns.private.pdns.api_key ?? '') == '' && dev == true
+    secrets:
+      pdns-api:
+        data:
+          username: ${'pdns'}
+          api-key: ${'pdns-dev-api-key'}

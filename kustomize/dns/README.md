@@ -1,6 +1,6 @@
 ---
 title: DNS
-description: external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS.
+description: external-dns for hostname publication and (opt-in) coredns or PowerDNS for in-cluster private DNS.
 stack_name: DNS
 ---
 
@@ -15,6 +15,12 @@ coredns). It's active whenever `dns.public_domain` or
 etcd backend. It's active when `dns.private.driver` is `coredns`,
 and lets workstations resolve `*.<dns.private_domain>` without
 needing a cloud zone.
+
+`pdns` is a second in-cluster authoritative private DNS server. It is
+active when `dns.private.driver` is `pdns`. PowerDNS keeps its zones in
+a CloudNativePG database, and external-dns writes records through the
+PowerDNS REST API. `pdns` replaces `coredns` as a whole; a context
+runs one of them.
 
 Both halves run from a single Kustomization path (`dns`). They're
 wired through the same facet entry with different component
@@ -185,13 +191,76 @@ or an upstream resolver that forwards `*.<dns.private_domain>` query it.
 In both cases coredns shares the internal gateway's address,
 `gateway.internal.ip`, which those resolvers MUST be able to reach.
 
+### Private DNS (pdns) on a local or metal cluster
+
+```mermaid
+flowchart LR
+  flux[Flux kustomize-controller]
+
+  subgraph systemdns[system-dns]
+    edns[external-dns<br/>pdns provider]
+    pdns[PowerDNS<br/>gpgsql backend]
+    db[(pdns-db<br/>CloudNativePG)]
+    init[zone-init Job]
+    lb[Service type=LoadBalancer]
+  end
+
+  resolver[(workstation / LAN resolver)]
+
+  flux ==> edns
+  flux ==> pdns
+  init -.creates zones through API.-> pdns
+  edns -.writes records through API.-> pdns
+  pdns -.reads and writes.-> db
+  pdns --> lb
+  resolver -.queries.-> lb
+```
+
+```yaml
+- name: dns
+  dependsOn: [database-install, cni-install]
+  install:
+    components:
+      - pdns
+      - pdns/database
+      - pdns/zone-init
+      - pdns/network-policy
+      - pdns/loadbalancer
+      - pdns/cilium
+    substitutions:
+      private_domain: example.local
+      public_domain: ""
+      dns_loadbalancer_ip: 10.5.1.10
+  resources:
+    - name: account
+      components: [service-account]
+    - name: private
+      dependsOn: [dns-resources-account]
+      components:
+        - external-dns
+        - external-dns/providers/pdns
+      substitutions:
+        external_dns_name: external-dns-private
+        external_dns_domain: example.local
+        txt_owner_id: my-cluster
+```
+
+The install tier waits for the CloudNativePG operator, then applies the
+`pdns-db` Cluster, PowerDNS, and the zone-init Job. A health check on the
+Cluster's Ready condition holds the tier until the database accepts
+connections. The zone-init Job creates each zone through the API, because
+external-dns does not create zones. The API listens on the `pdns-api`
+ClusterIP Service only. The API key comes from the `pdns-api` Secret that
+the facet writes from `dns.private.pdns.api_key`. Port 53 is exposed the same
+way as `coredns`: a LoadBalancer Service under Cilium, or a route on the
+Envoy gateway.
 
 ## Substitutions
 
 | Name | Required when | Effect |
 |---|---|---|
-| `public_domain` | `coredns/public-zone` is enabled | Public domain the in-cluster coredns also serves. Always `dns.public_domain`. |
-| `private_domain` | `coredns` is enabled | Private domain the in-cluster coredns serves. Always `dns.private_domain`. |
+| `public_domain` | `coredns/public-zone` or `pdns/zone-init` is enabled | Public domain the in-cluster DNS server also serves. `dns.public_domain` where the server serves the public zone, otherwise empty. |
+| `private_domain` | `coredns` or `pdns/zone-init` is enabled | Private domain the in-cluster DNS server serves. Always `dns.private_domain`. |
 | `external_dns_name` | a `resources/external-dns` instance is enabled | HelmRelease name of the instance: `external-dns-public` for the public zone, `external-dns-private` for the private zone. |
 | `external_dns_domain` | a `resources/external-dns` instance is enabled | Domain filter for the instance: `dns.public_domain` or `dns.private_domain`. |
 | `external_dns_zone_type` | `resources/external-dns/providers/route53` is enabled | Route53 zone type of the instance, `public` or `private`. Combined with `external_dns_zone_id_filter` to lock the controller onto one zone. |
@@ -205,7 +274,7 @@ In both cases coredns shares the internal gateway's address,
 | `google_project_id` | `resources/external-dns/providers/google` is enabled | GCP project external-dns's Cloud DNS API calls run against. Sourced from `gcp.project_id`. |
 | `external_dns_service_account_email` | `service-account/providers/google` is enabled | Email of the external-dns Google Service Account, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`. |
 | `txt_owner_id` | a `resources/external-dns` instance uses a registry-backed provider | Unique TXT-record owner ID for external-dns's registry. Keeps multiple external-dns instances in the same zone from clobbering each other's records. Threaded via Flux postBuild from the `values-dns` ConfigMap the CLI generates. |
-| `dns_loadbalancer_ip` | `coredns/cilium` is enabled | External IP for the coredns Service, shared with the internal gateway. Sourced from `gateway.internal.ip`. |
+| `dns_loadbalancer_ip` | `coredns/cilium` or `pdns/cilium` is enabled | External IP for the coredns or PowerDNS Service, shared with the internal gateway. Sourced from `gateway.internal.ip`. |
 
 ## Components
 
@@ -269,6 +338,12 @@ _Enabled when `dns.private.driver: coredns` (provides DNS through the in-cluster
 
 Patches the HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone.
 
+### `resources/external-dns/providers/pdns`
+
+_Enabled when `dns.private.driver: pdns`._
+
+Patches the HelmRelease for the PowerDNS provider. The instance writes through `http://pdns-api.system-dns.svc.cluster.local:8081` with the API key from the `pdns-api` Secret.
+
 ### `resources/external-dns/sources/gateway-httproute`
 
 _Enabled when `gateway.enabled: true`._
@@ -296,6 +371,23 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 | `cilium` | `dns.private.driver: coredns` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
 | `gateway` | `dns.private.driver: coredns` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
 
+### `pdns`
+
+_Enabled when `dns.private.driver: pdns`._
+
+PowerDNS Authoritative in `system-dns`: a Deployment, a ConfigMap, the `pdns` Service on port 53 and the `pdns-api` ClusterIP Service on port 8081. The pods read the API key and the database credentials from Secrets.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `database` | `dns.private.driver: pdns` | The `pdns-db` CloudNativePG Cluster, with the PowerDNS `gpgsql` schema loaded at initdb. |
+| `zone-init` | `dns.private.driver: pdns` | Job that creates the private zone, and the public zone where PowerDNS serves it, through the API. |
+| `network-policy` | `dns.private.driver: pdns` | The API accepts connections from external-dns and the zone-init Job only. The database accepts connections from PowerDNS, its own instances and the database operator. Port 53 accepts any source. |
+| `prometheus` | `dns.private.driver: pdns` AND `telemetry.metrics.enabled: true` | ServiceMonitor on the API metrics endpoint, and a policy that admits Prometheus. |
+| `ha` | `dns.private.driver: pdns` AND `topology == 'ha'` | Two PowerDNS replicas and three database instances with required anti-affinity. |
+| `loadbalancer` | `dns.private.driver: pdns` AND `gateway.driver == 'cilium'` | Sets the `pdns` Service to type LoadBalancer. |
+| `cilium` | `dns.private.driver: pdns` AND `gateway.driver == 'cilium'` | LBIPAM annotations that share the internal gateway's address at `${dns_loadbalancer_ip}`. |
+| `gateway` | `dns.private.driver: pdns` AND `gateway.driver == 'envoy'` AND `gateway.enabled: true` | TCPRoute and UDPRoute on port 53 through the internal gateway. |
+
 ## Dependencies
 
 | Add-on | Required when | Reason |
@@ -303,7 +395,8 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 | `pki-install` | `dns.private.driver: coredns` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
 | `gateway-install` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
 | `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
-| `cni` | `dns.private.driver: coredns` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
+| `cni` | `dns.private.driver: coredns` or `pdns` AND `gateway.driver == 'cilium'` | The `cilium` and `loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
+| `database-install` | `dns.private.driver: pdns` | The `pdns-db` Cluster needs the CloudNativePG operator and its CRDs. |
 
 
 ## See also
@@ -311,6 +404,7 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 - [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for Route53 wiring.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for Azure DNS wiring.
 - [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) for coredns and etcd wiring.
+- [contexts/_template/facets/addon-private-dns-pdns.yaml](../../contexts/_template/facets/addon-private-dns-pdns.yaml) for PowerDNS wiring.
 - [terraform/dns/zone/route53/](../../terraform/dns/zone/route53/) for the Route53 zone creation (separate from this add-on).
 - [terraform/dns/zone/azure-dns/](../../terraform/dns/zone/azure-dns/) for the Azure DNS zone creation.
-- Related add-ons: [pki](../pki/) (etcd certs), [gateway](../gateway/) (HTTPRoute source), [policy](../policy/).
+- Related add-ons: [pki](../pki/) (etcd certs), [database](../database/) (pdns-db), [gateway](../gateway/) (HTTPRoute source), [policy](../policy/).

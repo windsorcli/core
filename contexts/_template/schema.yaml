@@ -1288,12 +1288,21 @@ properties:
             enum:
               - cloud
               - coredns
+              - pdns
               - none
-            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
+            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS; pdns runs in-cluster PowerDNS on a PostgreSQL database. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
           enabled:
             type: boolean
             deprecated: true
             description: Deprecated. Use dns.private.driver. true is an alias for coredns.
+          pdns:
+            type: object
+            description: Settings for the pdns driver.
+            properties:
+              api_key:
+                type: string
+                description: PowerDNS API key, as a secret reference. Unset uses a fixed development key when dev is true; otherwise the pdns driver rejects the context.
+            additionalProperties: false
         additionalProperties: false
     additionalProperties: false
 

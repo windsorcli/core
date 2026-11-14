@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - cluster.yaml
+configMapGenerator:
+  - name: pdns-schema
+    namespace: system-dns
+    files:
+      - schema.sql=schema.pgsql.sql
+    options:
+      disableNameSuffixHash: true

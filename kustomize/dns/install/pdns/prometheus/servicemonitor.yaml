@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pdns
+  namespace: system-dns
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: api
+      path: /metrics
+      interval: 30s
+      basicAuth:
+        username:
+          name: pdns-api
+          key: username
+        password:
+          name: pdns-api
+          key: api-key
