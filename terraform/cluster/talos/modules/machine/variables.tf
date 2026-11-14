@@ -34,9 +34,9 @@ variable "disk_selector" {
 }
 
 variable "image" {
-  description = "The Talos image to install."
+  description = "The Talos installer image. Null uses ghcr.io/siderolabs/installer at talos_version."
   type        = string
-  default     = "ghcr.io/siderolabs/installer:latest"
+  default     = null
 }
 
 variable "wipe_disk" {

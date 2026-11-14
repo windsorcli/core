@@ -21,3 +21,8 @@ output "health_check_id" {
   description = "ID of the node health check, known once the node is configured and healthy."
   value       = null_resource.node_healthcheck.id
 }
+
+output "install_image" {
+  description = "The Talos installer image for installs and upgrades."
+  value       = local.install_image
+}

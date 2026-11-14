@@ -31,10 +31,10 @@ config:
   - name: talos_node_targets
     value:
       controlplanes: >-
-        ${map(values(cluster.controlplanes.nodes ?? {}), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+        ${map(values(cluster.controlplanes.nodes ?? {}), fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image"])))}
       workers: >-
         ${(cluster.workers.count ?? 0) > 0
-          ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
+          ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image"])))
           : []}
 
 # =============================================================================
