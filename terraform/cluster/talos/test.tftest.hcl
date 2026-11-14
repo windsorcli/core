@@ -320,6 +320,46 @@ run "instance_id_propagates" {
   }
 }
 
+# Verifies that a node's install_image reaches its machine module and other nodes use the installer at talos_version
+run "install_image_propagates" {
+  command = plan
+
+  variables {
+    talos_version = "1.14.5"
+    controlplanes = [
+      {
+        endpoint      = "10.0.0.10:50000"
+        node          = "10.0.0.10"
+        install_image = "factory.talos.dev/metal-installer/abc123:v1.14.5"
+      },
+      {
+        endpoint = "10.0.0.11:50000"
+        node     = "10.0.0.11"
+      }
+    ]
+    workers = [
+      {
+        endpoint      = "10.0.0.20:50000"
+        node          = "10.0.0.20"
+        install_image = "factory.talos.dev/metal-installer/def456:v1.14.5"
+      }
+    ]
+  }
+
+  assert {
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/abc123:v1.14.5"
+    error_message = "controlplane_bootstrap should receive the controlplane's install_image"
+  }
+  assert {
+    condition     = module.controlplanes[0].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A controlplane without install_image should use the installer at talos_version"
+  }
+  assert {
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.5"
+    error_message = "worker module should receive the worker's install_image"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
