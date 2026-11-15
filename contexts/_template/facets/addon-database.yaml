@@ -168,6 +168,12 @@ flux:
       timeout: 15m
       interval: 10m
     resources:
+      - name: catalog
+        when: database.postgres.enabled == true
+        components:
+          - cloudnativepg/image-catalog
+        timeout: 5m
+        interval: 10m
       # Depends on provisioning-resources: gated on the Provider's own
       # Healthy/Installed conditions.
       - when: database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
@@ -215,15 +221,6 @@ flux:
           cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
         timeout: 5m
         interval: 5m
-
-  # Postgres image catalog the CloudNativePG Clusters reference.
-  - name: database
-    when: database.postgres.enabled == true
-    resources:
-      - components:
-          - cloudnativepg/image-catalog
-        timeout: 5m
-        interval: 10m
 
   # Grafana dashboard(s) matching whichever capabilities are active. CNPG
   # and cloud aren't mutually exclusive, so both can render at once.

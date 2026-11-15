@@ -43,7 +43,7 @@ flux:
 
   - name: dns
     dependsOn:
-      - "${dns.private.driver == 'coredns' ? 'pki-resources' : 'database-resources'}"
+      - "${dns.private.driver == 'coredns' ? 'pki-resources' : 'database-resources-catalog'}"
       - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
     install:
       components:

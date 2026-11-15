@@ -44,7 +44,8 @@ cases:
               - cloudnativepg
               - cloudnativepg/prometheus
           resources:
-            - components:
+            - name: catalog
+              components:
                 - cloudnativepg/image-catalog
         - name: observability
           resources:
