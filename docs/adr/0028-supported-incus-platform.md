@@ -1,6 +1,6 @@
 ---
 title: "ADR-0028: Incus becomes a supported platform"
-description: Set the rules that move incus from community grade to supported. A node address comes from the bridge DHCP lease or from an explicit ipv4, never from a guest agent. Windsor owns the signed Talos image feed. Extensions reach a node through an installer upgrade. An IncusOS cluster lane gates the grade.
+description: Set the rules that move incus from community grade to supported. A managed bridge reports addresses from DHCP leases. A LAN network gets DHCP through an Incus guest agent extension on the Talos image, or explicit addresses. Windsor owns the signed Talos image feed. An IncusOS cluster lane gates the grade.
 ---
 
 # ADR-0028: Incus becomes a supported platform
@@ -22,6 +22,8 @@ cluster has open defects ([core#2314](https://github.com/windsorcli/core/issues/
 [core#2319](https://github.com/windsorcli/core/issues/2319)) and no acceptance
 test. Three questions block the support grade: how Core learns the guest
 address, who provides the Talos image, and how a node gets Talos extensions.
+The goal for a LAN network is DHCP with no address written by hand, as on
+vSphere, Proxmox, and Hyper-V.
 
 Facts checked against source (Incus at commit `9b1793d`, 2026-11-15):
 
@@ -29,39 +31,60 @@ Facts checked against source (Incus at commit `9b1793d`, 2026-11-15):
   `cmd/` for `guest agent` and `qemu-ga` returns no file. The agent that Incus
   uses is its own `incus-agent`, reached over vsock.
 - For a VM with no `incus-agent`, `renderState` calls `getNetworkState`
-  (`driver_qemu.go:11953`, `:13098`). That function asks each NIC device for
-  its state, and only NIC types that implement `NICState` answer. Two do:
-  `nicBridged` (`nic_bridged.go:2131`) and `nicOVN` (`nic_ovn.go:1595`).
-  `macvlan`, `physical`, and `sriov` have no fallback.
+  (`driver_qemu.go:11953`, `:13098`). Only NIC types that implement `NICState`
+  answer, and two do: `nicBridged` (`nic_bridged.go:2131`) and `nicOVN`
+  (`nic_ovn.go:1595`). `macvlan`, `physical`, and `sriov` have no fallback.
 - `nicBridged.State` reads the network's `dnsmasq.leases` file for the NIC's MAC
-  (`GetLeaseAddresses`, `network_utils.go:949`) and then the host neighbor cache
-  of the NIC's `parent`. The lease file exists only for a managed bridge. An
-  unmanaged host bridge has no lease file, so only the neighbor cache applies.
+  (`GetLeaseAddresses`, `network_utils.go:949`), then the host neighbor cache.
+  Only a managed bridge has a lease file. The Incus maintainer confirms that an
+  agentless VM relies on these leases, and that a guest-set static address leaves
+  `incus list` empty ([lxc/incus#1579](https://github.com/lxc/incus/issues/1579)).
+- When the agent reports a network, `renderState` uses it and skips the NIC
+  fallback.
 - The Incus Terraform provider ends `wait_for` `ipv4` when any interface other
   than `lo` has an `inet` address, in any scope (`resource_instance.go:2100`).
-- `security.ipv4_filtering` exists only on `bridged` and `ovn` NICs. It stops
-  the instance from using another address and turns on `security.mac_filtering`
+- `security.ipv4_filtering` exists only on `bridged` and `ovn` NICs. `ipv4.address`
+  has no option on `macvlan`, `sriov`, or `physical` NICs
   ([NIC reference](https://linuxcontainers.org/incus/docs/main/reference/devices_nic/)).
-  `ipv4.address` has no option on `macvlan`, `sriov`, or `physical` NICs.
-- Incus runs one `dnsmasq` per managed bridge. A static lease binds to the NIC
-  MAC ([bridge reference](https://linuxcontainers.org/incus/docs/main/reference/network_bridge/)).
-  A cluster needs the same network defined on every member, instantiated on each
-  member ([cluster networks](https://linuxcontainers.org/incus/docs/main/howto/cluster_config_networks/)).
+- A cluster needs the same network defined on every member, and each member runs
+  its own bridge and `dnsmasq`
+  ([cluster networks](https://linuxcontainers.org/incus/docs/main/howto/cluster_config_networks/)).
 - `siderolabs/extensions` has no Incus extension. Its guest agents are
-  `hyperv`, `qemu`, `vmtoolsd`, `xen`, and `metal-agent`. `siderolabs/talos` and
-  `siderolabs/image-factory` contain no mention of Incus. Image Factory serves
+  `hyperv`, `qemu`, `vmtoolsd`, `xen`, and `metal-agent`. Request
+  [siderolabs/talos#9040](https://github.com/siderolabs/talos/issues/9040)
+  closed as stale with no maintainer reply. Neither `siderolabs/talos` nor
+  `siderolabs/image-factory` mentions Incus. Image Factory serves
   `metal-amd64.qcow2` and `metal-arm64.qcow2`
   (`internal/integration/download_test.go:796`), signs the installer images it
   makes, and documents no availability or support level for the public service.
-- Core resolves extensions today through `cluster/talos/extensions`. It builds a
-  `factory.talos.dev/installer/<schematic>:v<version>` image and calls
-  `windsor upgrade node`. The CLI already takes `--reboot-mode powercycle`
-  (`cmd/upgrade.go`), and `option-storage.yaml` passes it for `incus`.
+- The Incus maintainer declines to host Talos images and points users to Image
+  Factory ([lxc/lxc-ci#954](https://github.com/lxc/lxc-ci/issues/954)).
 - `windsorcli/talos-incus` converts the Siderolabs `metal-<arch>.raw.zst` to
-  qcow2, signs it with cosign (GitHub OIDC), and serves it through a Cloudflare
-  Worker at `images.windsorcli.dev`. The Worker adds the `Incus-Image-Hash` and
+  qcow2, signs it with cosign, and serves it through a Cloudflare Worker at
+  `images.windsorcli.dev`. The Worker adds the `Incus-Image-Hash` and
   `Incus-Image-URL` headers that Incus needs to import from a URL. Its README
   says the images are not for production.
+
+Spike results (Colima, Incus 6.20, Talos v1.14.6 arm64, 2026-11-15):
+
+- With no agent, a Talos VM on the managed bridge shows its lease address in
+  `incus list`.
+- The Talos kernel has no 9p (`CONFIG_NET_9P` is not set in `siderolabs/pkgs`).
+  `virtio_fs`, `virtio_vsock`, and `virtio_console` are modules. ISO9660 and
+  CD-ROM support are built in.
+- Incus exports its built-in `config` and `agent` drives over 9p, which Talos
+  cannot mount. A disk device with `source=agent:config` instead attaches an
+  ISO9660 CD-ROM (label `incus-agent`) that Talos shows as `sr0`. It holds the
+  `incus-agent` binary, the certificates, and the agent config.
+- `machine.kernel.modules` loads `vmw_vsock_virtio_transport` and
+  `virtio_console` with no reboot.
+- A privileged pod mounted `sr0`, copied it to `/run/incus_agent`, and ran
+  `incus-agent`. Incus connected over vsock, and `incus list` showed the guest
+  interfaces and addresses.
+
+The spike ran the agent as a pod, which exists only after Kubernetes starts. It
+did not test an extension service, a NIC with no lease fallback, amd64, or a
+start in maintenance mode.
 
 ## Decision
 
@@ -72,16 +95,18 @@ network name.
 
 | `incus.network` | Address source | `wait_for_ipv4` |
 |---|---|---|
-| Unset (Core creates a NAT bridge) | The bridge DHCP lease that Incus reads. An explicit `ipv4` becomes `ipv4.address` on the NIC, which is a static lease by MAC. | `true` |
-| Set (a LAN network) | An explicit `ipv4` per node, reserved on the LAN DHCP server for the node MAC. | `false` |
+| Unset (Core creates a NAT bridge) | The bridge DHCP lease that Incus reads. An explicit `ipv4` becomes `ipv4.address` on the NIC, a static lease by MAC. | `true` |
+| Set, `network.dhcp: true` | DHCP from the LAN server. The guest agent reports the address to Incus. | `true` |
+| Set, explicit `ipv4` per node | The declared address, reserved on the LAN DHCP server for the node MAC. | `false` |
 
-The existing `requires` rules in `platform-incus.yaml` already enforce the
-LAN row, and they stay. The guest agent is not part of either row.
+The LAN rows follow ADR 0023: a LAN context needs `network.dhcp: true` or a full
+node map in `cluster.controlplanes.nodes` and `cluster.workers.nodes`. The
+`platform-incus.yaml` rules that today demand explicit addresses on every LAN
+network change to match. The LAN DHCP row is available only when section 2
+passes its gates. Until then the rule demands explicit addresses.
 
 The module MUST wait for an address only when `wait_for_ipv4` is `true`. A
 declared `ipv4` MUST NOT force a wait ([core#2314](https://github.com/windsorcli/core/issues/2314)).
-On a LAN network, `ipv4` is the address Core uses to reach the node. It is not
-pushed to the NIC.
 
 The module MUST pass `ipv4_filtering_enabled` from the instance entry to the NIC
 (core#2314). The default is `false`, because load balancer VIPs use addresses
@@ -92,19 +117,43 @@ The module MUST pick the address Core uses from a `global` scope `inet` entry.
 The provider ends its wait on any scope, so a link-local neighbor entry can
 end the wait early.
 
-### 2. The QEMU guest agent is not used
+### 2. The Incus guest agent extension
 
-The `siderolabs/qemu-guest-agent` extension MUST NOT be added for Incus. Incus
-never reads it. The extension serves hypervisors that query it, such as
-Proxmox. Talos cannot run `incus-agent`, and `siderolabs/extensions` has no
-extension for it, so `incus` MUST NOT depend on an agent of either kind.
+Incus never reads the QEMU guest agent, so the `siderolabs/qemu-guest-agent`
+extension MUST NOT be used for `incus`. LAN DHCP needs `incus-agent` inside the
+guest, which needs three parts:
+
+- Core adds a disk device with `source=agent:config` to every VM. The compute
+  module has no such device today.
+- The Talos machine config loads `vmw_vsock_virtio_transport` and
+  `virtio_console` through `machine.kernel.modules`, unless the extension
+  loads them.
+- A Talos system extension (`incus-guest-agent`) runs a service that mounts the
+  CD-ROM labelled `incus-agent`, copies it to `/run/incus_agent`, and runs the
+  `incus-agent` binary from it. The Incus host supplies that binary, so the
+  extension builds and ships no Incus code.
+
+The Windsor maintainers write the extension and submit it to
+`siderolabs/extensions`. Core MUST NOT depend on a Windsor-only extension, because
+Image Factory takes only registered extensions (section 4).
+
+The LAN DHCP row of section 1 ships only after these gates pass:
+
+1. The service starts in maintenance mode, before any machine config. Core
+   needs the address to apply the config.
+2. The service runs as an extension service, with the capability to mount
+   ISO9660.
+3. A VM on a `macvlan` network shows its address in `incus list`.
+4. The same holds on `amd64` and after a Talos upgrade.
+
+If gate 1 fails, LAN DHCP is dropped and a LAN network keeps explicit addresses.
 
 ### 3. Supported topologies
 
 | Topology | Grade | Rule |
 |---|---|---|
 | One host, Core-created bridge | Supported | Section 1, first row. |
-| One host, LAN network | Supported | Section 1, second row. |
+| One host, LAN network | Supported | Section 1, LAN rows. |
 | Incus cluster, LAN network, `incus.targets` set | Supported | The same network MUST exist on every member. |
 | Incus cluster, Core-created bridge | Rejected | Each member runs its own bridge and `dnsmasq`, so VMs on two members share a subnet but not a link. |
 | OVN network | Not supported | The OVN NIC reports leases, so a later ADR MAY add it. |
@@ -127,13 +176,14 @@ Windsor owns the Talos image feed for `incus`. Siderolabs does not publish one.
 
 - The Windsor core team owns the repository, the Worker, and the signing
   identity.
-- The build MUST take the Siderolabs `metal-<arch>.qcow2` for the empty
-  schematic from Image Factory, and MUST NOT convert from raw.
+- The build MUST take the Siderolabs `metal-<arch>.qcow2` from Image Factory for
+  the schematic that holds `incus-guest-agent`, and MUST NOT convert from raw.
+  Until the extension is registered with Image Factory, the feed uses the empty
+  schematic and section 1 keeps explicit LAN addresses.
 - A release for each new Talos version MUST publish for both `amd64` and
   `arm64` before Core pins that version.
-- Each artifact MUST carry a cosign bundle. Incus verifies the file hash from the
-  index, not the cosign bundle, so cosign is a manual check and the README says
-  so.
+- Each artifact MUST carry a cosign bundle. Incus checks the file hash, not the
+  cosign bundle, so cosign is a manual check and the README says so.
 - The README MUST drop the "not for production" notice when the first supported
   release ships.
 - `cluster.controlplanes.image` and `cluster.workers.image` stay as the override
@@ -143,18 +193,16 @@ Core stays on the `windsor:` remote.
 
 ### 5. Extensions reach a node by installer upgrade
 
-The feed image carries no extensions. A node gets Talos extensions through
-`cluster/talos/extensions`, which upgrades the node to
-`factory.talos.dev/installer/<schematic>:v<version>`. This is the path that
-Image Factory documents for replacing the installed extension set.
+A node gets Talos extensions through `cluster/talos/extensions`, which upgrades
+the node to `factory.talos.dev/installer/<schematic>:v<version>`. This is the
+path that Image Factory documents for replacing the installed extension set. The
+schematic MUST always include `incus-guest-agent`, or the upgrade removes it.
 
 - The upgrade MUST use `--reboot-mode powercycle` on `incus`. The nested VM does
   not complete a kexec reboot ([core#2319](https://github.com/windsorcli/core/issues/2319)).
 - The step MUST do nothing when the node already runs the target schematic.
 - The first boot and the upgrade reboot are one cost per node. A node replace
   repeats it.
-
-A per-schematic image import is not part of this ADR (see Alternatives).
 
 ### 6. Storage default
 
@@ -186,9 +234,8 @@ same gaps, so they do not block the grade. The platform guide MUST list them.
 
 The `acceptance` repo gets an `incus` context on an IncusOS cluster. The lane
 runs `windsor up`, replaces one node, upgrades Talos with `windsor upgrade node`,
-and runs `windsor down`. It uses a LAN network and explicit node addresses
-(section 1). IncusOS names its default pool `local`, so the context sets
-`incus.storage_pool: local`.
+and runs `windsor down`. It uses a LAN network. IncusOS names its default pool
+`local`, so the context sets `incus.storage_pool: local`.
 
 The lane needs a host. The ADR proposes a maintainer-owned IncusOS cluster with
 a self-hosted runner. CI MUST NOT select the context on a pull request, the same
@@ -199,26 +246,30 @@ release pair. Until then `incus` stays community grade.
 
 ## Consequences
 
-- One address rule covers both network types, and it fits in one table in the
-  platform guide.
-- The `qemu-guest-agent` extension stays out of the Incus path, so a node needs
-  no extension to report its address.
+- One address table covers a managed bridge and a LAN, and it fits in the platform
+  guide.
+- LAN DHCP depends on an extension that Siderolabs must accept. Until it ships,
+  a LAN network needs explicit addresses.
 - Windsor carries the cost of a signed image feed. A missed Talos release blocks
   `incus` users from the new version.
 - A node that needs an extension reboots once after first boot.
-- A cluster needs a LAN network and reserved addresses. A single-host user keeps
-  the zero-setup bridge.
+- A cluster needs a LAN network. A single-host user keeps the zero-setup bridge.
 - A user with `incus.targets` and no `incus.network` fails composition after
   this ADR ships.
 
 ## Alternatives considered
 
-A guest agent for address reporting. Incus never reads the QEMU guest agent, and
-no Incus agent extension exists, so no agent gives Incus an address.
-
 An explicit `ipv4` on every network, including the bridge. This removes the lease
-read but makes the zero-setup single-host case write addresses by hand. ADR 0023
-already chose DHCP or explicit values.
+read but makes the zero-setup single-host case write addresses by hand. It also
+gives up the LAN DHCP goal.
+
+The agent as a Kubernetes DaemonSet. It runs only after the cluster exists, so
+it cannot report the address that Core needs to apply the machine config.
+
+A `cloud-init:config` static address for LAN nodes. Incus attaches an ISO with
+the `cidata` label and Talos `nocloud` reads it, so Core could set the address.
+It needs the `nocloud` image and still needs a declared address per node. It
+stays an open option for sites that refuse the extension.
 
 A Core-created bridge on a cluster. The members do not share a link, so it
 cannot carry one cluster.
@@ -237,9 +288,11 @@ so the platform would stay community grade with no end date.
 ## References
 
 - Incus source: `internal/server/instance/drivers/driver_qemu.go`,
-  `internal/server/device/nic_bridged.go`, `internal/server/network/network_utils.go`.
+  `internal/server/device/nic_bridged.go`, `internal/server/device/disk.go`,
+  `internal/server/network/network_utils.go`.
 - terraform-provider-incus: `internal/instance/resource_instance.go`.
 - siderolabs/image-factory: `internal/integration/download_test.go`.
+- siderolabs/pkgs: `kernel/build/config-arm64`, `kernel/build/config-amd64`.
 - Talos: [Image Factory](https://docs.siderolabs.com/talos/v1.13/learn-more/image-factory).
 - `terraform/compute/incus/`, `contexts/_template/facets/platform-incus.yaml`,
   `contexts/_template/facets/option-storage.yaml`.
