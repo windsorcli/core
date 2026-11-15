@@ -22,6 +22,10 @@ a CloudNativePG database, and external-dns writes records through the
 PowerDNS REST API. `pdns` replaces `coredns` as a whole; a context
 runs one of them.
 
+PowerDNS answers on the internal gateway address only. It is not exposed
+to the internet, and `dns.public_domain` is served there as a hostname zone
+for private resolution.
+
 `pdns-remote` points external-dns at an existing PowerDNS server instead.
 It installs no server, database or zone-init Job, and it requires
 `dns.private.pdns.url` and `dns.private.pdns.api_key`.
