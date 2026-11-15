@@ -19,7 +19,3 @@ spec:
     initdb:
       database: pdns
       owner: pdns
-      postInitApplicationSQLRefs:
-        configMapRefs:
-          - name: pdns-schema
-            key: schema.sql

@@ -38,17 +38,43 @@ spec:
                     values:
                       - system
       initContainers:
-        - name: wait-for-db
+        - name: wait-for-schema
           # artifact: type=image name=ghcr.io/cloudnative-pg/postgresql
           image: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
           command: ["/bin/sh", "-c"]
           args:
-            - until pg_isready -h pdns-db-rw -p 5432; do sleep 2; done
+            - |
+              want=$(ls /migrations | sort | tail -n1 | cut -d_ -f1 | sed 's/^0*//')
+              until [ "$(psql -tAc 'SELECT max(version) FROM schema_migrations' 2>/dev/null)" = "$want" ]; do sleep 2; done
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: host
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: dbname
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: password
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
       containers:
         - name: pdns
           # artifact: type=image name=docker.io/powerdns/pdns-auth-51
@@ -126,3 +152,6 @@ spec:
             name: pdns-config
         - name: conf-d
           emptyDir: {}
+        - name: migrations
+          configMap:
+            name: pdns-migrations

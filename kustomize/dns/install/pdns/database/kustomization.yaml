@@ -2,10 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
   - cluster.yaml
+  - migrate-job.yaml
 configMapGenerator:
-  - name: pdns-schema
+  - name: pdns-migrations
     namespace: system-dns
     files:
-      - schema.sql=schema.pgsql.sql
-    options:
-      disableNameSuffixHash: true
+      - migrations/0001_initial.sql

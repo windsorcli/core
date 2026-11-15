@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pdns-db-migrate
+  namespace: system-dns
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pdns-db-migrate
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 26
+        runAsGroup: 26
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          # artifact: type=image name=ghcr.io/cloudnative-pg/postgresql
+          image: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              until pg_isready -q; do sleep 2; done
+              psql -v ON_ERROR_STOP=1 -q -c 'CREATE TABLE IF NOT EXISTS schema_migrations (version INT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())'
+              for f in $(ls /migrations | sort); do
+                v=$(echo "$f" | cut -d_ -f1 | sed 's/^0*//')
+                if [ "$(psql -tAc "SELECT 1 FROM schema_migrations WHERE version = $v")" != 1 ]; then
+                  psql -v ON_ERROR_STOP=1 -q --single-transaction -f "/migrations/$f" -c "INSERT INTO schema_migrations (version) VALUES ($v)"
+                fi
+              done
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: host
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: dbname
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-db-app
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: migrations
+          configMap:
+            name: pdns-migrations

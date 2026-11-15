@@ -379,7 +379,7 @@ PowerDNS Authoritative in `system-dns`: a Deployment, a ConfigMap, the `pdns` Se
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `database` | `dns.private.driver: pdns` | The `pdns-db` CloudNativePG Cluster, with the PowerDNS `gpgsql` schema loaded at initdb. |
+| `database` | `dns.private.driver: pdns` | The `pdns-db` CloudNativePG Cluster, and a Job that applies the numbered SQL files in `install/pdns/database/migrations/` in order and records each in `schema_migrations`. PowerDNS waits for the latest version before it starts. |
 | `zone-init` | `dns.private.driver: pdns` | Job that creates the private zone, and the public zone where PowerDNS serves it, through the API. |
 | `network-policy` | `dns.private.driver: pdns` | The API accepts connections from external-dns and the zone-init Job only. The database accepts connections from PowerDNS, its own instances and the database operator. Port 53 accepts any source. |
 | `prometheus` | `dns.private.driver: pdns` AND `telemetry.metrics.enabled: true` | ServiceMonitor on the API metrics endpoint, and a policy that admits Prometheus. |

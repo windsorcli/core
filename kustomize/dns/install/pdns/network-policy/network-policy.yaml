@@ -42,6 +42,9 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: pdns
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-db-migrate
       ports:
         - port: 5432
           protocol: TCP
