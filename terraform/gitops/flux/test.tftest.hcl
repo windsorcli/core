@@ -455,8 +455,8 @@ run "upstream_locations_by_default" {
   }
 
   assert {
-    condition     = startswith(kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image, "alpine/k8s:")
-    error_message = "readiness gate should default to the pinned alpine/k8s image"
+    condition     = regex("^[^:@]+", kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image) == "ghcr.io/windsorcli/utils"
+    error_message = "readiness gate should default to the pinned utils image"
   }
 
   assert {
@@ -475,7 +475,7 @@ run "mirror_locations" {
     operator_image_repository = "registry.example.com/controlplaneio-fluxcd/flux-operator"
     distribution_registry     = "registry.example.com/fluxcd"
     distribution_artifact     = "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0"
-    ready_gate_image          = "registry.example.com/alpine/k8s:1.37.0"
+    ready_gate_image          = "registry.example.com/windsorcli/utils:1.37.2-r1"
   }
 
   assert {
@@ -512,7 +512,7 @@ run "mirror_locations" {
   }
 
   assert {
-    condition     = kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image == "registry.example.com/alpine/k8s:1.37.0"
+    condition     = kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image == "registry.example.com/windsorcli/utils:1.37.2-r1"
     error_message = "readiness gate image should follow ready_gate_image"
   }
 }
