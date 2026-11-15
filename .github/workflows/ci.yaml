@@ -222,7 +222,8 @@ jobs:
         yq --version
         jq --version
         curl --version
-        echo probe | gpg --batch --pinentry-mode loopback --passphrase probe -c | gpg --batch --pinentry-mode loopback --passphrase probe -d
+        echo probe | gpg --batch --pinentry-mode loopback --passphrase probe -c > /tmp/probe.gpg
+        gpg --batch --pinentry-mode loopback --passphrase probe -d /tmp/probe.gpg
         openssl rand -hex 4
 
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
