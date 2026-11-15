@@ -97,12 +97,12 @@ cases:
             private-ca-keypair:
               namespaces: [system-pki]
               data:
-                tls.crt: ${terraform_output('pki', 'cert')}
-                tls.key: ${terraform_output('pki', 'key')}
+                tls.crt: "${terraform_output('pki', 'cert')}"
+                tls.key: "${terraform_output('pki', 'key')}"
             private-ca-trust-cert:
               namespaces: [system-pki-trust]
               data:
-                tls.crt: ${terraform_output('pki', 'cert')}
+                tls.crt: "${terraform_output('pki', 'cert')}"
 
   # Supplying only one of cert/key must fail composition, not silently fall
   # back to a generated CA.
@@ -213,7 +213,7 @@ cases:
             pki-trusted-cas:
               namespaces: [system-pki-trust]
               data:
-                ca.crt: ${join(pki.trusted_cas, '\n')}
+                ca.crt: "${join(pki.trusted_cas, '\\n')}"
       kustomize:
         - name: pki-resources
           components:
