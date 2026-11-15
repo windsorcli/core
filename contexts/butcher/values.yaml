@@ -20,5 +20,3 @@ telemetry:
     enabled: false
   alerts:
     enabled: false
-dns:
-  domain: test
