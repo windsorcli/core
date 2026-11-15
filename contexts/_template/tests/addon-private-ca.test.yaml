@@ -97,21 +97,12 @@ cases:
             private-ca-keypair:
               namespaces: [system-pki]
               data:
-                tls.crt: |-
-                  -----BEGIN CERTIFICATE-----
-                  FAKECERT
-                  -----END CERTIFICATE-----
-                tls.key: |-
-                  -----BEGIN EC PRIVATE KEY-----
-                  FAKEKEY
-                  -----END EC PRIVATE KEY-----
+                tls.crt: ${terraform_output('pki', 'cert')}
+                tls.key: ${terraform_output('pki', 'key')}
             private-ca-trust-cert:
               namespaces: [system-pki-trust]
               data:
-                tls.crt: |-
-                  -----BEGIN CERTIFICATE-----
-                  FAKECERT
-                  -----END CERTIFICATE-----
+                tls.crt: ${terraform_output('pki', 'cert')}
 
   # Supplying only one of cert/key must fail composition, not silently fall
   # back to a generated CA.
@@ -222,13 +213,7 @@ cases:
             pki-trusted-cas:
               namespaces: [system-pki-trust]
               data:
-                ca.crt: |-
-                  -----BEGIN CERTIFICATE-----
-                  ROOTA
-                  -----END CERTIFICATE-----
-                  -----BEGIN CERTIFICATE-----
-                  ROOTB
-                  -----END CERTIFICATE-----
+                ca.crt: ${join(pki.trusted_cas, '\n')}
       kustomize:
         - name: pki-resources
           components:

@@ -135,7 +135,7 @@ cases:
           secrets:
             grafana-oidc-client:
               data:
-                clientSecret: s3cret-from-provider
+                clientSecret: ${observability.grafana.client_secret}
           install:
             components:
               - grafana/oidc
