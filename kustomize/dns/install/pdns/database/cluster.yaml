@@ -5,8 +5,11 @@ metadata:
   namespace: system-dns
 spec:
   instances: 1
-  # artifact: type=image name=ghcr.io/cloudnative-pg/postgresql
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
+  imageCatalogRef:
+    apiGroup: postgresql.cnpg.io
+    kind: ClusterImageCatalog
+    name: postgresql
+    major: 17
   storage:
     size: 1Gi
   resources:

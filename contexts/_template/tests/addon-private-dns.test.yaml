@@ -697,7 +697,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - database-install
+            - database-resources-catalog
             - cni-install
           install:
             components:
@@ -754,7 +754,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - database-install
+            - database-resources-catalog
             - gateway-install
           install:
             components:
