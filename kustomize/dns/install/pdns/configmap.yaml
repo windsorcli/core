@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pdns-config
+  namespace: system-dns
+data:
+  pdns.conf: |
+    launch=gpgsql
+    include-dir=/etc/powerdns/pdns.d
+    local-address=0.0.0.0,::
+    local-port=5300
+    cache-ttl=20
+    query-cache-ttl=20
+    default-soa-content=ns1.@ hostmaster.@ 0 10800 3600 604800 3600
+    security-poll-suffix=
+  gpgsql.j2: |
+    gpgsql-host={{ DB_HOST }}
+    gpgsql-port=5432
+    gpgsql-dbname={{ DB_NAME }}
+    gpgsql-user={{ DB_USER }}
+    gpgsql-password={{ DB_PASSWORD }}

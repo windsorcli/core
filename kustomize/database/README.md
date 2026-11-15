@@ -120,6 +120,12 @@ _Enabled when `database.postgres.enabled == true` AND `topology == 'single-node'
 
 Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins.
 
+### `cloudnativepg/image-catalog`
+
+_Enabled when `database.postgres.enabled == true`._
+
+A `ClusterImageCatalog` named `postgresql` that maps major version 17 to a digest-pinned Postgres image. A `Cluster` selects it with `imageCatalogRef: {apiGroup: postgresql.cnpg.io, kind: ClusterImageCatalog, name: postgresql, major: 17}`. It lands in the `database-resources-catalog` Kustomization.
+
 ### `crossplane/postgres/aws-rds`
 
 _Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'rds'`._

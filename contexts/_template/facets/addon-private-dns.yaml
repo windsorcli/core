@@ -2,73 +2,76 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: private-dns
-  description: Self-hosted CoreDNS for private DNS zones
+  description: Self-hosted private DNS zones, served by CoreDNS or PowerDNS
 
-when: dns.private.driver == 'coredns'
+when: dns.private.driver in ['coredns', 'pdns', 'pdns-remote']
 
 requires:
   - paths:
       - dns.private_domain
     message: Self-hosted private DNS serves and publishes records into this zone.
-  # Workstation contexts reach CoreDNS through the node port instead.
+  - when: dns.private.driver == 'pdns-remote'
+    paths:
+      - dns.private.pdns.url
+      - dns.private.pdns.api_key
+    message: An existing PowerDNS server is reached through its API URL and key.
+  - when: dns.private.driver == 'pdns' && database.postgres.enabled == false
+    message: The pdns driver stores its zones in the in-cluster PostgreSQL database; unset database.postgres.enabled or set it to true.
+  # Workstation contexts reach the server through the node port instead.
   - when: >-
-      gateway.enabled == true && (workstation.runtime ?? '') == '' &&
+      dns.private.driver != 'pdns-remote' && gateway.enabled == true && (workstation.runtime ?? '') == '' &&
       gateway_exposure.internal == 'NodePort'
     message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
+# pdns stores its zones in CloudNativePG.
+config:
+  - name: database
+    when: dns.private.driver == 'pdns'
+    value:
+      postgres:
+        enabled: "${database.postgres.enabled != false}"
+
 # =============================================================================
-# Kustomize — CoreDNS + external-dns
+# Kustomize — CoreDNS or PowerDNS + external-dns
 # =============================================================================
 #
-# Single kustomization with many conditional components. The dependency on
-# pki-resources is unconditional: the etcd certificates are issued by the
-# ClusterIssuer that tier creates, so waiting on pki-install alone admits this
-# kustomization into a health check no issuer can satisfy. The second dep
-# depends on the gateway driver:
+# coredns waits for pki-resources (etcd certificates); pdns waits for the database resources tier.
+# The gateway dep is cni under Cilium, gateway-install under Envoy.
 #
-#   - Cilium: CoreDNS is exposed via a LoadBalancer Service with LBIPAM, so
-#     we wait for cni (Cilium's Gateway controller is part of the CNI).
-#   - Envoy / other: CoreDNS port-53 listeners are attached to the edge
-#     Gateway via UDP/TCP routes, so we wait for gateway-install to install the
-#     route CRDs — but only when the gateway is actually enabled. If no
-#     gateway exists, fall through to an empty dep (CoreDNS runs internally
-#     but isn't reachable from outside).
+# external-dns has no topology: ha component: no confirmed leader election at the pinned version.
 #
-# Conditional components:
-#   - coredns/prometheus:     ServiceMonitor so this instance is covered by
-#                             the shared prometheus/alerts/coredns rules.
-#   - coredns/ha:             multi-replica + anti-affinity.
-#   - coredns/loadbalancer:   Service type LoadBalancer (Cilium only).
-#   - coredns/cilium:         LBIPAM annotation to share the gateway IP.
-#   - coredns/gateway:        TCPRoute/UDPRoute on port 53 (Envoy only).
-#
-# external-dns has no topology: ha component: it has no confirmed leader
-# election at the pinned version, so running more than one replica risks
-# racy or duplicate DNS provider writes rather than clean failover.
-#
+terraform:
+  - name: pdns
+    path: dns/pdns-api-key
+    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
+
 flux:
 
   - name: dns
     dependsOn:
-      - pki-resources
-      - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
+      - "${dns.private.driver == 'coredns' ? 'pki-resources' : (dns.private.driver == 'pdns' ? 'database-resources-catalog' : '')}"
+      - "${dns.private.driver == 'pdns-remote' ? '' : (gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : ''))}"
     install:
       components:
-        - coredns
-        - coredns/etcd
-        - "${dns_private_effective.public_zone == true ? 'coredns/public-zone' : ''}"
-        - "${telemetry.metrics.enabled ? 'coredns/prometheus' : ''}"
-        - "${topology == 'ha' ? 'coredns/ha' : ''}"
-        - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
-        - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"
-        - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
+        - "${dns.private.driver == 'pdns-remote' ? '' : dns.private.driver}"
+        - "${dns.private.driver == 'coredns' ? 'coredns/etcd' : ''}"
+        - "${dns_private_effective.public_zone == true && dns.private.driver == 'coredns' ? 'coredns/public-zone' : ''}"
+        - "${telemetry.metrics.enabled && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/prometheus' : ''}"
+        - "${topology == 'ha' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/ha' : ''}"
+        - "${gateway.driver == 'cilium' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/loadbalancer' : ''}"
+        - "${gateway.driver == 'cilium' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/cilium' : ''}"
+        - "${gateway.driver == 'envoy' && gateway.enabled == true && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/gateway' : ''}"
       substitutions:
         private_domain: ${dns.private_domain}
-        public_domain: "${dns.public_domain ?? ''}"
+        public_domain: "${dns_private_effective.public_zone == true ? dns.public_domain : ''}"
         dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
+      healthCheckExprs:
+        - apiVersion: postgresql.cnpg.io/v1
+          kind: Cluster
+          current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
       timeout: 20m
       interval: 5m
-    # One external-dns instance per CoreDNS zone, writing to the etcd backend.
+    # One external-dns instance per zone, writing to the server's backend.
     resources:
       - name: account
         components:
@@ -81,12 +84,15 @@ flux:
           - dns-resources-account
         components:
           - external-dns
-          - external-dns/providers/coredns
+          - "external-dns/providers/${dns.private.driver}"
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
           - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
+          txt_owner_id: "${id}"
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
       - name: private
@@ -94,11 +100,31 @@ flux:
           - dns-resources-account
         components:
           - external-dns
-          - external-dns/providers/coredns
+          - "external-dns/providers/${dns.private.driver}"
           - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
           - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
         substitutions:
           external_dns_name: external-dns-private
           external_dns_domain: ${dns.private_domain}
+          txt_owner_id: "${id}"
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
+
+  # PowerDNS API key, supplied case.
+  - name: dns
+    when: dns.private.driver in ['pdns', 'pdns-remote'] && (dns.private.pdns.api_key ?? '') != ''
+    secrets:
+      pdns-api:
+        data:
+          username: ${'pdns'}
+          api-key: ${dns.private.pdns.api_key}
+  # PowerDNS API key, generated case.
+  - name: dns
+    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
+    secrets:
+      pdns-api:
+        data:
+          username: ${'pdns'}
+          api-key: ${terraform_output('pdns', 'api_key')}

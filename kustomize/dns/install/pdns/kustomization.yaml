@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - service-account.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - service-api.yaml
+  - network-policy.yaml
+  - database/cluster.yaml
+  - database/migrate-job.yaml
+  - database/network-policy.yaml
+  - zone-init/job.yaml
+configMapGenerator:
+  - name: pdns-migrations
+    namespace: system-dns
+    files:
+      - database/migrations/0001_initial.sql

@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pdns-db
+  namespace: system-dns
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: pdns-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-db-migrate
+      ports:
+        - port: 5432
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: pdns-db
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: system-database

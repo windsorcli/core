@@ -401,7 +401,7 @@ terraform:
 flux:
 
   - name: gateway
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && dns.private.driver == 'coredns'"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && dns.private.driver in ['coredns', 'pdns']"
     resources:
       - name: internal
         components:
