@@ -13,12 +13,12 @@ spec:
       serviceAccountName: kyverno-webhook-probe
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 65532
+        runAsGroup: 65532
       containers:
       - name: probe
-        # artifact: type=image name=docker.io/alpine/k8s
-        image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+        # artifact: type=image name=ghcr.io/windsorcli/utils
+        image: ghcr.io/windsorcli/utils:c17517991f0f@sha256:b536ee3f7b791eb4a6cb7ba30f741fdb0499ee4cf778d889dd19a31a4397d96b
         command: ["/bin/sh", "-c"]
         args:
         - |

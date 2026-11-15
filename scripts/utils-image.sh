@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Locks the packages in images/utils, then sets the image tag and digest in each kustomize/ reference.
+#
+#   scripts/utils-image.sh             lock the packages, then write the tag and digest
+#   scripts/utils-image.sh --write-ref write only the tag and digest (no lock)
+#   scripts/utils-image.sh --check     verify each reference uses the tag; non-zero on drift (CI)
+#   scripts/utils-image.sh --tag       print the tag
+#   scripts/utils-image.sh --digest    print the digest that the references pin
+
+set -euo pipefail
+
+IMAGE_DIR="images/utils"
+CONFIG="$IMAGE_DIR/apko.yaml"
+LOCK="$IMAGE_DIR/apko.lock.json"
+IMAGE="ghcr.io/windsorcli/utils"
+IMAGE_RE="ghcr\\.io/windsorcli/utils"
+REF_RE="${IMAGE_RE}:[0-9a-f]+@sha256:[0-9a-f]{64}"
+SEARCH_DIRS="kustomize"
+MODE="${1:-}"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# image_tag -> the tag for the current content of IMAGE_DIR
+image_tag() {
+  (cd "$IMAGE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) \
+    | sha256sum | cut -c1-12
+}
+
+# ref_files -> each file under SEARCH_DIRS that references IMAGE, or an error when none does
+ref_files() {
+  local files
+  files=$(grep -rlE "$IMAGE_RE" $SEARCH_DIRS | LC_ALL=C sort) || true
+  if [ -z "$files" ]; then
+    echo "error: no file under $SEARCH_DIRS references $IMAGE" >&2
+    exit 1
+  fi
+  echo "$files"
+}
+
+# refs -> each distinct reference to IMAGE, or an error when one has no tag and digest
+refs() {
+  local files bad
+  files=$(ref_files)
+  # shellcheck disable=SC2086
+  bad=$(grep -hoE "${IMAGE_RE}[^[:space:]\"']*" $files | grep -vxE "$REF_RE" | grep -vxE "$IMAGE_RE" || true)
+  if [ -n "$bad" ]; then
+    echo "error: each reference MUST have the form ${IMAGE}:<tag>@sha256:<digest>: $bad" >&2
+    exit 1
+  fi
+  # shellcheck disable=SC2086
+  grep -hoE "$REF_RE" $files | LC_ALL=C sort -u
+}
+
+# pinned_digest -> the digest that every reference pins, or an error when they differ
+pinned_digest() {
+  local digests
+  digests=$(refs | sed 's/.*@//' | LC_ALL=C sort -u)
+  if [ "$(echo "$digests" | wc -l)" -ne 1 ]; then
+    echo "error: the references to $IMAGE pin more than one digest:" >&2
+    echo "$digests" >&2
+    exit 1
+  fi
+  echo "$digests"
+}
+
+# build_digest -> the index digest of a local apko build of IMAGE_DIR
+build_digest() {
+  apko build --sbom=false --lockfile "$LOCK" "$CONFIG" "$IMAGE:build" "$work/image.tar" >"$work/build.log" 2>&1 || {
+    cat "$work/build.log" >&2
+    exit 1
+  }
+  echo "sha256:$(tar -xOf "$work/image.tar" index.json | sha256sum | cut -d' ' -f1)"
+}
+
+# write_ref -> writes the tag and digest for the current content of IMAGE_DIR into each reference
+write_ref() {
+  local tag digest file
+  tag=$(image_tag)
+  digest=$(build_digest)
+  for file in $(ref_files); do
+    sed -E "s#${REF_RE}#${IMAGE}:${tag}@${digest}#g" "$file" > "$work/file"
+    cat "$work/file" > "$file"
+  done
+  echo "Set ${IMAGE}:${tag}@${digest}"
+}
+
+case "$MODE" in
+  --tag)
+    image_tag
+    ;;
+  --digest)
+    pinned_digest
+    ;;
+  --check)
+    want=$(image_tag)
+    stale=$(refs | grep -vE "^${IMAGE_RE}:${want}@" || true)
+    pinned_digest >/dev/null
+    if [ -n "$stale" ]; then
+      echo "error: $IMAGE_DIR builds ${IMAGE}:${want}, but these references differ:" >&2
+      echo "$stale" >&2
+      echo "Run 'task utils:image' and commit the change." >&2
+      exit 1
+    fi
+    echo "Utils image tag ${want} is up to date"
+    ;;
+  --write-ref)
+    write_ref
+    ;;
+  "")
+    apko lock "$CONFIG" --output "$LOCK"
+    write_ref
+    ;;
+  *)
+    echo "usage: $0 [--write-ref|--check|--tag|--digest]" >&2
+    exit 2
+    ;;
+esac

@@ -119,6 +119,10 @@ jobs:
       - name: Validate Grafana plugin image tag
         run: task grafana:plugins:check
 
+      # Fail if a utils image reference under kustomize/ differs from the content of images/utils.
+      - name: Validate utils image tag
+        run: task utils:image:check
+
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
@@ -241,13 +245,139 @@ jobs:
           tags: ${{ steps.image.outputs.ref }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
+  # ===========================================================================
+  # Utils Image
+  # ===========================================================================
+  # Builds images/utils with apko, and pushes, signs and attests its tag when ghcr.io does not have the tag.
+  utils-image:
+    name: Utils Image
+    runs-on: ubuntu-latest
+    env:
+      CONFIG: images/utils/apko.yaml
+      LOCK: images/utils/apko.lock.json
+      REPO: ghcr.io/windsorcli/utils
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: apko
+
+      - name: Resolve image reference
+        id: image
+        run: |
+          scripts/utils-image.sh --check
+          echo "ref=${REPO}:$(scripts/utils-image.sh --tag)" >> "$GITHUB_OUTPUT"
+          echo "digest=$(scripts/utils-image.sh --digest)" >> "$GITHUB_OUTPUT"
+
+      # A pull request from a fork has no write access to ghcr.io, so it only builds.
+      - name: Login to GitHub Container Registry
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags are immutable: a tag that ghcr.io has is never pushed again.
+      - name: Check for the image
+        id: exists
+        env:
+          REF: ${{ steps.image.outputs.ref }}
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          if skopeo inspect --raw "docker://${REF}" > index.json 2>/dev/null; then
+            have="sha256:$(sha256sum index.json | cut -d' ' -f1)"
+            if [ "$have" != "$PINNED" ]; then
+              echo "::error::${REF} has digest ${have}, but kustomize/ pins ${PINNED}"
+              exit 1
+            fi
+            echo "${REF}@${have} exists. Skipping the build."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the image
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          REF: ${{ steps.image.outputs.ref }}
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          apko build --lockfile "$LOCK" --sbom-path sbom "$CONFIG" "$REF" image.tar
+          built="sha256:$(tar -xOf image.tar index.json | sha256sum | cut -d' ' -f1)"
+          if [ "$built" != "$PINNED" ]; then
+            echo "::error::apko built ${built}, but kustomize/ pins ${PINNED}. Run 'task utils:image' and commit the change."
+            exit 1
+          fi
+
+      # Runs each tool as the image user.
+      - name: Test the image
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          REF: ${{ steps.image.outputs.ref }}
+        run: |
+          docker load < image.tar
+          docker run --rm "${REF}-amd64" -c '
+            set -eu
+            test "$(id -u)" = 65532
+            touch "$HOME/probe" /tmp/probe
+            kubectl version --client
+            yq --version
+            jq --version
+            curl --version
+            gpg --version
+            openssl rand -hex 4
+          '
+
+      - name: Push the image
+        id: push
+        if: steps.exists.outputs.exists != 'true' && github.event.pull_request.head.repo.fork != true
+        env:
+          REF: ${{ steps.image.outputs.ref }}
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          apko publish --lockfile "$LOCK" --sbom=false --image-refs refs.txt "$CONFIG" "$REF"
+          pushed=$(grep -oE 'sha256:[0-9a-f]{64}' refs.txt | head -n1)
+          if [ "$pushed" != "$PINNED" ]; then
+            echo "::error::apko pushed ${pushed}, but kustomize/ pins ${PINNED}"
+            exit 1
+          fi
+
+      - name: Install cosign
+        if: steps.push.outcome == 'success'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      # Signs the index and attests each SBOM with the workflow's GitHub OIDC identity.
+      - name: Sign the image and attest its SBOMs
+        if: steps.push.outcome == 'success'
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          cosign sign --yes "${REPO}@${DIGEST}"
+          cosign attest --yes --type spdxjson --predicate sbom/sbom-index.spdx.json "${REPO}@${DIGEST}"
+          for pair in amd64:x86_64 arm64:aarch64; do
+            arch="${pair%%:*}"
+            manifest=$(tar -xOf image.tar index.json | jq -r --arg a "$arch" '.manifests[] | select(.platform.architecture == $a) | .digest')
+            cosign attest --yes --type spdxjson --predicate "sbom/sbom-${pair#*:}.spdx.json" "${REPO}@${manifest}"
+          done
+
+      # A release tag adds its version as a tag on the same digest.
+      - name: Tag the release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          REF: ${{ steps.image.outputs.ref }}
+        run: skopeo copy --all --preserve-digests "docker://${REF}" "docker://${REPO}:${GITHUB_REF_NAME}"
+
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
   # chart and image pulled from a workstation registry.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
-    needs: grafana-plugins
+    needs: [grafana-plugins, utils-image]
     timeout-minutes: ${{ matrix.mode == 'registry' && 90 || 45 }}
     strategy:
       fail-fast: false

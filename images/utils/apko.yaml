@@ -1,0 +1,45 @@
+# Shell tools for the Jobs in core and the blueprints that layer on it.
+# Run task utils:image after each change to this file. The task writes apko.lock.json and the image reference.
+
+contents:
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  repositories:
+    - https://packages.wolfi.dev/os
+  packages:
+    - wolfi-baselayout
+    - ca-certificates-bundle
+    - busybox
+    - kubectl-1.37
+    - kubectl-1.37-default
+    - curl
+    - jq
+    - yq
+    - gnupg
+    - openssl
+
+accounts:
+  groups:
+    - groupname: nonroot
+      gid: 65532
+  users:
+    - username: nonroot
+      uid: 65532
+      gid: 65532
+      shell: /bin/sh
+  run-as: "65532"
+
+work-dir: /home/nonroot
+
+entrypoint:
+  command: /bin/sh
+
+environment:
+  PATH: /usr/sbin:/sbin:/usr/bin:/bin
+
+archs:
+  - amd64
+  - arm64
+
+annotations:
+  org.opencontainers.image.source: https://github.com/windsorcli/core

@@ -46,6 +46,16 @@ tasks:
     cmds:
       - scripts/grafana-plugins.sh --check
 
+  utils:image:
+    desc: Lock the utils image packages and set the image tag and digest from images/utils
+    cmds:
+      - scripts/utils-image.sh
+
+  utils:image:check:
+    desc: Verify the utils image tag matches images/utils (CI guard)
+    cmds:
+      - scripts/utils-image.sh --check
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

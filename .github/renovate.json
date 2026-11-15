@@ -150,6 +150,11 @@
       "enabled": false
     },
     {
+      "description": "task utils:image sets the utils image tag and digest from images/utils",
+      "matchPackageNames": ["ghcr.io/windsorcli/utils"],
+      "enabled": false
+    },
+    {
       "description": "Track windsorcli/action@main for edge validation; don't pin or update",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["windsorcli/action"],
