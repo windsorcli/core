@@ -6,6 +6,8 @@
 #   scripts/utils-image.sh --check     verify each reference uses VERSION; non-zero on drift (CI)
 #   scripts/utils-image.sh --tag       print the version
 #   scripts/utils-image.sh --digest    print the digest that the references pin
+#   scripts/utils-image.sh --build <dir> build <dir>/image.tar and <dir>/sbom, and print the digest
+#   scripts/utils-image.sh --push <ref>  build and push the image to <ref>
 
 set -euo pipefail
 
@@ -82,23 +84,29 @@ pinned_digest() {
   echo "$digests"
 }
 
-# build_digest -> the index digest of a local apko build of IMAGE_DIR
-build_digest() {
-  apko build --vcs=false --sbom=false --lockfile "$LOCK" "$CONFIG" "$IMAGE:build" "$work/image.tar" >"$work/build.log" 2>&1 || {
+# build <dir> -> builds <dir>/image.tar and an SPDX SBOM for the index and each arch into <dir>/sbom, and prints the index digest
+build() {
+  local arch
+  mkdir -p "$1/sbom"
+  apko build --vcs=false --sbom-path "$1/sbom" --lockfile "$LOCK" "$CONFIG" "$IMAGE:build" "$1/image.tar" >"$work/build.log" 2>&1 || {
     cat "$work/build.log" >&2
     exit 1
   }
-  echo "sha256:$(tar -xOf "$work/image.tar" index.json | sha256sum | cut -d' ' -f1)"
+  for arch in index amd64:x86_64 arm64:aarch64; do
+    mv "$1/sbom/sbom-${arch#*:}.spdx.json" "$1/sbom/${arch%%:*}.spdx.json"
+  done
+  echo "sha256:$(tar -xOf "$1/image.tar" index.json | sha256sum | cut -d' ' -f1)"
 }
 
-# next_version -> VERSION_FILE when the build matches the pinned digest and kubectl, else the next revision
+# next_version -> the next revision when the build differs from the pin and VERSION_FILE matches origin/main, else VERSION_FILE
 next_version() {
-  local digest="$1" version kubectl
+  local digest="$1" version kubectl released
   version=$(tr -d '[:space:]' < "$VERSION_FILE")
   kubectl=$(kubectl_version)
+  released=$(git show "origin/main:$VERSION_FILE" 2>/dev/null | tr -d '[:space:]') || true
   if ! echo "$version" | grep -qxE "${kubectl//./\\.}-r[0-9]+"; then
     echo "${kubectl}-r1"
-  elif [ "$digest" != "$(pinned_digest)" ]; then
+  elif [ "$digest" != "$(pinned_digest)" ] && [ "$version" = "$released" ]; then
     echo "${kubectl}-r$(( ${version##*-r} + 1 ))"
   else
     echo "$version"
@@ -108,7 +116,7 @@ next_version() {
 # write_ref -> writes VERSION_FILE and the tag and digest for the current content of IMAGE_DIR into each reference
 write_ref() {
   local tag digest file
-  digest=$(build_digest)
+  digest=$(build "$work/out")
   next_version "$digest" > "$work/version"
   cat "$work/version" > "$VERSION_FILE"
   tag=$(image_tag)
@@ -125,6 +133,15 @@ case "$MODE" in
     ;;
   --digest)
     pinned_digest
+    ;;
+  --build)
+    build "${2:?usage: $0 --build <dir>}"
+    ;;
+  --push)
+    apko publish --vcs=false --sbom=false --lockfile "$LOCK" "$CONFIG" "${2:?usage: $0 --push <ref>}" >"$work/push.log" 2>&1 || {
+      cat "$work/push.log" >&2
+      exit 1
+    }
     ;;
   --check)
     want=$(image_tag)
@@ -146,7 +163,7 @@ case "$MODE" in
     write_ref
     ;;
   *)
-    echo "usage: $0 [--write-ref|--check|--tag|--digest]" >&2
+    echo "usage: $0 [--write-ref|--check|--tag|--digest|--build <dir>|--push <ref>]" >&2
     exit 2
     ;;
 esac

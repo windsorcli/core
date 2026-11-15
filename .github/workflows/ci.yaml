@@ -213,7 +213,6 @@ jobs:
       name: utils
       builder: apko
       script: scripts/utils-image.sh
-      pin-digest: true
       test: |
         set -eu
         test "$(id -u)" = 65532

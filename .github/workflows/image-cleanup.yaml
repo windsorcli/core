@@ -1,0 +1,39 @@
+# =============================================================================
+# Image cleanup workflow
+# =============================================================================
+# Deletes the pr-<number> images of a pull request that closes without a merge.
+name: Image cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    name: Delete candidates
+    if: github.event.pull_request.merged != true && github.event.pull_request.head.repo.fork != true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Deletes only the versions whose sole tag is pr-<number>.
+      - name: Delete the pr-${{ github.event.pull_request.number }} images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          TAG: pr-${{ github.event.pull_request.number }}
+        run: |
+          for dir in images/*/; do
+            name=$(basename "$dir")
+            versions="/orgs/${OWNER}/packages/container/${name}/versions"
+            gh api --paginate "$versions" --jq ".[] | select(.metadata.container.tags == [\"${TAG}\"]) | .id" |
+              while read -r id; do
+                gh api -X DELETE "${versions}/${id}"
+                echo "Deleted ghcr.io/${OWNER}/${name}:${TAG}"
+              done
+          done
