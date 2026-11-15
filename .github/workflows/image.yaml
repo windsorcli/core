@@ -74,31 +74,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
       # Tags are immutable: a tag that ghcr.io has is never pushed again.
       - name: Check for the image
         id: exists
         env:
           REF: ${{ steps.image.outputs.ref }}
           PINNED: ${{ steps.image.outputs.digest }}
+          IDENTITY: ^https://github\.com/${{ github.repository }}/\.github/workflows/image\.yaml@
         run: |
-          if skopeo inspect --raw "docker://${REF}" > remote-index.json 2>/dev/null; then
-            have="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
-            if [ -n "$PINNED" ] && [ "$have" != "$PINNED" ]; then
-              echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}"
-              exit 1
-            fi
-            echo "${REF}@${have} exists. Skipping the build."
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
+          if ! skopeo inspect --raw "docker://${REF}" > remote-index.json 2>/dev/null; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          have="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
+          if [ -n "$PINNED" ] && [ "$have" != "$PINNED" ]; then
+            echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}"
+            exit 1
+          fi
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "digest=${have}" >> "$GITHUB_OUTPUT"
+          if cosign verify --certificate-identity-regexp "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "${REPO}@${have}" >/dev/null 2>&1; then
+            echo "${REF}@${have} exists and is signed. Skipping the build."
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${REF}@${have} exists without a signature."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # An unsigned apko image is built again for its SBOMs.
       - name: Build the image with apko
         id: apko
-        if: steps.exists.outputs.exists != 'true' && inputs.builder == 'apko'
+        if: inputs.builder == 'apko' && (steps.exists.outputs.exists != 'true' || steps.exists.outputs.signed != 'true')
         env:
           REF: ${{ steps.image.outputs.ref }}
-          PINNED: ${{ steps.image.outputs.digest }}
+          PINNED: ${{ steps.image.outputs.digest || steps.exists.outputs.digest }}
         run: |
           mkdir sbom
           apko build --vcs=false --lockfile "${DIR}/apko.lock.json" --sbom-path sbom "${DIR}/apko.yaml" "$REF" image.tar
@@ -122,15 +135,16 @@ jobs:
 
       - name: Push the apko image
         id: apko-push
-        if: steps.apko.outcome == 'success' && env.PUSH == 'true'
+        if: steps.apko.outcome == 'success' && steps.exists.outputs.exists != 'true' && env.PUSH == 'true'
         env:
           REF: ${{ steps.image.outputs.ref }}
           BUILT: ${{ steps.apko.outputs.digest }}
         run: |
-          apko publish --vcs=false --lockfile "${DIR}/apko.lock.json" --sbom=false --image-refs refs.txt "${DIR}/apko.yaml" "$REF"
-          pushed=$(grep -oE 'sha256:[0-9a-f]{64}' refs.txt | head -n1)
+          apko publish --vcs=false --lockfile "${DIR}/apko.lock.json" --sbom=false "${DIR}/apko.yaml" "$REF"
+          skopeo inspect --raw "docker://${REF}" > remote-index.json
+          pushed="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
           if [ "$pushed" != "$BUILT" ]; then
-            echo "::error::apko pushed ${pushed}, but built ${BUILT}"
+            echo "::error::${REF} has digest ${pushed}, but apko built ${BUILT}"
             exit 1
           fi
           echo "digest=${pushed}" >> "$GITHUB_OUTPUT"
@@ -152,22 +166,21 @@ jobs:
           tags: ${{ steps.image.outputs.ref }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
-      - name: Install cosign
-        if: steps.apko-push.outcome == 'success' || (steps.docker.outcome == 'success' && env.PUSH == 'true')
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-
       # Signs with the workflow's GitHub OIDC identity.
       - name: Sign the image
-        if: steps.apko-push.outcome == 'success' || (steps.docker.outcome == 'success' && env.PUSH == 'true')
+        id: sign
+        if: env.PUSH == 'true' && (steps.apko-push.outcome == 'success' || steps.docker.outcome == 'success' || steps.exists.outputs.signed == 'false')
         env:
-          DIGEST: ${{ steps.apko-push.outputs.digest || steps.docker.outputs.digest }}
-        run: cosign sign --yes "${REPO}@${DIGEST}"
+          DIGEST: ${{ steps.apko-push.outputs.digest || steps.docker.outputs.digest || steps.exists.outputs.digest }}
+        run: |
+          cosign sign --yes "${REPO}@${DIGEST}"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
       # Attests the index SBOM on the index and each arch SBOM on its manifest.
       - name: Attest the apko SBOMs
-        if: steps.apko-push.outcome == 'success'
+        if: steps.sign.outcome == 'success' && steps.apko.outcome == 'success'
         env:
-          DIGEST: ${{ steps.apko-push.outputs.digest }}
+          DIGEST: ${{ steps.sign.outputs.digest }}
         run: |
           cosign attest --yes --type spdxjson --predicate sbom/sbom-index.spdx.json "${REPO}@${DIGEST}"
           for pair in amd64:x86_64 arm64:aarch64; do
