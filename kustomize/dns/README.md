@@ -222,8 +222,6 @@ flowchart LR
   install:
     components:
       - pdns
-      - pdns/database
-      - pdns/zone-init
       - pdns/loadbalancer
       - pdns/cilium
     substitutions:
@@ -258,8 +256,8 @@ Envoy gateway.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `public_domain` | `coredns/public-zone` or `pdns/zone-init` is enabled | Public domain the in-cluster DNS server also serves. `dns.public_domain` where the server serves the public zone, otherwise empty. |
-| `private_domain` | `coredns` or `pdns/zone-init` is enabled | Private domain the in-cluster DNS server serves. Always `dns.private_domain`. |
+| `public_domain` | `coredns/public-zone` or `pdns` is enabled | Public domain the in-cluster DNS server also serves. `dns.public_domain` where the server serves the public zone, otherwise empty. |
+| `private_domain` | `coredns` or `pdns` is enabled | Private domain the in-cluster DNS server serves. Always `dns.private_domain`. |
 | `external_dns_name` | a `resources/external-dns` instance is enabled | HelmRelease name of the instance: `external-dns-public` for the public zone, `external-dns-private` for the private zone. |
 | `external_dns_domain` | a `resources/external-dns` instance is enabled | Domain filter for the instance: `dns.public_domain` or `dns.private_domain`. |
 | `external_dns_zone_type` | `resources/external-dns/providers/route53` is enabled | Route53 zone type of the instance, `public` or `private`. Combined with `external_dns_zone_id_filter` to lock the controller onto one zone. |
@@ -374,12 +372,10 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 
 _Enabled when `dns.private.driver: pdns`._
 
-PowerDNS Authoritative in `system-dns`: a Deployment, a ConfigMap, the `pdns` Service on port 53 and the `pdns-api` ClusterIP Service on port 8081. The API accepts connections from external-dns and the zone-init Job only, and port 53 accepts any source. The pods read the API key and the database credentials from Secrets.
+PowerDNS Authoritative in `system-dns`: a Deployment, a ConfigMap, the `pdns` Service on port 53 and the `pdns-api` ClusterIP Service on port 8081. The `pdns-db` CloudNativePG Cluster holds the zones. A Job applies the numbered SQL files in `install/pdns/database/migrations/` in order and records each in `schema_migrations`, and PowerDNS waits for the latest version before it starts. The `pdns-zone-init` Job creates the private zone, and the public zone where PowerDNS serves it, through the API. The API accepts connections from external-dns and the zone-init Job only, the database accepts PowerDNS, the migration Job, its own instances and the database operator, and port 53 accepts any source. The pods read the API key and the database credentials from Secrets.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `database` | `dns.private.driver: pdns` | The `pdns-db` CloudNativePG Cluster, a policy that admits PowerDNS, its own instances and the database operator, and a Job that applies the numbered SQL files in `install/pdns/database/migrations/` in order and records each in `schema_migrations`. PowerDNS waits for the latest version before it starts. |
-| `zone-init` | `dns.private.driver: pdns` | Job that creates the private zone, and the public zone where PowerDNS serves it, through the API. |
 | `prometheus` | `dns.private.driver: pdns` AND `telemetry.metrics.enabled: true` | ServiceMonitor on the API metrics endpoint, and a policy that admits Prometheus. |
 | `ha` | `dns.private.driver: pdns` AND `topology == 'ha'` | Two PowerDNS replicas and three database instances with required anti-affinity. |
 | `loadbalancer` | `dns.private.driver: pdns` AND `gateway.driver == 'cilium'` | Sets the `pdns` Service to type LoadBalancer. |

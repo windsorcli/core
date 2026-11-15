@@ -702,8 +702,6 @@ cases:
           install:
             components:
               - pdns
-              - pdns/database
-              - pdns/zone-init
               - pdns/prometheus
               - pdns/loadbalancer
               - pdns/cilium
