@@ -344,21 +344,21 @@ cases:
                 endpoint: 10.5.0.10:50000
                 install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
 
-  # metal.board gives every node the board's Image Factory overlay, for the cluster and extensions steps.
-  - name: metal board sets the overlay on every node
+  # A pool's board gives its nodes the board's Image Factory overlay, for the cluster and extensions steps.
+  - name: pool board sets the overlay on the pool's nodes
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
-      metal:
-        board: rpi_5
       cluster:
         driver: talos
         controlplanes:
+          board: rpi_5
           nodes:
             controlplane-1: *cp1-node
         workers:
+          board: rpi_5
           count: 1
           nodes:
             worker-1:
@@ -403,21 +403,21 @@ cases:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi
 
-  # A node's board wins over metal.board; a node's install_image passes through for the cluster step to prefer.
-  - name: node board overrides metal board and install_image passes through
+  # A node's board wins over its pool's board; a node's install_image passes through for the cluster
+  # step to prefer; a node in a pool without a board keeps the stock installer.
+  - name: node board overrides pool board and install_image passes through
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
-      metal:
-        board: rpi_5
       cluster:
         driver: talos
         controlplanes:
           nodes:
             controlplane-1: *cp1-node
         workers:
+          board: rpi_5
           count: 2
           nodes:
             worker-1:
@@ -438,9 +438,7 @@ cases:
             controlplanes:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
-                overlay:
-                  name: rpi_5
-                  image: siderolabs/sbc-raspberrypi
+                hostname: controlplane-1
             workers:
               - endpoint: 10.5.0.20:50000
                 node: 10.5.0.20
@@ -455,15 +453,16 @@ cases:
                   image: siderolabs/sbc-raspberrypi
 
   # A board with no Image Factory overlay fails composition.
-  - name: unknown metal board fails composition
+  - name: unknown pool board fails composition
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
-      metal:
-        board: rpi_6
-      cluster: *default-cluster
+      cluster:
+        <<: *default-cluster
+        workers:
+          board: rpi_6
     expectError: true
 
   # A node board with no Image Factory overlay fails composition.

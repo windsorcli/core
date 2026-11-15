@@ -62,7 +62,7 @@ config:
       turingrk1: siderolabs/sbc-rockchip
       friendlyelec-cm3588-nas: siderolabs/sbc-rockchip
 
-  # User-supplied nodes, with the board overlay of the node's board or metal.board. The cluster and
+  # User-supplied nodes, with the board overlay of the node's board or its pool's board. The cluster and
   # extensions steps build the installer from the overlay; a node's install_image wins over it.
   - name: metal_nodes
     value:
@@ -70,14 +70,14 @@ config:
         ${map(values(cluster.controlplanes.nodes ?? {}),
           fromPairs(concat(
             filter(toPairs(#), get(#, 0) != "board"),
-            let board = get(#, 'board') ?? metal.board ?? '';
+            let board = get(#, 'board') ?? cluster.controlplanes.board ?? '';
             board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))}
       workers: >-
         ${(cluster.workers.count ?? 0) > 0
           ? map(values(cluster.workers.nodes),
               fromPairs(concat(
                 filter(toPairs(#), get(#, 0) != "board"),
-                let board = get(#, 'board') ?? metal.board ?? '';
+                let board = get(#, 'board') ?? cluster.workers.board ?? '';
                 board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))
           : []}
 
