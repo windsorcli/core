@@ -51,7 +51,6 @@ flux:
         - "${dns.private.driver == 'coredns' ? 'coredns/etcd' : ''}"
         - "${dns.private.driver == 'pdns' ? 'pdns/database' : ''}"
         - "${dns.private.driver == 'pdns' ? 'pdns/zone-init' : ''}"
-        - "${dns.private.driver == 'pdns' ? 'pdns/network-policy' : ''}"
         - "${dns_private_effective.public_zone == true && dns.private.driver == 'coredns' ? 'coredns/public-zone' : ''}"
         - "${telemetry.metrics.enabled ? dns.private.driver + '/prometheus' : ''}"
         - "${topology == 'ha' ? dns.private.driver + '/ha' : ''}"

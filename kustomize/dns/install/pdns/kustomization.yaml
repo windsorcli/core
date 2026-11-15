@@ -6,3 +6,4 @@ resources:
   - deployment.yaml
   - service.yaml
   - service-api.yaml
+  - network-policy.yaml

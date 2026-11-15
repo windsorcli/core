@@ -704,7 +704,6 @@ cases:
               - pdns
               - pdns/database
               - pdns/zone-init
-              - pdns/network-policy
               - pdns/prometheus
               - pdns/loadbalancer
               - pdns/cilium

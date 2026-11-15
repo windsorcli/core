@@ -3,6 +3,7 @@ kind: Component
 resources:
   - cluster.yaml
   - migrate-job.yaml
+  - network-policy.yaml
 configMapGenerator:
   - name: pdns-migrations
     namespace: system-dns
