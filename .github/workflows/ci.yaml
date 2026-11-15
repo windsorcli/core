@@ -306,6 +306,7 @@ jobs:
           REF: ${{ steps.image.outputs.ref }}
           PINNED: ${{ steps.image.outputs.digest }}
         run: |
+          mkdir sbom
           apko build --lockfile "$LOCK" --sbom-path sbom "$CONFIG" "$REF" image.tar
           built="sha256:$(tar -xOf image.tar index.json | sha256sum | cut -d' ' -f1)"
           if [ "$built" != "$PINNED" ]; then
