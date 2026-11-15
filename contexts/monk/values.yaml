@@ -9,13 +9,6 @@ gitops:
   concurrency: 2
 observability:
   enabled: false
-telemetry:
-  metrics:
-    enabled: false
-  logs:
-    enabled: false
-  alerts:
-    enabled: false
 identity:
   enabled: true
 demo:
