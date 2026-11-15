@@ -1,0 +1,165 @@
+# =============================================================================
+# Image workflow
+# =============================================================================
+# Builds images/<name> and fails unless the build has the digest that the references pin.
+# A same-repo pull request pushes the build as pr-<number>. A push to main pushes, signs and attests the VERSION tag.
+name: Image
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: Image name under ghcr.io/windsorcli and directory name under images/.
+        required: true
+        type: string
+      builder:
+        description: apko installs apko for the script. docker uses the Docker CLI on the runner.
+        required: true
+        type: string
+      script:
+        description: Script with the modes --check, --tag, --digest, --build <dir> and --push <ref>.
+        required: true
+        type: string
+      test:
+        description: Shell commands that run in the amd64 image. apko only.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  image:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      DIR: images/${{ inputs.name }}
+      REPO: ghcr.io/windsorcli/${{ inputs.name }}
+      SCRIPT: ${{ inputs.script }}
+      CANDIDATE: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork != true }}
+      RELEASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/image.yaml@refs/heads/main
+      ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup tools
+        if: inputs.builder == 'apko'
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: apko
+
+      - name: Resolve image reference
+        id: image
+        run: |
+          "$SCRIPT" --check
+          echo "tag=$("$SCRIPT" --tag)" >> "$GITHUB_OUTPUT"
+          echo "digest=$("$SCRIPT" --digest)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the image
+        env:
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          built=$("$SCRIPT" --build out)
+          if [ "$built" != "$PINNED" ]; then
+            echo "::error::The build has digest ${built}, but the references pin ${PINNED}. Run ${SCRIPT} and commit the change."
+            exit 1
+          fi
+
+      - name: Test the image
+        if: inputs.test != ''
+        env:
+          TEST: ${{ inputs.test }}
+        run: |
+          docker load < out/image.tar
+          docker run --rm "${REPO}:build-amd64" -c "$TEST"
+
+      - name: Login to GitHub Container Registry
+        if: env.CANDIDATE == 'true' || env.RELEASE == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags are immutable: a VERSION tag that ghcr.io has is never pushed again.
+      - name: Check the registry
+        id: registry
+        env:
+          TAG: ${{ steps.image.outputs.tag }}
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          if skopeo inspect --raw "docker://${REPO}:${TAG}" > remote-index.json 2>/dev/null; then
+            have="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
+            if [ "$have" != "$PINNED" ]; then
+              echo "::error::${REPO}:${TAG} has digest ${have}, but the references pin ${PINNED}. Bump ${DIR}/VERSION and run ${SCRIPT}."
+              exit 1
+            fi
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          fi
+          if skopeo inspect --raw "docker://${REPO}@${PINNED}" >/dev/null 2>&1; then
+            echo "stored=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push the image
+        if: steps.registry.outputs.tagged != 'true' && (env.RELEASE == 'true' || (env.CANDIDATE == 'true' && steps.registry.outputs.stored != 'true'))
+        env:
+          REF: ${{ env.RELEASE == 'true' && format('{0}:{1}', env.REPO, steps.image.outputs.tag) || format('{0}:pr-{1}', env.REPO, github.event.pull_request.number) }}
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          "$SCRIPT" --push "$REF"
+          skopeo inspect --raw "docker://${REF}" > remote-index.json
+          pushed="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
+          if [ "$pushed" != "$PINNED" ]; then
+            echo "::error::${REF} has digest ${pushed}, but the build has ${PINNED}"
+            exit 1
+          fi
+          echo "Pushed ${REF}@${pushed}"
+
+      - name: Install cosign
+        if: env.RELEASE == 'true'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      # Signs with the GitHub OIDC identity of this workflow on main.
+      - name: Sign the image
+        id: sign
+        if: env.RELEASE == 'true'
+        env:
+          PINNED: ${{ steps.image.outputs.digest }}
+        run: |
+          if cosign verify --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" "${REPO}@${PINNED}" >/dev/null 2>&1; then
+            echo "${REPO}@${PINNED} is signed. Skipping the signature."
+            exit 0
+          fi
+          cosign sign --yes "${REPO}@${PINNED}"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install syft
+        id: syft
+        if: steps.sign.outputs.signed == 'true' && inputs.builder == 'docker'
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      # Attests the index SBOM on the index and each arch SBOM on its manifest. syft writes an arch SBOM that the build did not.
+      - name: Attest the SBOMs
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          PINNED: ${{ steps.image.outputs.digest }}
+          SYFT: ${{ steps.syft.outputs.cmd }}
+        run: |
+          skopeo inspect --raw "docker://${REPO}@${PINNED}" > remote-index.json
+          if [ -f out/sbom/index.spdx.json ]; then
+            cosign attest --yes --type spdxjson --predicate out/sbom/index.spdx.json "${REPO}@${PINNED}"
+          fi
+          mkdir -p out/sbom
+          for arch in amd64 arm64; do
+            manifest=$(jq -r --arg a "$arch" '.manifests[] | select(.platform.architecture == $a) | .digest' remote-index.json)
+            sbom="out/sbom/${arch}.spdx.json"
+            if [ ! -f "$sbom" ]; then
+              "$SYFT" scan "registry:${REPO}@${manifest}" -o "spdx-json=${sbom}"
+            fi
+            cosign attest --yes --type spdxjson --predicate "$sbom" "${REPO}@${manifest}"
+          done
