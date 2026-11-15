@@ -344,15 +344,15 @@ cases:
                 endpoint: 10.5.0.10:50000
                 install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
 
-  # metal.talos_schematic_id builds every node's installer at the pinned Talos version.
-  - name: metal talos_schematic_id sets the installer on every node
+  # metal.board gives every node the board's Image Factory overlay, for the cluster and extensions steps.
+  - name: metal board sets the overlay on every node
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       metal:
-        talos_schematic_id: a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4
+        board: rpi_5
       cluster:
         driver: talos
         controlplanes:
@@ -378,43 +378,55 @@ cases:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
                 hostname: controlplane-1
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
             workers:
               - endpoint: 10.5.0.20:50000
                 node: 10.5.0.20
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
         - name: cluster-extensions
           path: cluster/talos/extensions
           inputs:
             controlplanes:
               - node: 10.5.0.10
                 endpoint: 10.5.0.10:50000
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
             workers:
               - node: 10.5.0.20
                 endpoint: 10.5.0.20:50000
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
 
-  # A node's install_image wins over metal.talos_schematic_id; other nodes keep the schematic installer.
-  - name: node install_image overrides metal talos_schematic_id
+  # A node's board wins over metal.board; a node's install_image passes through for the cluster step to prefer.
+  - name: node board overrides metal board and install_image passes through
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       metal:
-        talos_schematic_id: a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4
+        board: rpi_5
       cluster:
         driver: talos
         controlplanes:
           nodes:
             controlplane-1: *cp1-node
         workers:
-          count: 1
+          count: 2
           nodes:
             worker-1:
               endpoint: 10.5.0.20:50000
               node: 10.5.0.20
+              board: rpi_generic
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
               install_image: ghcr.io/siderolabs/installer:v1.14.5
           volumes:
             - /var/mnt/local
@@ -426,16 +438,53 @@ cases:
             controlplanes:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
-                hostname: controlplane-1
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
             workers:
               - endpoint: 10.5.0.20:50000
                 node: 10.5.0.20
+                overlay:
+                  name: rpi_generic
+                  image: siderolabs/sbc-raspberrypi
+              - endpoint: 10.5.0.21:50000
+                node: 10.5.0.21
                 install_image: ghcr.io/siderolabs/installer:v1.14.5
+                overlay:
+                  name: rpi_5
+                  image: siderolabs/sbc-raspberrypi
 
-  # Neither metal.talos_schematic_id nor install_image: nodes pass through unchanged, so
-  # the cluster module falls back to the stock installer.
-  - name: no schematic or install_image passes nodes through unchanged
+  # A board with no Image Factory overlay fails composition.
+  - name: unknown metal board fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      metal:
+        board: rpi_6
+      cluster: *default-cluster
+    expectError: true
+
+  # A node board with no Image Factory overlay fails composition.
+  - name: unknown node board fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              <<: *cp1-node
+              board: rpi_6
+    expectError: true
+
+  # Neither a board nor install_image: nodes pass through unchanged, so the cluster module
+  # falls back to the stock installer.
+  - name: no board or install_image passes nodes through unchanged
     values:
       platform: metal
       gateway:

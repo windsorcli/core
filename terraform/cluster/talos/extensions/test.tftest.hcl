@@ -54,3 +54,51 @@ run "install_image_replaces_extensions_installer" {
     error_message = "A node with install_image should upgrade to that image"
   }
 }
+
+# Verifies that a node's overlay joins the extensions in one schematic on the metal installer
+run "overlay_joins_extensions_schematic" {
+  command = plan
+
+  override_resource {
+    target          = talos_image_factory_schematic.this[0]
+    override_during = plan
+    values = {
+      id = "ext123"
+    }
+  }
+
+  override_resource {
+    target          = talos_image_factory_schematic.overlay["rpi_5"]
+    override_during = plan
+    values = {
+      id = "rpi5ext"
+    }
+  }
+
+  variables {
+    extensions = ["siderolabs/iscsi-tools"]
+    controlplanes = [
+      { node = "10.0.0.10", endpoint = "10.0.0.10:50000", overlay = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" } },
+    ]
+    workers = [
+      { node = "10.0.0.20", endpoint = "10.0.0.20:50000" },
+    ]
+  }
+
+  assert {
+    condition     = yamldecode(talos_image_factory_schematic.overlay["rpi_5"].schematic).overlay == { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+    error_message = "The overlay schematic should hold the node's overlay"
+  }
+  assert {
+    condition     = yamldecode(talos_image_factory_schematic.overlay["rpi_5"].schematic).customization.systemExtensions.officialExtensions == ["siderolabs/iscsi-tools"]
+    error_message = "The overlay schematic should hold the extensions"
+  }
+  assert {
+    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/metal-installer/rpi5ext:v1.14.5"
+    error_message = "A node with an overlay should upgrade to the metal installer of the overlay schematic"
+  }
+  assert {
+    condition     = null_resource.upgrade_worker["10.0.0.20"].triggers.upgrade_image == "factory.talos.dev/installer/ext123:v1.14.5"
+    error_message = "A node without an overlay should upgrade to the extensions installer"
+  }
+}

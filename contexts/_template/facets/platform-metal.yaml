@@ -27,34 +27,67 @@ config:
     value:
       endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
 
-  # Installer built from metal.talos_schematic_id at the pinned Talos version; empty when unset.
-  - name: metal_effective
+  # Talos Image Factory official overlays by board name, with the overlay image that carries each
+  # board's firmware and bootloader. Source: factory.talos.dev/version/<talos version>/overlays/official.
+  # The keys MUST match the talosBoard enum in schema.yaml, which rejects other boards.
+  - name: metal_overlays
     value:
-      install_image: "${(metal.talos_schematic_id ?? '') != '' ? 'factory.talos.dev/metal-installer/' + metal.talos_schematic_id + ':v' + talos.talos_version : ''}"
+      bananapi_m64: siderolabs/sbc-allwinner
+      libretech_all_h3_cc_h5: siderolabs/sbc-allwinner
+      pine64: siderolabs/sbc-allwinner
+      jetson_nano: siderolabs/sbc-jetson
+      revpi_generic: siderolabs/sbc-raspberrypi
+      rpi_generic: siderolabs/sbc-raspberrypi
+      rpi_5: siderolabs/sbc-raspberrypi
+      helios64: siderolabs/sbc-rockchip
+      nanopi-r4s: siderolabs/sbc-rockchip
+      nanopi-r5s: siderolabs/sbc-rockchip
+      odroid-m1: siderolabs/sbc-rockchip
+      orangepi-5: siderolabs/sbc-rockchip
+      orangepi-5-max: siderolabs/sbc-rockchip
+      orangepi-5-plus: siderolabs/sbc-rockchip
+      orangepi-r1-plus-lts: siderolabs/sbc-rockchip
+      radxa-zero-3e: siderolabs/sbc-rockchip
+      rock3b: siderolabs/sbc-rockchip
+      rock4cplus: siderolabs/sbc-rockchip
+      rock4se: siderolabs/sbc-rockchip
+      rock5a: siderolabs/sbc-rockchip
+      rock5b: siderolabs/sbc-rockchip
+      rock5b-plus: siderolabs/sbc-rockchip
+      rock5t: siderolabs/sbc-rockchip
+      rock64: siderolabs/sbc-rockchip
+      rockpi4: siderolabs/sbc-rockchip
+      rockpi4c: siderolabs/sbc-rockchip
+      rockpro64: siderolabs/sbc-rockchip
+      turingrk1: siderolabs/sbc-rockchip
+      friendlyelec-cm3588-nas: siderolabs/sbc-rockchip
 
-  # User-supplied nodes, with the schematic installer filled in where a node sets no install_image.
+  # User-supplied nodes, with the board overlay of the node's board or metal.board. The cluster and
+  # extensions steps build the installer from the overlay; a node's install_image wins over it.
   - name: metal_nodes
     value:
       controlplanes: >-
         ${map(values(cluster.controlplanes.nodes ?? {}),
-          metal_effective.install_image == '' || (get(#, 'install_image') ?? '') != ''
-            ? #
-            : fromPairs(concat(toPairs(#), [["install_image", metal_effective.install_image]])))}
+          fromPairs(concat(
+            filter(toPairs(#), get(#, 0) != "board"),
+            let board = get(#, 'board') ?? metal.board ?? '';
+            board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))}
       workers: >-
         ${(cluster.workers.count ?? 0) > 0
           ? map(values(cluster.workers.nodes),
-              metal_effective.install_image == '' || (get(#, 'install_image') ?? '') != ''
-                ? #
-                : fromPairs(concat(toPairs(#), [["install_image", metal_effective.install_image]])))
+              fromPairs(concat(
+                filter(toPairs(#), get(#, 0) != "board"),
+                let board = get(#, 'board') ?? metal.board ?? '';
+                board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))
           : []}
 
   # Node targets for post-cluster steps (e.g. extensions), from metal_nodes.
   - name: talos_node_targets
     value:
       controlplanes: >-
-        ${map(metal_nodes.controlplanes, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image"])))}
+        ${map(metal_nodes.controlplanes, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image", "overlay"])))}
       workers: >-
-        ${map(metal_nodes.workers, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image"])))}
+        ${map(metal_nodes.workers, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image", "overlay"])))}
 
 # =============================================================================
 # Terraform — cluster/talos + gitops

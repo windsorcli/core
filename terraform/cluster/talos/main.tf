@@ -134,6 +134,38 @@ locals {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Image Factory Overlays
+#-----------------------------------------------------------------------------------------------------------------------
+# One schematic per distinct board overlay, such as rpi_5 for a Raspberry Pi 5. A node with an overlay installs
+# from that schematic's metal installer unless it sets install_image.
+
+locals {
+  overlays = { for o in [for n in concat(var.controlplanes, var.workers) : n.overlay if n.overlay != null] : o.name => o... }
+}
+
+resource "talos_image_factory_schematic" "overlay" {
+  for_each = local.overlays
+
+  schematic = yamlencode({
+    overlay = {
+      name  = each.value[0].name
+      image = each.value[0].image
+    }
+  })
+}
+
+locals {
+  controlplane_install_images = [for n in var.controlplanes :
+    n.install_image != null ? n.install_image :
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+  ]
+  worker_install_images = [for n in var.workers :
+    n.install_image != null ? n.install_image :
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+  ]
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Control Planes
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -145,7 +177,7 @@ module "controlplane_bootstrap" {
   disk_selector             = lookup(var.controlplanes[0], "disk_selector", null)
   wipe_disk                 = lookup(var.controlplanes[0], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[0], "extra_kernel_args", [])
-  image                     = lookup(var.controlplanes[0], "install_image", null)
+  image                     = local.controlplane_install_images[0]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -177,7 +209,7 @@ module "controlplanes" {
   disk_selector             = lookup(var.controlplanes[count.index + 1], "disk_selector", null)
   wipe_disk                 = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
-  image                     = lookup(var.controlplanes[count.index + 1], "install_image", null)
+  image                     = local.controlplane_install_images[count.index + 1]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -214,7 +246,7 @@ module "workers" {
   disk_selector             = lookup(var.workers[count.index], "disk_selector", null)
   wipe_disk                 = lookup(var.workers[count.index], "wipe_disk", true)
   extra_kernel_args         = lookup(var.workers[count.index], "extra_kernel_args", [])
-  image                     = lookup(var.workers[count.index], "install_image", null)
+  image                     = local.worker_install_images[count.index]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
