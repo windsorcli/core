@@ -124,6 +124,26 @@
       "labels": ["dependencies"]
     },
     {
+      "description": "Group the Mayastor develop digest pins into one PR",
+      "matchPackageNames": ["/^docker\\.io/openebs/mayastor-/"],
+      "matchCurrentValue": "develop",
+      "matchUpdateTypes": ["digest"],
+      "groupName": "mayastor develop digests"
+    },
+    {
+      "description": "Update Flux and the Flux Operator in one PR, reviewed by hand; controller image tags MUST match flux_version",
+      "matchDepNames": [
+        "flux",
+        "fluxcd/flux2",
+        "/^ghcr\\.io/fluxcd/.+-controller$/",
+        "flux-operator",
+        "flux-instance",
+        "ghcr.io/controlplaneio-fluxcd/flux-operator"
+      ],
+      "groupName": "flux",
+      "automerge": false
+    },
+    {
       "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
       "matchPackageNames": ["ghcr.io/distribution/distribution"],
       "enabled": false
@@ -362,6 +382,7 @@
       "depNameTemplate": "{{depName}}"
     }
   ],
+  "prConcurrentLimit": 20,
   "platformAutomerge": true,
   "rebaseWhen": "conflicted",
   "addLabels": [
