@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Locks the packages in images/utils, then sets the tag from images/utils/VERSION and the digest in each kustomize/ reference.
+# Locks the packages in images/utils, then sets the tag from VERSION and the digest in each kustomize/ reference.
 #
 #   scripts/utils-image.sh             lock the packages, then write the tag and digest
 #   scripts/utils-image.sh --write-ref write only the tag and digest (no lock)
@@ -22,12 +22,17 @@ MODE="${1:-}"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# image_tag -> the semver in VERSION_FILE, or an error when the file has none
+# image_tag -> the VERSION_FILE semver, which MUST be <kubectl major>.<kubectl minor>.<image patch>
 image_tag() {
-  local version
+  local version kubectl
   version=$(tr -d '[:space:]' < "$VERSION_FILE")
-  if ! echo "$version" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+'; then
-    echo "error: $VERSION_FILE MUST hold a semver like 1.2.3, not '$version'" >&2
+  kubectl=$(sed -nE 's/^[[:space:]]*- kubectl-([0-9]+\.[0-9]+)$/\1/p' "$CONFIG")
+  if [ -z "$kubectl" ]; then
+    echo "error: $CONFIG has no kubectl-<major>.<minor> package" >&2
+    exit 1
+  fi
+  if ! echo "$version" | grep -qxE "${kubectl//./\\.}\\.[0-9]+"; then
+    echo "error: $VERSION_FILE MUST hold ${kubectl}.<patch> to match kubectl-${kubectl} in $CONFIG, not '$version'" >&2
     exit 1
   fi
   echo "$version"
