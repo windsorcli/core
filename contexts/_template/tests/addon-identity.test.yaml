@@ -47,7 +47,7 @@ cases:
           resources:
             - name: database
               dependsOn:
-                - database-resources-catalog
+                - database-resources
               components:
                 - keycloak/database
               healthCheckExprs:
@@ -108,7 +108,7 @@ cases:
           resources:
             - name: database
               dependsOn:
-                - database-resources-catalog
+                - database-resources
               components:
                 - keycloak/database
             - dependsOn:

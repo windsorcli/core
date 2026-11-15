@@ -34,7 +34,7 @@ config:
 # Kustomize — CoreDNS or PowerDNS + external-dns
 # =============================================================================
 #
-# coredns waits for pki-resources (etcd certificates); pdns waits for the database image catalog.
+# coredns waits for pki-resources (etcd certificates); pdns waits for the database resources tier.
 # The gateway dep is cni under Cilium, gateway-install under Envoy.
 #
 # external-dns has no topology: ha component: no confirmed leader election at the pinned version.
@@ -43,7 +43,7 @@ flux:
 
   - name: dns
     dependsOn:
-      - "${dns.private.driver == 'coredns' ? 'pki-resources' : 'database-resources-catalog'}"
+      - "${dns.private.driver == 'coredns' ? 'pki-resources' : 'database-resources'}"
       - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
     install:
       components:
