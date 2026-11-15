@@ -227,17 +227,18 @@ jobs:
 
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
-  # chart and image pulled from a workstation registry. pdns runs fresh with
-  # CoreDNS, then switches dns.private.driver to pdns and checks a Gateway record.
+  # chart and image pulled from a workstation registry.
+  # Each leg has a name: mose (fresh, then the CoreDNS to pdns switch),
+  # brodie (upgrade), kit (registry).
   integration:
-    name: Integration (${{ matrix.mode }})
+    name: Integration (${{ matrix.name }})
     runs-on: ubuntu-latest
     needs: [grafana-plugins, utils-image]
-    timeout-minutes: ${{ matrix.mode == 'registry' && 90 || (matrix.mode == 'pdns' && 60 || 45) }}
+    timeout-minutes: ${{ matrix.mode == 'registry' && 90 || (matrix.name == 'mose' && 60 || 45) }}
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade","pdns"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
+        include: ${{ fromJSON((github.event_name == 'pull_request' && '[{"name":"mose","mode":"fresh"},{"name":"brodie","mode":"upgrade"}]') || (github.event_name != 'push' && '[{"name":"kit","mode":"registry"}]') || (startsWith(github.ref, 'refs/tags/v') && '[{"name":"mose","mode":"fresh"},{"name":"kit","mode":"registry"}]') || '[{"name":"mose","mode":"fresh"}]') }}
     steps:
 
       # -----------------------------------------------------------------------
@@ -453,13 +454,13 @@ jobs:
       # Creates the probe pod and an HTTPRoute in the private zone while CoreDNS serves it.
       - name: pdns — Prepare probe
         id: pdns_prepare
-        if: matrix.mode == 'pdns'
+        if: matrix.name == 'mose'
         run: windsor exec -- .github/scripts/pdns-check.sh prepare
 
       # Switches the driver, then waits for external-dns to write the route's record through the PowerDNS API.
       - name: pdns — Switch driver and resolve record
         id: pdns_switch
-        if: matrix.mode == 'pdns'
+        if: matrix.name == 'mose'
         timeout-minutes: 25
         run: |
           yq -i '.dns.private.driver = "pdns"' contexts/local/values.yaml
@@ -475,7 +476,7 @@ jobs:
 
       - name: pdns — HelmRelease health check
         id: pdns_health
-        if: matrix.mode == 'pdns'
+        if: matrix.name == 'mose'
         run: .github/scripts/wait-for-ready.sh 300
 
       # Fails when the cluster opened any connection to a host outside the workstation network.
