@@ -227,16 +227,17 @@ jobs:
 
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
-  # chart and image pulled from a workstation registry.
+  # chart and image pulled from a workstation registry. pdns runs fresh with
+  # CoreDNS, then switches dns.private.driver to pdns and checks a Gateway record.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
     needs: [grafana-plugins, utils-image]
-    timeout-minutes: ${{ matrix.mode == 'registry' && 90 || 45 }}
+    timeout-minutes: ${{ matrix.mode == 'registry' && 90 || (matrix.mode == 'pdns' && 60 || 45) }}
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
+        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade","pdns"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
     steps:
 
       # -----------------------------------------------------------------------
@@ -449,6 +450,34 @@ jobs:
         if: steps.infra_diff.outputs.skip != 'true'
         run: .github/scripts/wait-for-ready.sh 300
 
+      # Creates the probe pod and an HTTPRoute in the private zone while CoreDNS serves it.
+      - name: pdns — Prepare probe
+        id: pdns_prepare
+        if: matrix.mode == 'pdns'
+        run: windsor exec -- .github/scripts/pdns-check.sh prepare
+
+      # Switches the driver, then waits for external-dns to write the route's record through the PowerDNS API.
+      - name: pdns — Switch driver and resolve record
+        id: pdns_switch
+        if: matrix.mode == 'pdns'
+        timeout-minutes: 25
+        run: |
+          yq -i '.dns.private.driver = "pdns"' contexts/local/values.yaml
+          windsor show blueprint
+          windsor apply --verbose > apply.log 2>&1 &
+          apply_pid=$!
+          measure_status=0
+          windsor exec -- .github/scripts/pdns-check.sh measure 1200 || measure_status=$?
+          apply_status=0
+          wait "$apply_pid" || apply_status=$?
+          cat apply.log
+          [ "$measure_status" -eq 0 ] && [ "$apply_status" -eq 0 ]
+
+      - name: pdns — HelmRelease health check
+        id: pdns_health
+        if: matrix.mode == 'pdns'
+        run: .github/scripts/wait-for-ready.sh 300
+
       # Fails when the cluster opened any connection to a host outside the workstation network.
       - name: Check egress
         id: check_egress
@@ -466,7 +495,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.prepare_registry.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.block_egress.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}" || bad "${{ steps.check_egress.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.prepare_registry.outcome }}" || bad "${{ steps.fill_registry.outcome }}" || bad "${{ steps.block_egress.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}" || bad "${{ steps.pdns_prepare.outcome }}" || bad "${{ steps.pdns_switch.outcome }}" || bad "${{ steps.pdns_health.outcome }}" || bad "${{ steps.check_egress.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
