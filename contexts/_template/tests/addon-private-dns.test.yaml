@@ -865,7 +865,7 @@ cases:
               components:
                 - external-dns/providers/route53
 
-  - name: pdns driver outside dev mode without an API key fails composition
+  - name: pdns driver without an API key generates one
     values:
       platform: metal
       dns:
@@ -877,7 +877,44 @@ cases:
           ip: "10.5.1.10"
       network: *default-network
       cluster: *default-cluster
-    expectError: true
+    terraformOutputs:
+      pdns:
+        api_key: generated-key
+    expect:
+      terraform:
+        - name: pdns
+          path: dns/pdns-api-key
+      flux:
+        - name: dns
+          secrets:
+            pdns-api:
+              data:
+                api-key: "${terraform_output('pdns', 'api_key')}"
+
+  - name: pdns driver with an API key skips the generated one
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns
+          pdns:
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          secrets:
+            pdns-api:
+              data:
+                api-key: ${dns.private.pdns.api_key}
+    exclude:
+      terraform:
+        - name: pdns
 
   - name: pdns driver without a private domain fails composition
     values:

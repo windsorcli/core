@@ -248,7 +248,7 @@ Cluster's Ready condition holds the tier until the database accepts
 connections. The zone-init Job creates each zone through the API, because
 external-dns does not create zones. The API listens on the `pdns-api`
 ClusterIP Service only. The API key comes from the `pdns-api` Secret that
-the facet writes from `dns.private.pdns.api_key`. Port 53 is exposed the same
+the facet writes from `dns.private.pdns.api_key`, or from a generated key when that is unset. Port 53 is exposed the same
 way as `coredns`: a LoadBalancer Service under Cilium, or a route on the
 Envoy gateway.
 

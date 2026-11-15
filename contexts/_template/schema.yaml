@@ -1302,7 +1302,7 @@ properties:
             properties:
               api_key:
                 type: string
-                description: PowerDNS API key, as a secret reference. Unset uses a fixed development key when dev is true; otherwise the pdns driver rejects the context.
+                description: PowerDNS API key, as a secret reference. Unset generates a key.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false

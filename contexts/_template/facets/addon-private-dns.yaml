@@ -10,10 +10,6 @@ requires:
   - paths:
       - dns.private_domain
     message: Self-hosted private DNS serves and publishes records into this zone.
-  - when: dns.private.driver == 'pdns' && dev != true
-    paths:
-      - dns.private.pdns.api_key
-    message: The PowerDNS API needs an API key outside dev mode.
   - when: dns.private.driver == 'pdns' && database.postgres.enabled == false
     message: The pdns driver stores its zones in the in-cluster PostgreSQL database; unset database.postgres.enabled or set it to true.
   # Workstation contexts reach the server through the node port instead.
@@ -39,6 +35,11 @@ config:
 #
 # external-dns has no topology: ha component: no confirmed leader election at the pinned version.
 #
+terraform:
+  - name: pdns
+    path: dns/pdns-api-key
+    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
+
 flux:
 
   - name: dns
@@ -110,11 +111,11 @@ flux:
         data:
           username: ${'pdns'}
           api-key: ${dns.private.pdns.api_key}
-  # PowerDNS API key, dev default.
+  # PowerDNS API key, generated case.
   - name: dns
-    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == '' && dev == true
+    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
     secrets:
       pdns-api:
         data:
           username: ${'pdns'}
-          api-key: ${'pdns-dev-api-key'}
+          api-key: ${terraform_output('pdns', 'api_key')}

@@ -226,6 +226,7 @@ verification.
 
 ## Modules
 
+- [pdns-api-key](pdns-api-key/) — Generated API key for the in-cluster PowerDNS server and its external-dns provider.
 - [zone/azure-dns](zone/azure-dns/) — DNS zone on Azure DNS.
 - [zone/gcp-dns](zone/gcp-dns/) — DNS zone on Google Cloud DNS.
 - [zone/hetzner](zone/hetzner/) — Creates a primary Hetzner DNS zone via the official hcloud provider.
