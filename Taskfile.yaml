@@ -37,22 +37,22 @@ tasks:
       - scripts/talos-images.sh --verify
 
   grafana:plugins:
-    desc: Set the Grafana plugin checksums from the plugin downloads and the image tag from images/grafana-plugins
+    desc: Set the Grafana plugin checksums from the plugin downloads and the image tag from images/grafana-plugins/VERSION
     cmds:
       - scripts/grafana-plugins.sh
 
   grafana:plugins:check:
-    desc: Verify the Grafana plugin image tag matches images/grafana-plugins (CI guard)
+    desc: Verify the Grafana plugin image tag matches images/grafana-plugins/VERSION (CI guard)
     cmds:
       - scripts/grafana-plugins.sh --check
 
   utils:image:
-    desc: Lock the utils image packages and set the image tag and digest from images/utils
+    desc: Lock the utils image packages and set the image tag from images/utils/VERSION and the digest
     cmds:
       - scripts/utils-image.sh
 
   utils:image:check:
-    desc: Verify the utils image tag matches images/utils (CI guard)
+    desc: Verify the utils image tag matches images/utils/VERSION (CI guard)
     cmds:
       - scripts/utils-image.sh --check
 

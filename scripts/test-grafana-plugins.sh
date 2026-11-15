@@ -28,14 +28,14 @@ cp scripts/grafana-plugins.sh "$work/scripts/"
 cp -R images/grafana-plugins "$work/images/"
 cp "$RELEASE" "$work/$RELEASE"
 
-check "the committed tag matches the image content" scripts/grafana-plugins.sh --check
+check "the committed tag matches VERSION" scripts/grafana-plugins.sh --check
 
-echo "# test" >> "$work/images/grafana-plugins/Dockerfile"
-check "a change to the image fails the check" sh -c '! scripts/grafana-plugins.sh --check'
+echo "9.9.9" > "$work/images/grafana-plugins/VERSION"
+check "a version bump fails the check" sh -c '! scripts/grafana-plugins.sh --check'
 check "the script writes the new tag" scripts/grafana-plugins.sh --write-tag
 check "the check passes after the script writes the tag" scripts/grafana-plugins.sh --check
 check "the image line keeps its artifact tag" \
-  grep -qE "reference: ghcr.io/windsorcli/grafana-plugins:[0-9a-f]{12}  # artifact: type=image$" "$RELEASE"
+  grep -qE "reference: ghcr.io/windsorcli/grafana-plugins:9\.9\.9  # artifact: type=image$" "$RELEASE"
 
 # A fetch line that reads a local zip, so the checksum step needs no network.
 echo "fake plugin" > "$work/fake-1.0.0.zip"

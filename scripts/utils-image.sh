@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Locks the packages in images/utils, then sets the image tag and digest in each kustomize/ reference.
+# Locks the packages in images/utils, then sets the tag from images/utils/VERSION and the digest in each kustomize/ reference.
 #
 #   scripts/utils-image.sh             lock the packages, then write the tag and digest
 #   scripts/utils-image.sh --write-ref write only the tag and digest (no lock)
-#   scripts/utils-image.sh --check     verify each reference uses the tag; non-zero on drift (CI)
-#   scripts/utils-image.sh --tag       print the tag
+#   scripts/utils-image.sh --check     verify each reference uses VERSION; non-zero on drift (CI)
+#   scripts/utils-image.sh --tag       print the version
 #   scripts/utils-image.sh --digest    print the digest that the references pin
 
 set -euo pipefail
@@ -12,19 +12,25 @@ set -euo pipefail
 IMAGE_DIR="images/utils"
 CONFIG="$IMAGE_DIR/apko.yaml"
 LOCK="$IMAGE_DIR/apko.lock.json"
+VERSION_FILE="$IMAGE_DIR/VERSION"
 IMAGE="ghcr.io/windsorcli/utils"
 IMAGE_RE="ghcr\\.io/windsorcli/utils"
-REF_RE="${IMAGE_RE}:[0-9a-f]+@sha256:[0-9a-f]{64}"
+REF_RE="${IMAGE_RE}:[0-9A-Za-z._-]+@sha256:[0-9a-f]{64}"
 SEARCH_DIRS="kustomize"
 MODE="${1:-}"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# image_tag -> the tag for the current content of IMAGE_DIR
+# image_tag -> the semver in VERSION_FILE, or an error when the file has none
 image_tag() {
-  (cd "$IMAGE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) \
-    | sha256sum | cut -c1-12
+  local version
+  version=$(tr -d '[:space:]' < "$VERSION_FILE")
+  if ! echo "$version" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+'; then
+    echo "error: $VERSION_FILE MUST hold a semver like 1.2.3, not '$version'" >&2
+    exit 1
+  fi
+  echo "$version"
 }
 
 # ref_files -> each file under SEARCH_DIRS that references IMAGE, or an error when none does
@@ -97,12 +103,12 @@ case "$MODE" in
     stale=$(refs | grep -vE "^${IMAGE_RE}:${want}@" || true)
     pinned_digest >/dev/null
     if [ -n "$stale" ]; then
-      echo "error: $IMAGE_DIR builds ${IMAGE}:${want}, but these references differ:" >&2
+      echo "error: $VERSION_FILE is ${want}, but these references differ:" >&2
       echo "$stale" >&2
       echo "Run 'task utils:image' and commit the change." >&2
       exit 1
     fi
-    echo "Utils image tag ${want} is up to date"
+    echo "Utils image version ${want} is up to date"
     ;;
   --write-ref)
     write_ref

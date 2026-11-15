@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# Update the Grafana plugin image. The script downloads each plugin zip in
-# images/grafana-plugins/Dockerfile and writes its SHA-256 into the Dockerfile. Then it
-# sets the image tag in the grafana/quickwit HelmRelease patch. The tag is the first 12
-# characters of the SHA-256 of the files in images/grafana-plugins, so each change to the
-# image gets a new tag. CI pushes each tag that ghcr.io does not have yet.
+# Writes each plugin checksum into images/grafana-plugins/Dockerfile, then sets the tag from VERSION in the quickwit patch.
 #
 #   scripts/grafana-plugins.sh             write the checksums and the tag
 #   scripts/grafana-plugins.sh --write-tag write only the tag (no download)
@@ -14,6 +10,7 @@ set -euo pipefail
 
 IMAGE_DIR="images/grafana-plugins"
 DOCKERFILE="$IMAGE_DIR/Dockerfile"
+VERSION_FILE="$IMAGE_DIR/VERSION"
 IMAGE="ghcr.io/windsorcli/grafana-plugins"
 IMAGE_RE="ghcr\\.io/windsorcli/grafana-plugins"
 RELEASE="kustomize/observability/install/grafana/quickwit/patches/helm-release.yaml"
@@ -22,16 +19,21 @@ MODE="${1:-}"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# image_tag -> the tag for the current content of IMAGE_DIR
+# image_tag -> the semver in VERSION_FILE, or an error when the file has none
 image_tag() {
-  (cd "$IMAGE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) \
-    | sha256sum | cut -c1-12
+  local version
+  version=$(tr -d '[:space:]' < "$VERSION_FILE")
+  if ! echo "$version" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+'; then
+    echo "error: $VERSION_FILE MUST hold a semver like 1.2.3, not '$version'" >&2
+    exit 1
+  fi
+  echo "$version"
 }
 
 # release_tag -> the tag of IMAGE in RELEASE, or an error when the line is missing
 release_tag() {
   local tag
-  tag=$(grep -oE "reference: ${IMAGE_RE}:[0-9a-f]+" "$RELEASE" | sed 's/.*://') || true
+  tag=$(grep -oE "reference: ${IMAGE_RE}:[0-9A-Za-z._-]+" "$RELEASE" | sed 's/.*://') || true
   if [ -z "$tag" ]; then
     echo "error: no 'reference: ${IMAGE}:<tag>' line in $RELEASE" >&2
     exit 1
@@ -70,7 +72,7 @@ write_checksums() {
   done
 }
 
-# write_tag -> writes the tag for the current content of IMAGE_DIR into RELEASE
+# write_tag -> writes the tag in VERSION_FILE into RELEASE
 write_tag() {
   local have want
   have=$(release_tag)
@@ -88,11 +90,11 @@ case "$MODE" in
     have=$(release_tag)
     want=$(image_tag)
     if [ "$have" != "$want" ]; then
-      echo "error: $RELEASE uses ${IMAGE}:${have}, but $IMAGE_DIR builds ${IMAGE}:${want}" >&2
+      echo "error: $RELEASE uses ${IMAGE}:${have}, but $VERSION_FILE is ${want}" >&2
       echo "Run 'task grafana:plugins' and commit the change." >&2
       exit 1
     fi
-    echo "Grafana plugin image tag ${want} is up to date"
+    echo "Grafana plugin image version ${want} is up to date"
     ;;
   --write-tag)
     write_tag

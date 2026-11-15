@@ -1,7 +1,7 @@
 # =============================================================================
 # Image workflow
 # =============================================================================
-# Builds an image from images/<name>, and pushes, signs and attests its tag when ghcr.io does not have the tag.
+# Builds an image from images/<name>, and pushes, signs and attests the tag in images/<name>/VERSION when ghcr.io does not have it.
 name: Image
 
 on:
@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       script:
-        description: Script that verifies the image references with --check and prints the tag with --tag.
+        description: Script that verifies the image references with --check and prints the VERSION tag with --tag.
         required: true
         type: string
       pin-digest:
@@ -65,6 +65,8 @@ jobs:
           if [ "$PIN_DIGEST" = true ]; then
             echo "digest=$("$SCRIPT" --digest)" >> "$GITHUB_OUTPUT"
           fi
+          content=$(cd "$DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+          echo "content=${content}" >> "$GITHUB_OUTPUT"
 
       - name: Login to GitHub Container Registry
         if: env.PUSH == 'true'
@@ -83,6 +85,8 @@ jobs:
         env:
           REF: ${{ steps.image.outputs.ref }}
           PINNED: ${{ steps.image.outputs.digest }}
+          CONTENT: ${{ steps.image.outputs.content }}
+          BUILDER: ${{ inputs.builder }}
           IDENTITY: ^https://github\.com/${{ github.repository }}/\.github/workflows/image\.yaml@
         run: |
           if ! skopeo inspect --raw "docker://${REF}" > remote-index.json 2>/dev/null; then
@@ -91,8 +95,15 @@ jobs:
           fi
           have="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
           if [ -n "$PINNED" ] && [ "$have" != "$PINNED" ]; then
-            echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}"
+            echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}. Bump ${DIR}/VERSION."
             exit 1
+          fi
+          if [ "$BUILDER" = docker ]; then
+            built_from=$(skopeo inspect "docker://${REF}" | jq -r '.Labels["dev.windsorcli.image.content"] // ""')
+            if [ "$built_from" != "$CONTENT" ]; then
+              echo "::error::${REF} was built from other content than ${DIR}. Bump ${DIR}/VERSION."
+              exit 1
+            fi
           fi
           echo "exists=true" >> "$GITHUB_OUTPUT"
           echo "digest=${have}" >> "$GITHUB_OUTPUT"
@@ -164,7 +175,9 @@ jobs:
           push: ${{ env.PUSH == 'true' }}
           sbom: true
           tags: ${{ steps.image.outputs.ref }}
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            dev.windsorcli.image.content=${{ steps.image.outputs.content }}
 
       # Signs with the workflow's GitHub OIDC identity.
       - name: Sign the image
@@ -187,10 +200,3 @@ jobs:
             manifest=$(tar -xOf image.tar index.json | jq -r --arg a "${pair%%:*}" '.manifests[] | select(.platform.architecture == $a) | .digest')
             cosign attest --yes --type spdxjson --predicate "sbom/sbom-${pair#*:}.spdx.json" "${REPO}@${manifest}"
           done
-
-      # A release tag adds its version as a tag on the same digest.
-      - name: Tag the release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        env:
-          REF: ${{ steps.image.outputs.ref }}
-        run: skopeo copy --all --preserve-digests "docker://${REF}" "docker://${REPO}:${GITHUB_REF_NAME}"

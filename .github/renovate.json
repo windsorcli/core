@@ -140,17 +140,17 @@
       "automerge": false
     },
     {
-      "description": "Review Grafana plugin image bumps by hand: check Grafana support, and run task grafana:plugins to set the checksum and the image tag",
+      "description": "Review Grafana plugin image bumps by hand: check Grafana support, bump images/grafana-plugins/VERSION, and run task grafana:plugins to set the checksum and the image tag",
       "matchFileNames": ["images/grafana-plugins/Dockerfile"],
       "automerge": false
     },
     {
-      "description": "task grafana:plugins sets the Grafana plugin image tag from the image content",
+      "description": "task grafana:plugins sets the Grafana plugin image tag from images/grafana-plugins/VERSION",
       "matchPackageNames": ["ghcr.io/windsorcli/grafana-plugins"],
       "enabled": false
     },
     {
-      "description": "task utils:image sets the utils image tag and digest from images/utils",
+      "description": "task utils:image sets the utils image tag from images/utils/VERSION and the digest",
       "matchPackageNames": ["ghcr.io/windsorcli/utils"],
       "enabled": false
     },
