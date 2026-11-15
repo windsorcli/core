@@ -119,7 +119,7 @@ jobs:
       - name: Validate Grafana plugin image tag
         run: task grafana:plugins:check
 
-      # Fail if a utils image reference under kustomize/ differs from images/utils/VERSION.
+      # Fail if a utils image reference under kustomize/ or terraform/ differs from images/utils/VERSION.
       - name: Validate utils image tag
         run: task utils:image:check
 

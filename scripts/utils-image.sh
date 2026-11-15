@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Locks the packages in images/utils, then sets VERSION and the tag and digest in each kustomize/ reference.
+# Locks the packages in images/utils, then sets VERSION and the tag and digest in each kustomize/ and terraform/ reference.
 #
 #   scripts/utils-image.sh             lock the packages, then write the tag and digest
 #   scripts/utils-image.sh --write-ref write only VERSION, the tag and the digest (no lock)
@@ -18,7 +18,7 @@ VERSION_FILE="$IMAGE_DIR/VERSION"
 IMAGE="ghcr.io/windsorcli/utils"
 IMAGE_RE="ghcr\\.io/windsorcli/utils"
 REF_RE="${IMAGE_RE}:[0-9A-Za-z._-]+@sha256:[0-9a-f]{64}"
-SEARCH_DIRS="kustomize"
+SEARCH_DIRS="kustomize terraform"
 MODE="${1:-}"
 
 work=$(mktemp -d)
@@ -50,6 +50,7 @@ image_tag() {
 # ref_files -> each file under SEARCH_DIRS that references IMAGE, or an error when none does
 ref_files() {
   local files
+  # shellcheck disable=SC2086
   files=$(grep -rlE "$IMAGE_RE" $SEARCH_DIRS | LC_ALL=C sort) || true
   if [ -z "$files" ]; then
     echo "error: no file under $SEARCH_DIRS references $IMAGE" >&2
