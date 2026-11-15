@@ -24,7 +24,7 @@ packages:
   - name: docker/compose@v5.6.1
   - name: aws/aws-cli@2.38.5
   - name: helm/helm@v4.3.1
-  - name: fluxcd/flux2@v2.9.6
+  - name: fluxcd/flux2@v2.10.0
   - name: controlplaneio-fluxcd/flux-operator@v0.62.1
   - name: hashicorp/vault@v2.2.1
   - name: derailed/k9s@v0.51.0
