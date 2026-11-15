@@ -22,6 +22,10 @@ a CloudNativePG database, and external-dns writes records through the
 PowerDNS REST API. `pdns` replaces `coredns` as a whole; a context
 runs one of them.
 
+`pdns-remote` points external-dns at an existing PowerDNS server instead.
+It installs no server, database or zone-init Job, and it requires
+`dns.private.pdns.url` and `dns.private.pdns.api_key`.
+
 Both halves run from a single Kustomization path (`dns`). They're
 wired through the same facet entry with different component
 selections.
@@ -340,6 +344,12 @@ Patches the HelmRelease for the CoreDNS provider, writing records into the in-cl
 _Enabled when `dns.private.driver: pdns`._
 
 Patches the HelmRelease for the PowerDNS provider. The instance writes through `http://pdns-api.system-dns.svc.cluster.local:8081` with the API key from the `pdns-api` Secret.
+
+### `resources/external-dns/providers/pdns-remote`
+
+_Enabled when `dns.private.driver: pdns-remote`._
+
+Patches the HelmRelease for the PowerDNS provider against an existing server. The instance writes through `dns.private.pdns.url` and `dns.private.pdns.server_id` with the key from the `pdns-api` Secret. The zones MUST already exist on the server. The driver installs no server, database or zone-init Job.
 
 ### `resources/external-dns/sources/gateway-httproute`
 

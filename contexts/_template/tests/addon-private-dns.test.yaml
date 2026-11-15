@@ -916,6 +916,77 @@ cases:
       terraform:
         - name: pdns
 
+  - name: pdns-remote driver writes to an existing server without installing one
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            url: http://pdns.example.com:8081
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/pdns-remote
+              substitutions:
+                pdns_url: http://pdns.example.com:8081
+                pdns_server_id: localhost
+          secrets:
+            pdns-api:
+              data:
+                api-key: ${dns.private.pdns.api_key}
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns-remote
+              - pdns
+      terraform:
+        - name: pdns
+
+  - name: pdns-remote driver without a URL fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: pdns-remote driver without an API key fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            url: http://pdns.example.com:8081
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
   - name: pdns driver without a private domain fails composition
     values:
       platform: metal

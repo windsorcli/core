@@ -1290,19 +1290,27 @@ properties:
               - cloud
               - coredns
               - pdns
+              - pdns-remote
               - none
-            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS; pdns runs in-cluster PowerDNS on a PostgreSQL database. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
+            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS; pdns runs in-cluster PowerDNS on a PostgreSQL database; pdns-remote writes to an existing PowerDNS server through its API. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
           enabled:
             type: boolean
             deprecated: true
             description: Deprecated. Use dns.private.driver. true is an alias for coredns.
           pdns:
             type: object
-            description: Settings for the pdns driver.
+            description: Settings for the pdns and pdns-remote drivers.
             properties:
+              url:
+                $ref: '#/$defs/httpUrl'
+                description: Base URL of the PowerDNS API, for example http://pdns.example.com:8081. Required for the pdns-remote driver.
+              server_id:
+                type: string
+                default: localhost
+                description: PowerDNS server ID in the API path. Used by the pdns-remote driver.
               api_key:
                 type: string
-                description: PowerDNS API key, as a secret reference. Unset generates a key.
+                description: PowerDNS API key, as a secret reference. pdns generates one when unset; pdns-remote requires it.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false

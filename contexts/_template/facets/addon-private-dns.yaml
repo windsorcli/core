@@ -4,17 +4,22 @@ metadata:
   name: private-dns
   description: Self-hosted private DNS zones, served by CoreDNS or PowerDNS
 
-when: dns.private.driver in ['coredns', 'pdns']
+when: dns.private.driver in ['coredns', 'pdns', 'pdns-remote']
 
 requires:
   - paths:
       - dns.private_domain
     message: Self-hosted private DNS serves and publishes records into this zone.
+  - when: dns.private.driver == 'pdns-remote'
+    paths:
+      - dns.private.pdns.url
+      - dns.private.pdns.api_key
+    message: An existing PowerDNS server is reached through its API URL and key.
   - when: dns.private.driver == 'pdns' && database.postgres.enabled == false
     message: The pdns driver stores its zones in the in-cluster PostgreSQL database; unset database.postgres.enabled or set it to true.
   # Workstation contexts reach the server through the node port instead.
   - when: >-
-      gateway.enabled == true && (workstation.runtime ?? '') == '' &&
+      dns.private.driver != 'pdns-remote' && gateway.enabled == true && (workstation.runtime ?? '') == '' &&
       gateway_exposure.internal == 'NodePort'
     message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
@@ -44,18 +49,18 @@ flux:
 
   - name: dns
     dependsOn:
-      - "${dns.private.driver == 'coredns' ? 'pki-resources' : 'database-resources-catalog'}"
-      - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
+      - "${dns.private.driver == 'coredns' ? 'pki-resources' : (dns.private.driver == 'pdns' ? 'database-resources-catalog' : '')}"
+      - "${dns.private.driver == 'pdns-remote' ? '' : (gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : ''))}"
     install:
       components:
-        - "${dns.private.driver}"
+        - "${dns.private.driver == 'pdns-remote' ? '' : dns.private.driver}"
         - "${dns.private.driver == 'coredns' ? 'coredns/etcd' : ''}"
         - "${dns_private_effective.public_zone == true && dns.private.driver == 'coredns' ? 'coredns/public-zone' : ''}"
-        - "${telemetry.metrics.enabled ? dns.private.driver + '/prometheus' : ''}"
-        - "${topology == 'ha' ? dns.private.driver + '/ha' : ''}"
-        - "${gateway.driver == 'cilium' ? dns.private.driver + '/loadbalancer' : ''}"
-        - "${gateway.driver == 'cilium' ? dns.private.driver + '/cilium' : ''}"
-        - "${gateway.driver == 'envoy' && gateway.enabled == true ? dns.private.driver + '/gateway' : ''}"
+        - "${telemetry.metrics.enabled && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/prometheus' : ''}"
+        - "${topology == 'ha' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/ha' : ''}"
+        - "${gateway.driver == 'cilium' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/loadbalancer' : ''}"
+        - "${gateway.driver == 'cilium' && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/cilium' : ''}"
+        - "${gateway.driver == 'envoy' && gateway.enabled == true && dns.private.driver != 'pdns-remote' ? dns.private.driver + '/gateway' : ''}"
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns_private_effective.public_zone == true ? dns.public_domain : ''}"
@@ -86,6 +91,8 @@ flux:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
           txt_owner_id: "${id}"
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
       - name: private
@@ -100,12 +107,14 @@ flux:
           external_dns_name: external-dns-private
           external_dns_domain: ${dns.private_domain}
           txt_owner_id: "${id}"
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
 
   # PowerDNS API key, supplied case.
   - name: dns
-    when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') != ''
+    when: dns.private.driver in ['pdns', 'pdns-remote'] && (dns.private.pdns.api_key ?? '') != ''
     secrets:
       pdns-api:
         data:
