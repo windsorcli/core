@@ -15,7 +15,8 @@ contents:
     - curl
     - jq
     - yq
-    - gnupg
+    - gpg
+    - gpg-agent
     - openssl
 
 accounts:

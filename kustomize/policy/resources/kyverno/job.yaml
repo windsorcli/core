@@ -18,7 +18,7 @@ spec:
       containers:
       - name: probe
         # artifact: type=image name=ghcr.io/windsorcli/utils
-        image: ghcr.io/windsorcli/utils:c17517991f0f@sha256:b536ee3f7b791eb4a6cb7ba30f741fdb0499ee4cf778d889dd19a31a4397d96b
+        image: ghcr.io/windsorcli/utils:0c99365cba0f@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e
         command: ["/bin/sh", "-c"]
         args:
         - |
