@@ -40,6 +40,39 @@ $defs:
   k8sLabelValue:
     type: string
     pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
+  # Talos Image Factory official overlay names. Keep in step with metal_overlays in facets/platform-metal.yaml.
+  talosBoard:
+    type: string
+    enum:
+      - bananapi_m64
+      - libretech_all_h3_cc_h5
+      - pine64
+      - jetson_nano
+      - revpi_generic
+      - rpi_generic
+      - rpi_5
+      - helios64
+      - nanopi-r4s
+      - nanopi-r5s
+      - odroid-m1
+      - orangepi-5
+      - orangepi-5-max
+      - orangepi-5-plus
+      - orangepi-r1-plus-lts
+      - radxa-zero-3e
+      - rock3b
+      - rock4cplus
+      - rock4se
+      - rock5a
+      - rock5b
+      - rock5b-plus
+      - rock5t
+      - rock64
+      - rockpi4
+      - rockpi4c
+      - rockpro64
+      - turingrk1
+      - friendlyelec-cm3588-nas
   diskItem: &diskItem
     type: object
     properties:
@@ -108,10 +141,13 @@ $defs:
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
+        board:
+          $ref: '#/$defs/talosBoard'
+          description: Single-board computer this node runs on, on platform metal, as a Talos Image Factory overlay name such as rpi_5. Overrides the pool's board for this node.
         install_image:
           type: string
           minLength: 1
-          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5 for an Image Factory overlay. Its schematic MUST carry any system extensions the storage driver installs. Unset uses ghcr.io/siderolabs/installer at talos.talos_version.
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
@@ -133,6 +169,14 @@ $defs:
     image:
       type: string
       description: Node image for this pool. Per-node image overrides when set.
+    board:
+      $ref: '#/$defs/talosBoard'
+      description: >-
+        Single-board computer the pool's nodes run on, on platform metal, as a Talos Image Factory
+        overlay name such as rpi_5 (Raspberry Pi 5) or rpi_generic (Raspberry Pi 4 and older). Nodes
+        install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
+        and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
+        uses ghcr.io/siderolabs/installer.
     instance_type:
       type: string
       description: Cloud provider instance type

@@ -360,6 +360,80 @@ run "install_image_propagates" {
   }
 }
 
+# Verifies that a node's overlay installs from its schematic's metal installer and install_image wins over it
+run "overlay_selects_metal_installer" {
+  command = plan
+
+  override_resource {
+    target          = talos_image_factory_schematic.overlay["rpi_5"]
+    override_during = plan
+    values = {
+      id = "rpi5abc"
+    }
+  }
+
+  override_resource {
+    target          = talos_image_factory_schematic.overlay["rpi_generic"]
+    override_during = plan
+    values = {
+      id = "rpigen"
+    }
+  }
+
+  variables {
+    talos_version = "1.14.5"
+    controlplanes = [
+      {
+        endpoint = "10.0.0.10:50000"
+        node     = "10.0.0.10"
+        overlay  = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+      },
+      {
+        endpoint      = "10.0.0.11:50000"
+        node          = "10.0.0.11"
+        overlay       = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+        install_image = "factory.talos.dev/metal-installer/custom:v1.14.5"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+        overlay  = { name = "rpi_generic", image = "siderolabs/sbc-raspberrypi" }
+      },
+      {
+        endpoint = "10.0.0.21:50000"
+        node     = "10.0.0.21"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(talos_image_factory_schematic.overlay) == 2
+    error_message = "Should create one schematic per distinct overlay"
+  }
+  assert {
+    condition     = yamldecode(talos_image_factory_schematic.overlay["rpi_5"].schematic).overlay == { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+    error_message = "The schematic should hold the node's overlay"
+  }
+  assert {
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/rpi5abc:v1.14.5"
+    error_message = "A node with an overlay should use the metal installer of its schematic"
+  }
+  assert {
+    condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/custom:v1.14.5"
+    error_message = "install_image should win over the overlay"
+  }
+  assert {
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/rpigen:v1.14.5"
+    error_message = "Each overlay should use its own schematic"
+  }
+  assert {
+    condition     = module.workers[1].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A node without an overlay or install_image should use the installer at talos_version"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
