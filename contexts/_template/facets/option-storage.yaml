@@ -47,7 +47,7 @@ config:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
         agent_ha_node: develop@sha256:7c998074beeff6f698922e210b74f2001d81456b8ed59e5002e4861f131deab1
         # artifact: type=image name=docker.io/openebs/mayastor-api-rest
-        api_rest: develop@sha256:70e94df2c85dd4a5ebd239465c7e625badad14f4591b21244168db0431d559ec
+        api_rest: develop@sha256:85cfe236b8a5923712fb2532447faff54d7669f0c4c5e173cf11ffc378a60831
         # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
         csi_controller: develop@sha256:14d9fa12e2d0b7f0cc00fcdbb6ae101e987f0512b22cdd61f36ab67dd5ff0591
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
