@@ -150,7 +150,7 @@
       "enabled": false
     },
     {
-      "description": "task utils:image sets the utils image tag from images/utils/VERSION and the digest",
+      "description": "task utils:image sets the utils image version, tag and digest",
       "matchPackageNames": ["ghcr.io/windsorcli/utils"],
       "enabled": false
     },

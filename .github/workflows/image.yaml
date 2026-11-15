@@ -95,7 +95,7 @@ jobs:
           fi
           have="sha256:$(sha256sum remote-index.json | cut -d' ' -f1)"
           if [ -n "$PINNED" ] && [ "$have" != "$PINNED" ]; then
-            echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}. Bump ${DIR}/VERSION."
+            echo "::error::${REF} has digest ${have}, but the references pin ${PINNED}. Run ${{ inputs.script }} to set the next version."
             exit 1
           fi
           if [ "$BUILDER" = docker ]; then

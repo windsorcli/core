@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Locks the packages in images/utils, then sets the tag from VERSION and the digest in each kustomize/ reference.
+# Locks the packages in images/utils, then sets VERSION and the tag and digest in each kustomize/ reference.
 #
 #   scripts/utils-image.sh             lock the packages, then write the tag and digest
-#   scripts/utils-image.sh --write-ref write only the tag and digest (no lock)
+#   scripts/utils-image.sh --write-ref write only VERSION, the tag and the digest (no lock)
 #   scripts/utils-image.sh --check     verify each reference uses VERSION; non-zero on drift (CI)
 #   scripts/utils-image.sh --tag       print the version
 #   scripts/utils-image.sh --digest    print the digest that the references pin
@@ -22,17 +22,24 @@ MODE="${1:-}"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# image_tag -> the VERSION_FILE semver, which MUST be <kubectl major>.<kubectl minor>.<image patch>
+# kubectl_version -> the upstream kubectl version in LOCK, or an error when the lock has none or several
+kubectl_version() {
+  local versions
+  versions=$(jq -r '[.contents.packages[] | select(.name | test("^kubectl-[0-9]+\\.[0-9]+$")) | .version | sub("-r[0-9]+$"; "")] | unique | .[]' "$LOCK")
+  if [ -z "$versions" ] || [ "$(echo "$versions" | wc -l)" -ne 1 ]; then
+    echo "error: $LOCK MUST lock exactly one kubectl version, not '${versions}'" >&2
+    exit 1
+  fi
+  echo "$versions"
+}
+
+# image_tag -> the tag in VERSION_FILE, which MUST be <kubectl version>-r<revision>
 image_tag() {
   local version kubectl
   version=$(tr -d '[:space:]' < "$VERSION_FILE")
-  kubectl=$(sed -nE 's/^[[:space:]]*- kubectl-([0-9]+\.[0-9]+)$/\1/p' "$CONFIG")
-  if [ -z "$kubectl" ]; then
-    echo "error: $CONFIG has no kubectl-<major>.<minor> package" >&2
-    exit 1
-  fi
-  if ! echo "$version" | grep -qxE "${kubectl//./\\.}\\.[0-9]+"; then
-    echo "error: $VERSION_FILE MUST hold ${kubectl}.<patch> to match kubectl-${kubectl} in $CONFIG, not '$version'" >&2
+  kubectl=$(kubectl_version)
+  if ! echo "$version" | grep -qxE "${kubectl//./\\.}-r[0-9]+"; then
+    echo "error: $VERSION_FILE MUST hold ${kubectl}-r<revision> to match kubectl in $LOCK, not '$version'" >&2
     exit 1
   fi
   echo "$version"
@@ -84,11 +91,27 @@ build_digest() {
   echo "sha256:$(tar -xOf "$work/image.tar" index.json | sha256sum | cut -d' ' -f1)"
 }
 
-# write_ref -> writes the tag and digest for the current content of IMAGE_DIR into each reference
+# next_version -> VERSION_FILE when the build matches the pinned digest and kubectl, else the next revision
+next_version() {
+  local digest="$1" version kubectl
+  version=$(tr -d '[:space:]' < "$VERSION_FILE")
+  kubectl=$(kubectl_version)
+  if ! echo "$version" | grep -qxE "${kubectl//./\\.}-r[0-9]+"; then
+    echo "${kubectl}-r1"
+  elif [ "$digest" != "$(pinned_digest)" ]; then
+    echo "${kubectl}-r$(( ${version##*-r} + 1 ))"
+  else
+    echo "$version"
+  fi
+}
+
+# write_ref -> writes VERSION_FILE and the tag and digest for the current content of IMAGE_DIR into each reference
 write_ref() {
   local tag digest file
-  tag=$(image_tag)
   digest=$(build_digest)
+  next_version "$digest" > "$work/version"
+  cat "$work/version" > "$VERSION_FILE"
+  tag=$(image_tag)
   for file in $(ref_files); do
     sed -E "s#${REF_RE}#${IMAGE}:${tag}@${digest}#g" "$file" > "$work/file"
     cat "$work/file" > "$file"

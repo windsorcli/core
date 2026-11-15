@@ -47,7 +47,7 @@ tasks:
       - scripts/grafana-plugins.sh --check
 
   utils:image:
-    desc: Lock the utils image packages and set the image tag from images/utils/VERSION and the digest
+    desc: Lock the utils image packages, then set images/utils/VERSION and the image tag and digest
     cmds:
       - scripts/utils-image.sh
 
