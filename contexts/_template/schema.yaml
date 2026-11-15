@@ -111,7 +111,7 @@ $defs:
         install_image:
           type: string
           minLength: 1
-          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5 for an Image Factory overlay. Its schematic MUST carry any system extensions the storage driver installs. Unset uses ghcr.io/siderolabs/installer at talos.talos_version.
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5 for an Image Factory overlay. It wins over metal.talos_schematic_id, for nodes on different hardware. Its schematic MUST carry any system extensions the storage driver installs. Unset with metal.talos_schematic_id unset uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
@@ -549,6 +549,23 @@ properties:
         default: default
         description: Existing storage pool for root and data disks, present on every member. IncusOS names its pool local.
     description: Incus infrastructure configuration
+
+  # Metal configuration, read only when platform == 'metal'.
+  metal:
+    type: object
+    additionalProperties: false
+    properties:
+      talos_schematic_id:
+        type: string
+        pattern: '^[0-9a-f]{64}$'
+        description: >-
+          Talos Image Factory schematic ID for every node, such as one with the
+          rpi_5 overlay. Nodes install and upgrade from
+          factory.talos.dev/metal-installer/<id>:v<talos.talos_version>, so the
+          image follows Talos upgrades. A node's install_image wins over it. The
+          schematic MUST carry any system extensions the storage driver installs.
+          Unset uses ghcr.io/siderolabs/installer.
+    description: Bare-metal infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
