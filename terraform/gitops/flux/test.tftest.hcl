@@ -501,12 +501,12 @@ run "mirror_locations" {
   }
 
   assert {
-    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.imagePullSecret == "flux-image-pull"
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.imagePullSecret == kubernetes_secret_v1.image_pull[0].metadata[0].name
     error_message = "Flux controllers should pull with the image pull Secret"
   }
 
   assert {
-    condition     = yamldecode(helm_release.flux_operator.values[0]).image.pullSecrets == [{ name = "flux-image-pull" }]
+    condition     = yamldecode(helm_release.flux_operator.values[0]).image.pullSecrets == [{ name = kubernetes_secret_v1.image_pull[0].metadata[0].name }]
     error_message = "flux-operator should pull with the image pull Secret"
   }
 
