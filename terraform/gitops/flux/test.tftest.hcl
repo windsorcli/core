@@ -463,6 +463,16 @@ run "upstream_locations_by_default" {
     condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.artifact == ""
     error_message = "Flux distribution artifact should default to empty, so the operator uses the manifests in its image"
   }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.variant == ""
+    error_message = "Flux distribution variant should default to empty, so the chart omits it"
+  }
+
+  assert {
+    condition     = length(kubernetes_secret_v1.image_pull) == 0 && yamldecode(helm_release.flux_instance.values[0]).instance.distribution.imagePullSecret == "" && length(yamldecode(helm_release.flux_operator.values[0]).image.pullSecrets) == 0
+    error_message = "No image pull Secret should exist or be referenced by default"
+  }
 }
 
 # Verifies every chart and image location follows its input so a mirror
@@ -474,8 +484,30 @@ run "mirror_locations" {
     chart_repository          = "oci://registry.example.com/charts"
     operator_image_repository = "registry.example.com/controlplaneio-fluxcd/flux-operator"
     distribution_registry     = "registry.example.com/fluxcd"
-    distribution_artifact     = "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0"
+    distribution_artifact     = "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:v0.62.1"
     ready_gate_image          = "registry.example.com/windsorcli/utils:1.37.2-r1"
+    distribution_variant      = "upstream-alpine"
+    image_pull_secret         = "{\"auths\":{\"registry.example.com\":{\"auth\":\"dXNlcjpwYXNz\"}}}"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.variant == "upstream-alpine"
+    error_message = "Flux distribution variant should follow distribution_variant"
+  }
+
+  assert {
+    condition     = kubernetes_secret_v1.image_pull[0].type == "kubernetes.io/dockerconfigjson"
+    error_message = "image_pull_secret should create a dockerconfigjson Secret"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.imagePullSecret == "flux-image-pull"
+    error_message = "Flux controllers should pull with the image pull Secret"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_operator.values[0]).image.pullSecrets == [{ name = "flux-image-pull" }]
+    error_message = "flux-operator should pull with the image pull Secret"
   }
 
   assert {
@@ -507,7 +539,7 @@ run "mirror_locations" {
   }
 
   assert {
-    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.artifact == "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0"
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.artifact == "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:v0.62.1"
     error_message = "Flux distribution artifact should follow distribution_artifact"
   }
 
@@ -547,6 +579,8 @@ run "invalid_locations_rejected" {
     distribution_registry     = "https://ghcr.io/fluxcd"                       # scheme
     distribution_artifact     = "ghcr.io/controlplaneio-fluxcd/manifests"      # not OCI
     ready_gate_image          = "docker://alpine/k8s"                          # scheme
+    distribution_variant      = "distroless"                                   # not a variant
+    image_pull_secret         = "{\"registry\":\"ghcr.io\"}"                   # no auths key
   }
 
   expect_failures = [
@@ -555,6 +589,8 @@ run "invalid_locations_rejected" {
     var.distribution_registry,
     var.distribution_artifact,
     var.ready_gate_image,
+    var.distribution_variant,
+    var.image_pull_secret,
   ]
 }
 

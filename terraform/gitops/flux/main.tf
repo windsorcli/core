@@ -252,6 +252,25 @@ resource "kubernetes_priority_class_v1" "platform_critical" {
   description = "Platform-tier controllers other systems depend on."
 }
 
+locals {
+  image_pull_secret_enabled = nonsensitive(var.image_pull_secret != "")
+  image_pull_secret_name    = local.image_pull_secret_enabled ? kubernetes_secret_v1.image_pull[0].metadata[0].name : ""
+}
+
+# The Secret holds the registry credentials the flux-operator and Flux controller pods pull with.
+resource "kubernetes_secret_v1" "image_pull" {
+  count = local.image_pull_secret_enabled ? 1 : 0
+
+  metadata {
+    name      = "flux-image-pull"
+    namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
+  }
+
+  type             = "kubernetes.io/dockerconfigjson"
+  data_wo          = { ".dockerconfigjson" = var.image_pull_secret }
+  data_wo_revision = parseint(substr(sha256(var.image_pull_secret), 0, 8), 16)
+}
+
 # The operator installs the Flux CRDs and controllers and owns the FluxInstance CRD.
 resource "helm_release" "flux_operator" {
   repository       = var.chart_repository
@@ -263,8 +282,9 @@ resource "helm_release" "flux_operator" {
   wait             = true
   values = [yamlencode({
     image = {
-      repository = var.operator_image_repository
-      tag        = var.operator_image_tag
+      repository  = var.operator_image_repository
+      tag         = var.operator_image_tag
+      pullSecrets = local.image_pull_secret_enabled ? [{ name = local.image_pull_secret_name }] : []
     }
   })]
 }
@@ -284,9 +304,11 @@ resource "helm_release" "flux_instance" {
   values = [yamlencode({
     instance = {
       distribution = {
-        version  = var.flux_version
-        registry = var.distribution_registry
-        artifact = var.distribution_artifact
+        version         = var.flux_version
+        registry        = var.distribution_registry
+        artifact        = var.distribution_artifact
+        variant         = var.distribution_variant
+        imagePullSecret = local.image_pull_secret_name
       }
       components = local.flux_components
       cluster = {
