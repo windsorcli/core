@@ -66,7 +66,7 @@ pinned_digest() {
 
 # build_digest -> the index digest of a local apko build of IMAGE_DIR
 build_digest() {
-  apko build --sbom=false --lockfile "$LOCK" "$CONFIG" "$IMAGE:build" "$work/image.tar" >"$work/build.log" 2>&1 || {
+  apko build --vcs=false --sbom=false --lockfile "$LOCK" "$CONFIG" "$IMAGE:build" "$work/image.tar" >"$work/build.log" 2>&1 || {
     cat "$work/build.log" >&2
     exit 1
   }

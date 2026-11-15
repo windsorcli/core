@@ -101,7 +101,7 @@ jobs:
           PINNED: ${{ steps.image.outputs.digest }}
         run: |
           mkdir sbom
-          apko build --lockfile "${DIR}/apko.lock.json" --sbom-path sbom "${DIR}/apko.yaml" "$REF" image.tar
+          apko build --vcs=false --lockfile "${DIR}/apko.lock.json" --sbom-path sbom "${DIR}/apko.yaml" "$REF" image.tar
           built="sha256:$(tar -xOf image.tar index.json | sha256sum | cut -d' ' -f1)"
           if [ -n "$PINNED" ] && [ "$built" != "$PINNED" ]; then
             echo "::error::apko built ${built}, but the references pin ${PINNED}. Run ${{ inputs.script }} and commit the change."
@@ -127,7 +127,7 @@ jobs:
           REF: ${{ steps.image.outputs.ref }}
           BUILT: ${{ steps.apko.outputs.digest }}
         run: |
-          apko publish --lockfile "${DIR}/apko.lock.json" --sbom=false --image-refs refs.txt "${DIR}/apko.yaml" "$REF"
+          apko publish --vcs=false --lockfile "${DIR}/apko.lock.json" --sbom=false --image-refs refs.txt "${DIR}/apko.yaml" "$REF"
           pushed=$(grep -oE 'sha256:[0-9a-f]{64}' refs.txt | head -n1)
           if [ "$pushed" != "$BUILT" ]; then
             echo "::error::apko pushed ${pushed}, but built ${BUILT}"
