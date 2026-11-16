@@ -86,10 +86,6 @@ config:
       worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # The pools' Talos config patches as YAML documents, applied ahead of core's role patches.
-      controlplane_pool_config_patches: "${join(map(cluster.controlplanes.config_patches ?? [], string(#)), '\\n---\\n')}"
-      worker_pool_config_patches: "${join(map(cluster.workers.config_patches ?? [], string(#)), '\\n---\\n')}"
-
       # Pool data disks that Incus compute creates on each node; the longhorn disk by default under longhorn.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
