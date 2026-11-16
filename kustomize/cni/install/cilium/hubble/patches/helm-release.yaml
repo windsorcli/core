@@ -22,8 +22,6 @@ spec:
           - flow
           - icmp
           - http
-        serviceMonitor:
-          enabled: true
       relay:
         enabled: true
         image:

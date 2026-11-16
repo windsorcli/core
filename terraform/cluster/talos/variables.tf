@@ -216,19 +216,6 @@ variable "controlplane_volumes" {
   default     = []
 }
 
-variable "controlplane_disks" {
-  description = "Pool-level disks; used when a controlplane node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
-}
-
-variable "worker_disks" {
-  description = "Pool-level disks; used when a worker node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
-}
-
-
 variable "upgrade_nodes" {
   description = "Upgrade each node in place to the installer image for talos_version when its running version differs. Set false when cluster/talos/extensions owns the upgrade."
   type        = bool

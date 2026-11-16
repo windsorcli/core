@@ -105,6 +105,31 @@ cases:
             - csi-install
             - telemetry-install
 
+  # cloudnativepg/prometheus renders a PodMonitor, which needs the Prometheus CRDs.
+  - name: database omits cloudnativepg/prometheus when the metrics pipeline is disabled
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+      database:
+        postgres:
+          enabled: true
+    expect:
+      flux:
+        - name: database
+          install:
+            components:
+              - cloudnativepg
+    exclude:
+      flux:
+        - name: database
+          install:
+            components:
+              - cloudnativepg/prometheus
+
   # Regression: the dependsOn expression is an OR across metrics and logs, so the
   # logs-only branch needs its own case independent of the metrics one above.
   - name: database depends on telemetry when only the logs pipeline is enabled

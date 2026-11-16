@@ -14,7 +14,7 @@ when: platform == 'metal'
 requires:
   - paths:
       - cluster.controlplanes.nodes
-    message: Metal has no compute layer; declare the controlplane nodes that windsor should talk to.
+    message: Metal provisions no machines; list the existing control planes in cluster.controlplanes.nodes.
 
 # =============================================================================
 # Config
@@ -110,8 +110,6 @@ terraform:
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: ${metal_nodes.controlplanes}
       workers: ${metal_nodes.workers}
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
