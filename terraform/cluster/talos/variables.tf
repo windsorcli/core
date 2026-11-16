@@ -228,3 +228,15 @@ variable "worker_disks" {
   default     = []
 }
 
+
+variable "upgrade_nodes" {
+  description = "Upgrade each node in place to the installer image for talos_version when its running version differs. Set false when cluster/talos/extensions owns the upgrade."
+  type        = bool
+  default     = true
+}
+
+variable "powercycle_reboot" {
+  description = "Use a full ACPI power-cycle reboot instead of kexec during the node upgrade."
+  type        = bool
+  default     = false
+}

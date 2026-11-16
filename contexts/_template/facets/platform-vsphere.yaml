@@ -283,6 +283,8 @@ terraform:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
+      powercycle_reboot: ${platform == 'incus'}
       # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
       # node map. Fall through to the node map when compute hasn't run yet or
       # vmtoolsd hasn't reported an IP (e.g. during initial plan).
