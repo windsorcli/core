@@ -276,6 +276,62 @@ run "count_expansion" {
   }
 }
 
+# A single control plane gets no anti-affinity rule.
+run "controlplane_anti_affinity_single" {
+  command = plan
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 2, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane) == 0
+    error_message = "One control plane should produce no anti-affinity rule"
+  }
+}
+
+# Three control planes get one soft rule that lists only the control-plane VMs.
+run "controlplane_anti_affinity_ha" {
+  command = apply
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 3, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 2, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane) == 1
+    error_message = "Three control planes should produce one anti-affinity rule"
+  }
+
+  assert {
+    condition     = vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].name == "windsor-test-controlplane"
+    error_message = "Rule name should be windsor-<context>-controlplane"
+  }
+
+  assert {
+    condition     = vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].compute_cluster_id == "cluster-01"
+    error_message = "Rule should target the looked-up compute cluster"
+  }
+
+  assert {
+    condition     = !vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].mandatory
+    error_message = "Rule should be soft so co-located VMs can power on"
+  }
+
+  assert {
+    condition = toset(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].virtual_machine_ids) == toset([
+      for k in ["controlplane-1", "controlplane-2", "controlplane-3"] : vsphere_virtual_machine.instances[k].id
+    ])
+    error_message = "Rule should list exactly the three control-plane VM IDs"
+  }
+}
+
 # No cluster VMs: when there are no controlplane or worker instances,
 # talos_machine_secrets should not be created.
 run "no_cluster_vms_no_secrets" {

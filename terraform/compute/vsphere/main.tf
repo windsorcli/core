@@ -322,6 +322,20 @@ resource "vsphere_virtual_machine" "instances" {
   }
 }
 
+# The vsphere_compute_cluster_vm_anti_affinity_rule asks DRS to run each control-plane VM on a separate host.
+resource "vsphere_compute_cluster_vm_anti_affinity_rule" "controlplane" {
+  count = length(local.controlplane_nodes) > 1 ? 1 : 0
+
+  name                = "windsor-${local.context_effective}-controlplane"
+  compute_cluster_id  = data.vsphere_compute_cluster.this.id
+  virtual_machine_ids = [for k in keys(local.controlplane_nodes) : vsphere_virtual_machine.instances[k].id]
+  mandatory           = false
+
+  lifecycle {
+    replace_triggered_by = [vsphere_virtual_machine.instances]
+  }
+}
+
 # =============================================================================
 # IP Derivation
 # =============================================================================
