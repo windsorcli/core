@@ -26,25 +26,24 @@ data "aws_vpc" "this" {
   id = data.aws_subnet.this.vpc_id
 }
 
+data "aws_caller_identity" "current" {}
+
 data "http" "talos_images" {
-  count = var.ami_id == "" ? 1 : 0
-  url   = "https://github.com/siderolabs/talos/releases/download/v${trimprefix(var.talos_version, "v")}/cloud-images.json"
+  url = "https://github.com/siderolabs/talos/releases/download/v${trimprefix(var.talos_version, "v")}/cloud-images.json"
 }
 
 locals {
-  talos_images = var.ami_id == "" ? jsondecode(data.http.talos_images[0].response_body) : []
   talos_amis = [
-    for image in local.talos_images : image.id
+    for image in jsondecode(data.http.talos_images.response_body) : image.id
     if try(image.cloud, "aws") == "aws" && image.region == var.region && image.arch == "amd64" && startswith(image.id, "ami-")
   ]
-  ami_id       = var.ami_id != "" ? var.ami_id : local.talos_amis[0]
-  allowed_cidr = var.allowed_cidr != "" ? var.allowed_cidr : data.aws_vpc.this.cidr_block
-  name_suffix  = var.context_id != "" ? "-${var.context_id}" : ""
-  tags         = merge(var.tags, var.context_id != "" ? { "windsorcli.dev/context-id" = var.context_id } : {})
+  ami_id      = local.talos_amis[0]
+  name_suffix = var.context_id != "" ? "-${var.context_id}" : ""
+  tags        = merge(var.tags, var.context_id != "" ? { "windsorcli.dev/context-id" = var.context_id } : {})
 
   nodes = merge(
-    { for node in var.controlplanes : node.hostname => merge(node, { role = "controlplane", instance_type = var.controlplane_instance_type }) },
-    { for node in var.workers : node.hostname => merge(node, { role = "worker", instance_type = coalesce(var.worker_instance_type, var.controlplane_instance_type) }) },
+    { for node in var.controlplanes : node.hostname => merge(node, { role = "controlplane", instance_type = var.controlplane_instance_type, root_volume = var.controlplane_root_volume }) },
+    { for node in var.workers : node.hostname => merge(node, { role = "worker", instance_type = coalesce(var.worker_instance_type, var.controlplane_instance_type), root_volume = var.worker_root_volume }) },
   )
 
   ingress_ports = {
@@ -52,6 +51,38 @@ locals {
     kubernetes = { from = 6443, to = 6443 }
     nodeports  = { from = 30000, to = 32767 }
   }
+}
+
+resource "aws_kms_key" "ebs" {
+  description             = "Talos node root volumes${local.name_suffix}"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+  tags                    = merge(local.tags, { Name = "talos${local.name_suffix}-ebs" })
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "Enable IAM User Permissions",
+        Effect    = "Allow",
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" },
+        Action    = "kms:*",
+        Resource  = "*"
+      },
+      {
+        Sid       = "Allow EC2 to use the key for EBS volume encryption",
+        Effect    = "Allow",
+        Principal = { Service = "ec2.amazonaws.com" },
+        Action    = ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey", "kms:CreateGrant"],
+        Resource  = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "ebs" {
+  name          = "alias/talos${local.name_suffix}-ebs"
+  target_key_id = aws_kms_key.ebs.key_id
 }
 
 resource "aws_security_group" "this" {
@@ -68,7 +99,7 @@ resource "aws_vpc_security_group_ingress_rule" "this" {
   ip_protocol       = "tcp"
   from_port         = each.value.from
   to_port           = each.value.to
-  cidr_ipv4         = local.allowed_cidr
+  cidr_ipv4         = data.aws_vpc.this.cidr_block
 }
 
 resource "aws_vpc_security_group_egress_rule" "all" {
@@ -93,12 +124,12 @@ resource "aws_instance" "this" {
   }
 
   root_block_device {
-    volume_size           = var.root_volume_size
+    volume_size           = each.value.root_volume.size
     volume_type           = "gp3"
-    iops                  = var.root_volume_iops
-    throughput            = var.root_volume_throughput
+    iops                  = each.value.root_volume.iops
+    throughput            = each.value.root_volume.throughput
     encrypted             = true
-    kms_key_id            = var.kms_key_id
+    kms_key_id            = aws_kms_key.ebs.arn
     delete_on_termination = true
   }
 

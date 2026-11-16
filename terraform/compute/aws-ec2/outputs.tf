@@ -31,3 +31,8 @@ output "ami_id" {
   description = "AMI the nodes booted."
   value       = local.ami_id
 }
+
+output "kms_key_arn" {
+  description = "KMS key that encrypts every node's root volume."
+  value       = aws_kms_key.ebs.arn
+}

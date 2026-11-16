@@ -20,16 +20,18 @@ terraform:
       region: ${aws.region}
       subnet_id: ${compute.aws_ec2.subnet_id}
       talos_version: ${talos.talos_version}
-      ami_id: ${compute.aws_ec2.ami_id ?? ''}
       controlplanes: ${values(cluster.controlplanes.nodes)}
       workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
       controlplane_instance_type: ${cluster.controlplanes.instance_type}
       worker_instance_type: ${cluster.workers.instance_type ?? ''}
-      root_volume_size: ${compute.aws_ec2.root_volume_size ?? 100}
-      root_volume_iops: ${compute.aws_ec2.root_volume_iops ?? 3000}
-      root_volume_throughput: ${compute.aws_ec2.root_volume_throughput ?? 125}
-      kms_key_id: ${compute.aws_ec2.kms_key_id ?? 'alias/aws/ebs'}
-      allowed_cidr: ${compute.aws_ec2.allowed_cidr ?? ''}
+      controlplane_root_volume:
+        size: ${cluster.controlplanes.root_disk_size ?? 100}
+        iops: ${cluster.controlplanes.root_disk_iops ?? 3000}
+        throughput: ${cluster.controlplanes.root_disk_throughput ?? 125}
+      worker_root_volume:
+        size: ${cluster.workers.root_disk_size ?? 100}
+        iops: ${cluster.workers.root_disk_iops ?? 3000}
+        throughput: ${cluster.workers.root_disk_throughput ?? 125}
       tags: ${compute.aws_ec2.tags ?? {}}
 
   - name: cluster

@@ -9,6 +9,9 @@ x-defaults:
     driver: talos
     controlplanes:
       instance_type: m6a.2xlarge
+      root_disk_size: 200
+      root_disk_iops: 6000
+      root_disk_throughput: 250
       nodes:
         controlplane-1:
           endpoint: 10.150.1.37:50000
@@ -29,6 +32,7 @@ x-defaults:
     workers:
       count: 1
       instance_type: m6a.large
+      root_disk_size: 50
       nodes:
         worker-1:
           endpoint: 10.150.1.40:50000
@@ -42,7 +46,6 @@ x-defaults:
     driver: aws-ec2
     aws_ec2:
       subnet_id: subnet-0123456789abcdef0
-      root_volume_size: 200
       tags:
         run_id: abc123
 
@@ -69,7 +72,10 @@ cases:
                 hostname: controlplane-1
             workers: []
             controlplane_instance_type: m6a.2xlarge
-            root_volume_size: 200
+            controlplane_root_volume:
+              size: 200
+              iops: 6000
+              throughput: 250
             tags:
               run_id: abc123
         - name: cluster
@@ -99,6 +105,14 @@ cases:
                 node: 10.150.1.40
                 hostname: worker-1
             worker_instance_type: m6a.large
+            controlplane_root_volume:
+              size: 100
+              iops: 3000
+              throughput: 125
+            worker_root_volume:
+              size: 50
+              iops: 3000
+              throughput: 125
 
   - name: aws-ec2 without a subnet fails
     values:

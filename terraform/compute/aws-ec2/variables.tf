@@ -25,12 +25,6 @@ variable "talos_version" {
   type        = string
 }
 
-variable "ami_id" {
-  description = "AMI to boot instead of the published Talos AMI for talos_version."
-  type        = string
-  default     = ""
-}
-
 variable "controlplanes" {
   description = "Control plane nodes to launch, each at its fixed private IP."
   type = list(object({
@@ -64,39 +58,34 @@ variable "worker_instance_type" {
   default     = ""
 }
 
-variable "root_volume_size" {
-  description = "Root volume size in GB."
-  type        = number
-  default     = 100
+variable "controlplane_root_volume" {
+  description = "gp3 root volume for control plane nodes: size in GB, IOPS and throughput in MB/s."
+  type = object({
+    size       = optional(number, 100)
+    iops       = optional(number, 3000)
+    throughput = optional(number, 125)
+  })
+  default = {}
 
   validation {
-    condition     = var.root_volume_size >= 8
+    condition     = var.controlplane_root_volume.size >= 8
     error_message = "Root volume size must be at least 8 GB."
   }
 }
 
-variable "root_volume_iops" {
-  description = "Provisioned gp3 IOPS for the root volume."
-  type        = number
-  default     = 3000
-}
+variable "worker_root_volume" {
+  description = "gp3 root volume for worker nodes: size in GB, IOPS and throughput in MB/s."
+  type = object({
+    size       = optional(number, 100)
+    iops       = optional(number, 3000)
+    throughput = optional(number, 125)
+  })
+  default = {}
 
-variable "root_volume_throughput" {
-  description = "Provisioned gp3 throughput for the root volume, in MB/s."
-  type        = number
-  default     = 125
-}
-
-variable "kms_key_id" {
-  description = "KMS key that encrypts the root volume."
-  type        = string
-  default     = "alias/aws/ebs"
-}
-
-variable "allowed_cidr" {
-  description = "CIDR allowed to reach the Talos API, the Kubernetes API and NodePorts. Defaults to the VPC CIDR."
-  type        = string
-  default     = ""
+  validation {
+    condition     = var.worker_root_volume.size >= 8
+    error_message = "Root volume size must be at least 8 GB."
+  }
 }
 
 variable "tags" {
