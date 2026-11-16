@@ -86,6 +86,16 @@ run "single_controlplane" {
   }
 
   assert {
+    condition     = length(time_static.created) == 0 && !contains(keys(aws_instance.this["controlplane-1"].tags), "windsorcli.dev/ephemeral")
+    error_message = "Non-ephemeral nodes should not carry ephemeral tags."
+  }
+
+  assert {
+    condition     = aws_instance.this["controlplane-1"].tags["windsorcli.dev/context-id"] == "test123"
+    error_message = "Every node should carry the context id tag."
+  }
+
+  assert {
     condition     = output.controlplanes[0].endpoint == "10.150.1.37:50000" && length(output.workers) == 0
     error_message = "Outputs should describe the control plane in cluster/talos shape."
   }
@@ -127,6 +137,24 @@ run "workers_and_root_volumes" {
   assert {
     condition     = length(output.workers) == 2
     error_message = "Worker outputs should list both workers."
+  }
+}
+
+run "ephemeral_stamps_creation_time" {
+  command = apply
+
+  variables {
+    ephemeral = true
+  }
+
+  assert {
+    condition     = aws_instance.this["controlplane-1"].tags["windsorcli.dev/ephemeral"] == "true" && aws_security_group.this.tags["windsorcli.dev/ephemeral"] == "true"
+    error_message = "Ephemeral nodes and their security group should be tagged ephemeral."
+  }
+
+  assert {
+    condition     = aws_instance.this["controlplane-1"].tags["windsorcli.dev/created-at"] == time_static.created[0].rfc3339
+    error_message = "Ephemeral nodes should carry their creation time."
   }
 }
 

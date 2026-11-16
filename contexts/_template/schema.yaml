@@ -964,11 +964,6 @@ properties:
             type: string
             pattern: '^subnet-[0-9a-f]+$'
             description: Existing subnet the nodes launch in. Every node address must fall inside it.
-          tags:
-            type: object
-            additionalProperties:
-              type: string
-            description: Additional tags for every resource.
 
   # Cluster configuration
   cluster:

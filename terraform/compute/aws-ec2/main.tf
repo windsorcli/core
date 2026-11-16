@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/http"
       version = "3.5.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 
@@ -39,7 +43,10 @@ locals {
   ]
   ami_id      = local.talos_amis[0]
   name_suffix = var.context_id != "" ? "-${var.context_id}" : ""
-  tags        = merge(var.tags, var.context_id != "" ? { "windsorcli.dev/context-id" = var.context_id } : {})
+  tags = merge(
+    var.context_id != "" ? { "windsorcli.dev/context-id" = var.context_id } : {},
+    var.ephemeral ? { "windsorcli.dev/ephemeral" = "true", "windsorcli.dev/created-at" = time_static.created[0].rfc3339 } : {},
+  )
 
   nodes = merge(
     { for node in var.controlplanes : node.hostname => merge(node, { role = "controlplane", instance_type = var.controlplane_instance_type, root_volume = var.controlplane_root_volume }) },
@@ -51,6 +58,10 @@ locals {
     kubernetes = { from = 6443, to = 6443 }
     nodeports  = { from = 30000, to = 32767 }
   }
+}
+
+resource "time_static" "created" {
+  count = var.ephemeral ? 1 : 0
 }
 
 resource "aws_kms_key" "ebs" {

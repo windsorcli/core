@@ -32,7 +32,7 @@ terraform:
         size: ${cluster.workers.root_disk_size ?? 100}
         iops: ${cluster.workers.root_disk_iops ?? 3000}
         throughput: ${cluster.workers.root_disk_throughput ?? 125}
-      tags: ${compute.aws_ec2.tags ?? {}}
+      ephemeral: ${ephemeral ?? false}
 
   - name: cluster
     path: cluster/talos

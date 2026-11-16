@@ -88,8 +88,8 @@ variable "worker_root_volume" {
   }
 }
 
-variable "tags" {
-  description = "Additional tags for every resource."
-  type        = map(string)
-  default     = {}
+variable "ephemeral" {
+  description = "Tags every resource as ephemeral with its creation time, for cleanup of short-lived nodes."
+  type        = bool
+  default     = false
 }

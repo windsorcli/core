@@ -46,8 +46,6 @@ x-defaults:
     driver: aws-ec2
     aws_ec2:
       subnet_id: subnet-0123456789abcdef0
-      tags:
-        run_id: abc123
 
 cases:
   - name: aws-ec2 launches the control plane before Talos bootstraps it
@@ -76,8 +74,7 @@ cases:
               size: 200
               iops: 6000
               throughput: 250
-            tags:
-              run_id: abc123
+            ephemeral: false
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -89,6 +86,7 @@ cases:
   - name: aws-ec2 launches workers with their own instance type
     values:
       platform: metal
+      ephemeral: true
       gateway:
         enabled: false
       network: *default-network
@@ -113,6 +111,7 @@ cases:
               size: 50
               iops: 3000
               throughput: 125
+            ephemeral: true
 
   - name: aws-ec2 without a subnet fails
     values:
