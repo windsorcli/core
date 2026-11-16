@@ -326,8 +326,10 @@ each of two stages:
 
 M14 ships stage 2, because ADR-0005 is not implemented. The credential
 is never a literal in git. In stage 2 the value is in the Terraform
-state of the context, which is the same trust level that ADR-0005 accepts
-for the unseal key.
+state of the context, which is where ADR-0005 keeps the unseal key. This
+holds only if the state backend is encrypted at rest and has narrow access
+control. The guide MUST list this as a prerequisite for stage 2, and the
+framework issue MUST check that the context uses a backend with encryption.
 
 **Rotation.** Cloudflare says that after a token rotation the old token
 cannot make new connections and existing connectors stay active until
@@ -424,7 +426,12 @@ These are the core rows of cli v0.10.0 M14. Each is one PR.
    the `terraform/tunnel/cloudflare` module, the `cloudflared` component
    and its `NetworkPolicy`, the credential Secret, and the artifact tags.
 3. **`ngrok` driver.** The spike first, then the charts, the
-   `AgentEndpoint`, and the credential.
+   `AgentEndpoint`, and the credential. The spike MUST answer the four
+   points of section 2 and find the scope of the access token. The
+   implementation does not start until the spike passes and the scope is
+   written in section 9. A wide scope (domain management, billing, or
+   endpoint listing) needs an amendment to this ADR before the driver
+   ships.
 4. **CI test context.** A context with a fake credential. The test checks
    that the component renders and that the gateway Service and the
    connector target match.
