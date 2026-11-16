@@ -216,15 +216,3 @@ variable "controlplane_volumes" {
   default     = []
 }
 
-variable "controlplane_disks" {
-  description = "Pool-level disks; used when a controlplane node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
-}
-
-variable "worker_disks" {
-  description = "Pool-level disks; used when a worker node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
-}
-

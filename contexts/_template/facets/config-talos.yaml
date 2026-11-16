@@ -88,7 +88,7 @@ config:
       worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # Default to the longhorn disk when longhorn is the driver, else no disks.
+      # Pool data disks that Incus compute creates on each node; the longhorn disk by default under longhorn.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
