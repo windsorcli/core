@@ -117,6 +117,12 @@ cases:
           resources:
             - components:
                 - grafana/dashboards/longhorn
+    exclude:
+      flux:
+        - name: csi
+          resources:
+            - components:
+                - longhorn/prometheus
 
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default

@@ -180,7 +180,7 @@ flux:
     install:
       components:
         - "${gateway.driver}"
-        - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+        - "${gateway.driver == 'envoy' && telemetry.metrics.enabled ? 'envoy/prometheus' : ''}"
       timeout: 10m
       interval: 5m
     resources:
