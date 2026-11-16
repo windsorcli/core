@@ -19,9 +19,7 @@
       "matchPackageNames": [
         "/.*/"
       ],
-      "labels": [
-        "dependencies"
-      ]
+      "labels": ["chore"]
     },
     {
       "description": "Keep Terraform on the 1.12 line for OpenTofu compatibility (matches required_version \"~> 1.12\"); allow 1.12.x patches, block 1.13+",
@@ -52,10 +50,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": [
-        "terraform",
-        "dependencies"
-      ],
+      "labels": ["chore"],
       "lockFileMaintenance": {
         "enabled": true
       }
@@ -70,9 +65,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": [
-        "dependencies"
-      ]
+      "labels": ["chore"]
     },
     {
       "description": "Update Go modules",
@@ -83,10 +76,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": [
-        "go",
-        "dependencies"
-      ]
+      "labels": ["chore"]
     },
     {
       "description": "Update Taskfile dependencies",
@@ -97,9 +87,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": [
-        "dependencies"
-      ]
+      "labels": ["chore"]
     },
     {
       "matchPackageNames": ["windsorcli/k8s-versions"],
@@ -121,7 +109,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": ["dependencies"]
+      "labels": ["chore"]
     },
     {
       "description": "Group the Mayastor develop digest pins into one PR",
@@ -385,10 +373,6 @@
   "prConcurrentLimit": 20,
   "platformAutomerge": true,
   "rebaseWhen": "conflicted",
-  "addLabels": [
-    "dependencies"
-  ],
-  "labels": [
-    "dependencies"
-  ]
+  "addLabels": ["chore"],
+  "labels": ["chore"]
 }
