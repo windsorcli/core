@@ -356,7 +356,7 @@ jobs:
         id: baseline_rev
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true' && steps.infra_diff.outputs.expect_bump == 'true'
         run: |
-          rev=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+          rev=$(windsor exec -- kubectl get gitrepository ${{ matrix.name }} -n system-gitops \
             -o jsonpath='{.status.artifact.revision}')
           if [ -z "$rev" ]; then
             echo "Failed to read GitRepository revision"
@@ -438,7 +438,7 @@ jobs:
         run: |
           echo "Waiting for GitRepository revision to advance past: $BASELINE_REV"
           for i in $(seq 1 60); do
-            cur=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+            cur=$(windsor exec -- kubectl get gitrepository ${{ matrix.name }} -n system-gitops \
               -o jsonpath='{.status.artifact.revision}' 2>/dev/null || true)
             if [ -n "$cur" ] && [ "$cur" != "$BASELINE_REV" ]; then
               echo "GitRepository advanced to: $cur (poll $i)"
