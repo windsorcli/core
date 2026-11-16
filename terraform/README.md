@@ -42,6 +42,7 @@ layer. Links from there land here.
 | [database/azure-postgres](database/azure-postgres/) | Resource group, private DNS zone, NSG, and optional customer-managed key for Azure Database for PostgreSQL Flexible Server. |
 | [database/gcp-cloudsql](database/gcp-cloudsql/) | Private service connection, KMS key, and admin credentials for Cloud SQL. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
+| [dns/pdns-api-key](dns/pdns-api-key/) | Generated API key for the in-cluster PowerDNS server and its external-dns provider. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/gcp-dns](dns/zone/gcp-dns/) | DNS zone on Google Cloud DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
@@ -60,6 +61,8 @@ layer. Links from there land here.
 | [provisioning/crossplane-identity/aws](provisioning/crossplane-identity/aws/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
 | [provisioning/crossplane-identity/azure](provisioning/crossplane-identity/azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
 | [provisioning/crossplane-identity/gcp](provisioning/crossplane-identity/gcp/) | Workload Identity Federation for Crossplane's GCP provider pods. |
+| [tunnel](tunnel/) | Tunnel credentials and routes that connect the external gateway to the internet. |
+| [tunnel/cloudflare](tunnel/cloudflare/) | Cloudflare Tunnel, remote configuration, and wildcard DNS record for the external gateway. |
 | [workstation](workstation/) | Local-host networking, registry, and DNS for developer clusters. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
 | [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |
