@@ -1516,7 +1516,8 @@ properties:
             enum:
               - LoadBalancer
               - NodePort
-            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+              - ClusterIP
+            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop. A tunnel sets ClusterIP.
           ip:
             $ref: '#/$defs/ipv4'
             description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
@@ -1623,6 +1624,25 @@ properties:
           minimum: 1
           maximum: 65535
         description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080). Keys and values are both bounded to the 1-65535 TCP port range.
+    additionalProperties: false
+
+  tunnel:
+    type: object
+    description: Connects the external gateway to the internet through an outbound tunnel, for clusters with no public address.
+    properties:
+      driver:
+        type: string
+        enum:
+          - cloudflare
+        description: Tunnel driver. Unset means no tunnel. Needs dns.public_domain, and the tunnel serves every hostname under it.
+      cloudflare:
+        type: object
+        description: Settings for the cloudflare driver. The API token comes from CLOUDFLARE_API_TOKEN in the environment.
+        properties:
+          account_id:
+            type: string
+            description: Cloudflare account that owns the tunnel.
+        additionalProperties: false
     additionalProperties: false
 
   # Ingress configuration
