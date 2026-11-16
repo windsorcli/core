@@ -50,7 +50,7 @@ layer. Links from there land here.
 | [gitops](gitops/) | Flux installation that hands reconciliation to the kustomize layer. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
 | [host](host/) | Host-level objects that several contexts share and that outlive any one context. |
-| [host/incus](host/incus/) | Server-scoped objects of one Incus cluster that every context on it shares, created by one context and kept on destroy. |
+| [host/incus](host/incus/) | Server-scoped objects of one Incus cluster that several contexts share, kept on destroy. |
 | [host/proxmox](host/proxmox/) | Opt-in image datastore for Proxmox VE, created by one context and kept on destroy. |
 | [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
