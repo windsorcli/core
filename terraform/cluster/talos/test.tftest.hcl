@@ -608,3 +608,18 @@ run "upgrade_timeout_rejects_bad_duration" {
 
   expect_failures = [var.upgrade_timeout]
 }
+
+run "upgrade_offline_timeout_rejects_bad_duration" {
+  command = plan
+
+  variables {
+    context_path            = "test"
+    cluster_endpoint        = "https://test.example.com:6443"
+    upgrade_offline_timeout = "soon"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+  }
+
+  expect_failures = [var.upgrade_offline_timeout]
+}

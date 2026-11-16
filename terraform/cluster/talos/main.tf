@@ -277,8 +277,8 @@ module "workers" {
 locals {
   stock_installer             = "ghcr.io/siderolabs/installer:v${var.talos_version}"
   controlplane_upgrade_images = [for image in local.controlplane_install_images : coalesce(image, local.stock_installer)]
+  upgrade_flags               = "${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}${var.upgrade_offline_timeout != "" ? " --offline-timeout ${var.upgrade_offline_timeout}" : ""}"
   worker_upgrade_images       = [for image in local.worker_install_images : coalesce(image, local.stock_installer)]
-  upgrade_flags               = var.powercycle_reboot ? " --reboot-mode powercycle" : ""
 }
 
 resource "terraform_data" "upgrade_bootstrap" {

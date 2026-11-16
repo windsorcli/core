@@ -250,3 +250,13 @@ variable "upgrade_timeout" {
     error_message = "upgrade_timeout must be a duration such as 15m or 1h30m."
   }
 }
+
+variable "upgrade_offline_timeout" {
+  description = "Timeout for a node to confirm it rebooted after the upgrade request, as a Go duration. Empty uses the windsor default."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.upgrade_offline_timeout == "" || can(regex("^([0-9]+(ms|s|m|h))+$", var.upgrade_offline_timeout))
+    error_message = "upgrade_offline_timeout must be empty or a duration such as 3m or 10m."
+  }
+}
