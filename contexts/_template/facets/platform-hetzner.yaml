@@ -254,10 +254,11 @@ terraform:
       controlplane_config_patches: >-
         ${let cp = talos_common.controlplane_config_patches ?? '';
           let oidc = talos_common.oidc_ca_file_patch ?? '';
-          cp == ''
+          let core = cp == ''
             ? oidc
-            : (oidc == '' ? cp : cp + '\n' + trimPrefix(oidc, 'machine:\n'))}
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+            : (oidc == '' ? cp : cp + '\n' + trimPrefix(oidc, 'machine:\n'));
+          join(filter([talos_common.controlplane_pool_config_patches, core], # != ''), '\n---\n')}
+      worker_config_patches: "${join(filter([talos_common.worker_pool_config_patches, talos_common.worker_config_patches ?? ''], # != ''), '\\n---\\n')}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

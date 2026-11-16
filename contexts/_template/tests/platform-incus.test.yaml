@@ -456,16 +456,23 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_pool_config_patches: |-
+            controlplane_config_patches: |-
               machine:
                 sysctls:
                   vm.swappiness: "1"
-            worker_pool_config_patches: |-
+            worker_config_patches: |-
               apiVersion: v1alpha1
               kind: VolumeConfig
               name: EPHEMERAL
               provisioning:
                 maxSize: 20GiB
+              ---
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
 
   - name: pool config_patches reach the cluster step under a workstation runtime
     values:
@@ -490,7 +497,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_pool_config_patches: |-
+            controlplane_config_patches: |-
               machine:
                 sysctls:
                   vm.swappiness: "1"

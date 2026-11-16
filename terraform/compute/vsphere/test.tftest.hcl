@@ -669,15 +669,15 @@ run "common_config_patches_accepts_several_documents" {
   }
 }
 
-# Pool config patches bake last into each role's machineconfig
-run "pool_config_patches_baked" {
+# Role config patches bake first into each role's machineconfig
+run "role_config_patches_bake_first" {
   command = plan
 
   variables {
-    talos_version                    = "1.12.6"
-    cluster_endpoint                 = "https://10.5.0.10:6443"
-    controlplane_pool_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
-    worker_pool_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    talos_version               = "1.12.6"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
+    worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
     images = {
       talos = {
         url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
@@ -690,24 +690,24 @@ run "pool_config_patches_baked" {
   }
 
   assert {
-    condition     = reverse(data.talos_machine_configuration.controlplane["controlplane"].config_patches)[0] == var.controlplane_pool_config_patches
-    error_message = "The control-plane pool patches should bake last"
+    condition     = data.talos_machine_configuration.controlplane["controlplane"].config_patches[0] == var.controlplane_config_patches
+    error_message = "The control-plane role patches should bake first"
   }
   assert {
-    condition     = reverse(data.talos_machine_configuration.worker["worker"].config_patches)[0] == var.worker_pool_config_patches
-    error_message = "The worker pool patches should bake last"
+    condition     = data.talos_machine_configuration.worker["worker"].config_patches[0] == var.worker_config_patches
+    error_message = "The worker role patches should bake first"
   }
 }
 
-# A malformed pool patch fails the plan at compute, where it bakes
-run "pool_config_patches_reject_malformed_document" {
+# A malformed role patch fails the plan at compute, where it bakes
+run "role_config_patches_reject_malformed_document" {
   command = plan
 
   variables {
-    talos_version                    = "1.12.6"
-    cluster_endpoint                 = "https://10.5.0.10:6443"
-    controlplane_pool_config_patches = "machine: {}\n---\nmachine: [unclosed"
-    worker_pool_config_patches       = "machine: [unclosed"
+    talos_version               = "1.12.6"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    controlplane_config_patches = "machine: {}\n---\nmachine: [unclosed"
+    worker_config_patches       = "machine: [unclosed"
     images = {
       talos = {
         url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
@@ -719,7 +719,7 @@ run "pool_config_patches_reject_malformed_document" {
   }
 
   expect_failures = [
-    var.controlplane_pool_config_patches,
-    var.worker_pool_config_patches,
+    var.controlplane_config_patches,
+    var.worker_config_patches,
   ]
 }

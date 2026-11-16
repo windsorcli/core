@@ -144,9 +144,10 @@ terraform:
                 }
               }), '\n');
           let oidc = talos_common.oidc_ca_file_patch ?? '';
-          gap == ''
+          let core = gap == ''
             ? oidc
-            : (oidc == '' ? gap : gap + '\n' + trimPrefix(oidc, 'machine:\n'))}
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+            : (oidc == '' ? gap : gap + '\n' + trimPrefix(oidc, 'machine:\n'));
+          join(filter([talos_common.controlplane_pool_config_patches, core], # != ''), '\n---\n')}
+      worker_config_patches: "${join(filter([talos_common.worker_pool_config_patches, talos_common.worker_config_patches ?? ''], # != ''), '\\n---\\n')}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

@@ -26,9 +26,3 @@ output "install_image" {
   description = "The Talos installer image for installs and upgrades."
   value       = local.install_image
 }
-
-output "config_patches" {
-  description = "The config patches applied to the node, in order."
-  value       = var.config_patches
-  sensitive   = true
-}

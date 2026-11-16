@@ -376,10 +376,8 @@ terraform:
           ? (terraform_output("compute", "workers") ?? [])
           : ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
-      controlplane_pool_config_patches: ${talos_common.controlplane_pool_config_patches}
-      worker_pool_config_patches: ${talos_common.worker_pool_config_patches}
+      controlplane_config_patches: "${join(filter([talos_common.controlplane_pool_config_patches, talos_common.oidc_ca_file_patch ?? ''], # != ''), '\\n---\\n')}"
+      worker_config_patches: "${join(filter([talos_common.worker_pool_config_patches, talos_common.worker_config_patches ?? ''], # != ''), '\\n---\\n')}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

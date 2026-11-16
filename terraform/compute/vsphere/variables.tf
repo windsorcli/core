@@ -102,36 +102,24 @@ variable "common_config_patches" {
 }
 
 variable "controlplane_config_patches" {
-  description = "Controlplane-only Talos machine config patch (YAML string)."
-  type        = string
-  default     = ""
-}
-
-variable "worker_config_patches" {
-  description = "Worker-only Talos machine config patch (YAML string)."
-  type        = string
-  default     = ""
-}
-
-variable "controlplane_pool_config_patches" {
-  description = "Talos config patches for every control plane, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+  description = "Controlplane-only Talos config patches, baked before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
 
   validation {
-    condition     = alltrue([for doc in split("\n---\n", var.controlplane_pool_config_patches) : doc == "" || can(yamldecode(doc))])
-    error_message = "controlplane_pool_config_patches must be an empty string or valid YAML documents."
+    condition     = alltrue([for doc in split("\n---\n", var.controlplane_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "controlplane_config_patches must be an empty string or valid YAML documents."
   }
 }
 
-variable "worker_pool_config_patches" {
-  description = "Talos config patches for every worker, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+variable "worker_config_patches" {
+  description = "Worker-only Talos config patches, baked before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
 
   validation {
-    condition     = alltrue([for doc in split("\n---\n", var.worker_pool_config_patches) : doc == "" || can(yamldecode(doc))])
-    error_message = "worker_pool_config_patches must be an empty string or valid YAML documents."
+    condition     = alltrue([for doc in split("\n---\n", var.worker_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "worker_config_patches must be an empty string or valid YAML documents."
   }
 }
 

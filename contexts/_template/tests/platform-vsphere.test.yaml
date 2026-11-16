@@ -135,18 +135,25 @@ cases:
         - name: compute
           path: compute/vsphere
           inputs:
-            controlplane_pool_config_patches: |-
+            controlplane_config_patches: |-
               machine:
                 sysctls:
                   vm.swappiness: "1"
-            worker_pool_config_patches: |-
+            worker_config_patches: |-
               machine:
                 sysctls:
                   vm.swappiness: "10"
+              ---
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_pool_config_patches: |-
+            controlplane_config_patches: |-
               machine:
                 sysctls:
                   vm.swappiness: "1"

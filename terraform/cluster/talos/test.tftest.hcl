@@ -434,13 +434,14 @@ run "overlay_selects_metal_installer" {
   }
 }
 
-# Verifies that pool and node config patches with several documents are accepted
-run "pool_and_node_config_patches_accept_several_documents" {
+# Verifies that role and node config patches may hold several documents and apply before the module's own patches
+run "role_and_node_config_patches_apply_first" {
   command = plan
 
   variables {
-    controlplane_pool_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n---\napiVersion: v1alpha1\nkind: VolumeConfig\nname: IMAGECACHE\n"
-    worker_pool_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    common_config_patches       = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
+    controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n---\napiVersion: v1alpha1\nkind: VolumeConfig\nname: IMAGECACHE\n"
+    worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
     controlplanes = [
       {
         endpoint       = "10.0.0.10:50000"
@@ -457,27 +458,27 @@ run "pool_and_node_config_patches_accept_several_documents" {
   }
 
   assert {
-    condition     = slice(module.controlplane_bootstrap.config_patches, length(module.controlplane_bootstrap.config_patches) - 2, length(module.controlplane_bootstrap.config_patches)) == tolist([var.controlplane_pool_config_patches, var.controlplanes[0].config_patches])
-    error_message = "A control plane's pool patches and then its node patches should come after the module's own patches"
+    condition     = local.controlplane_config_patches[0][0] == var.controlplane_config_patches && local.controlplane_config_patches[0][1] == var.controlplanes[0].config_patches && local.controlplane_config_patches[0][2] == var.common_config_patches
+    error_message = "A control plane's role patches and then its node patches should come before the module's own patches"
   }
   assert {
-    condition     = module.workers[0].config_patches[length(module.workers[0].config_patches) - 1] == var.worker_pool_config_patches
-    error_message = "A worker's pool patches should come last when it has no node patches or disks"
+    condition     = local.worker_config_patches[0][0] == var.worker_config_patches && local.worker_config_patches[0][1] == var.common_config_patches
+    error_message = "A worker's role patches should come first"
   }
 }
 
-# Verifies that a malformed document in pool or node config patches is rejected
-run "pool_and_node_config_patches_reject_malformed_document" {
+# Verifies that a malformed document in role or node config patches is rejected
+run "role_and_node_config_patches_reject_malformed_document" {
   command = plan
   expect_failures = [
-    var.controlplane_pool_config_patches,
-    var.worker_pool_config_patches,
+    var.controlplane_config_patches,
+    var.worker_config_patches,
     var.controlplanes,
   ]
 
   variables {
-    controlplane_pool_config_patches = "machine: {}\n---\nnot: valid: yaml: ["
-    worker_pool_config_patches       = "not: valid: yaml: ["
+    controlplane_config_patches = "machine: {}\n---\nnot: valid: yaml: ["
+    worker_config_patches       = "machine: {}\n---\nnot: valid: yaml: ["
     controlplanes = [
       {
         endpoint       = "10.0.0.10:50000"

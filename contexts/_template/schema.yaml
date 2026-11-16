@@ -163,7 +163,7 @@ $defs:
           description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
         config_patches:
           $ref: '#/$defs/talosConfigPatches'
-          description: Talos config patches for this node on platform metal, applied after its pool's config_patches.
+          description: Talos config patches for this node on platform metal, applied after its pool's config_patches and before Windsor's own patches.
         volumes:
           type: array
           items:
@@ -191,7 +191,7 @@ $defs:
         uses ghcr.io/siderolabs/installer.
     config_patches:
       $ref: '#/$defs/talosConfigPatches'
-      description: Talos config patches for every node in the pool, applied after Windsor's own patches.
+      description: Talos config patches for every node in the pool, applied before Windsor's own patches, which win where both set the same key.
     instance_type:
       type: string
       description: Cloud provider instance type

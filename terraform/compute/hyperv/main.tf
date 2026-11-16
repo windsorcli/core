@@ -308,11 +308,10 @@ data "talos_machine_configuration" "controlplane" {
   kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
   config_patches = compact([
-    var.common_config_patches,
     var.controlplane_config_patches,
+    var.common_config_patches,
     local.controlplane_network_patches[each.key],
     local.vip_patch,
-    var.controlplane_pool_config_patches,
   ])
 
   lifecycle {
@@ -334,10 +333,9 @@ data "talos_machine_configuration" "worker" {
   kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
   config_patches = compact([
-    var.common_config_patches,
     var.worker_config_patches,
+    var.common_config_patches,
     local.worker_network_patches[each.key],
-    var.worker_pool_config_patches,
   ])
 }
 

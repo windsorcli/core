@@ -131,6 +131,22 @@ locals {
     })
     if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
+
+  # Each node's config patches, in apply order: the caller's role and node patches first, so the module's own
+  # patches that follow win wherever both set the same key.
+  controlplane_config_patches = [for i, cp in var.controlplanes : [for p in compact(concat([
+    var.controlplane_config_patches,
+    cp.config_patches,
+    var.common_config_patches,
+    local.vip_patch,
+    local.controlplane_extra_mounts_patch,
+  ], local.controlplane_block_docs[i])) : p if p != "null"]]
+  worker_config_patches = [for i, w in var.workers : [for p in compact(concat([
+    var.worker_config_patches,
+    w.config_patches,
+    var.common_config_patches,
+    local.worker_extra_mounts_patch,
+  ], local.worker_block_docs[i])) : p if p != "null"]]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -190,14 +206,7 @@ module "controlplane_bootstrap" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[0].instance_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.controlplane_config_patches,
-    local.vip_patch,
-    local.controlplane_extra_mounts_patch,
-    var.controlplane_pool_config_patches,
-    var.controlplanes[0].config_patches,
-  ], local.controlplane_block_docs[0])) : p if p != "null"]
+  config_patches            = local.controlplane_config_patches[0]
 }
 
 module "controlplanes" {
@@ -224,14 +233,7 @@ module "controlplanes" {
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[count.index + 1].instance_id
   apply_after               = module.controlplane_bootstrap.health_check_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.controlplane_config_patches,
-    local.vip_patch,
-    local.controlplane_extra_mounts_patch,
-    var.controlplane_pool_config_patches,
-    var.controlplanes[count.index + 1].config_patches,
-  ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]
+  config_patches            = local.controlplane_config_patches[count.index + 1]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -261,13 +263,7 @@ module "workers" {
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.workers[count.index].instance_id
   apply_after               = module.controlplane_bootstrap.health_check_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.worker_config_patches,
-    local.worker_extra_mounts_patch,
-    var.worker_pool_config_patches,
-    var.workers[count.index].config_patches,
-  ], local.worker_block_docs[count.index])) : p if p != "null"]
+  config_patches            = local.worker_config_patches[count.index]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
