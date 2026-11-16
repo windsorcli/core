@@ -46,7 +46,7 @@ requires:
     paths:
       - network.loadbalancer_ips.start
       - network.loadbalancer_ips.end
-    message: MetalLB assigns LoadBalancer addresses only from network.loadbalancer_ips.
+    message: network.loadbalancer_driver metallb assigns LoadBalancer addresses only from network.loadbalancer_ips.
 
 # =============================================================================
 # Config — effective values

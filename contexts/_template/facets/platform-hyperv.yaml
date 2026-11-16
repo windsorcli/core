@@ -90,7 +90,7 @@ config:
     requires:
       - paths:
           - cluster.endpoint
-        message: NodePort mode derives the host's bench IP from this URL.
+        message: With gateway.external.service_type and gateway.internal.service_type both NodePort, cluster.endpoint MUST point at the Hyper-V host.
     value:
       switch_type: NAT
       nat_name: "windsor-${id ?? 'hyperv'}"
