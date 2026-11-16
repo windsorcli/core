@@ -117,12 +117,22 @@ variable "controlplane_pool_config_patches" {
   description = "Talos config patches for every control plane, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
   type        = string
   default     = ""
+
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.controlplane_pool_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "controlplane_pool_config_patches must be an empty string or valid YAML documents."
+  }
 }
 
 variable "worker_pool_config_patches" {
   description = "Talos config patches for every worker, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
   type        = string
   default     = ""
+
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.worker_pool_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "worker_pool_config_patches must be an empty string or valid YAML documents."
+  }
 }
 
 variable "per_node_config_patches" {

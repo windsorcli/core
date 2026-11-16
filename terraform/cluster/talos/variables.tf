@@ -109,14 +109,10 @@ variable "controlplanes" {
     endpoint = string
     node     = string
     disks = optional(list(object({
-      name      = optional(string)
-      size      = optional(number)
-      selector  = optional(string)
-      device    = optional(string)
-      type      = optional(string)
-      path      = optional(string)
-      source    = optional(string)
-      read_only = optional(bool)
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
     })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
@@ -153,14 +149,10 @@ variable "workers" {
     endpoint = string
     node     = string
     disks = optional(list(object({
-      name      = optional(string)
-      size      = optional(number)
-      selector  = optional(string)
-      device    = optional(string)
-      type      = optional(string)
-      path      = optional(string)
-      source    = optional(string)
-      read_only = optional(bool)
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
     })), [])
     disk_selector = optional(object({
       busPath  = optional(string)

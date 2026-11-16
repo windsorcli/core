@@ -973,3 +973,28 @@ run "pool_config_patches_baked" {
     error_message = "The worker pool patches should bake last"
   }
 }
+
+# A malformed pool patch fails the plan at compute, where it bakes
+run "pool_config_patches_reject_malformed_document" {
+  command = plan
+
+  variables {
+    context_id                       = "test"
+    cluster_name                     = "talos"
+    cluster_endpoint                 = "https://10.5.0.10:6443"
+    talos_version                    = "1.12.6"
+    destination_dir                  = "C:/hyperv/images"
+    network_gateway                  = "10.5.0.1"
+    network_cidr                     = "10.5.0.0/16"
+    controlplane_pool_config_patches = "machine: {}\n---\nmachine: [unclosed"
+    worker_pool_config_patches       = "machine: [unclosed"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  expect_failures = [
+    var.controlplane_pool_config_patches,
+    var.worker_pool_config_patches,
+  ]
+}
