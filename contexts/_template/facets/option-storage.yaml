@@ -140,7 +140,7 @@ flux:
       - dependsOn:
           - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
         components:
-          - "${observability.enabled == true ? 'longhorn/prometheus' : ''}"
+          - "${observability.enabled == true && telemetry.metrics.enabled ? 'longhorn/prometheus' : ''}"
 
   # Mayastor — replicated NVMe-oF block storage across the disk each worker carries.
   - name: csi
