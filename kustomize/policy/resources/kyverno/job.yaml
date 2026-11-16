@@ -4,6 +4,8 @@ kind: Job
 metadata:
   name: kyverno-webhook-probe
   namespace: system-policy
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 300
@@ -13,12 +15,12 @@ spec:
       serviceAccountName: kyverno-webhook-probe
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 65532
+        runAsGroup: 65532
       containers:
       - name: probe
-        # artifact: type=image name=docker.io/alpine/k8s
-        image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+        # artifact: type=image name=ghcr.io/windsorcli/utils
+        image: ghcr.io/windsorcli/utils:1.37.2-r1@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e
         command: ["/bin/sh", "-c"]
         args:
         - |

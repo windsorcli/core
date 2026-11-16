@@ -30,6 +30,13 @@ spec:
         interval_year: YYYY
       default:
         timezone: ${timezone:-utc}
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+        check_for_plugin_updates: false
+      plugins:
+        preinstall_disabled: true
+        public_key_retrieval_disabled: true
     image:
       registry: docker.io
       repository: grafana/grafana

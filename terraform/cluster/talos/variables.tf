@@ -23,7 +23,7 @@ variable "talos_version" {
   description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.14.2"
+  default = "1.14.5"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
@@ -122,8 +122,13 @@ variable "controlplanes" {
     }))
     wipe_disk         = optional(bool, true)
     extra_kernel_args = optional(list(string), [])
-    config_patches    = optional(string, "")
-    instance_id       = optional(string)
+    install_image     = optional(string)
+    overlay = optional(object({
+      name  = string
+      image = string
+    }))
+    config_patches = optional(string, "")
+    instance_id    = optional(string)
   }))
   default = []
 
@@ -152,8 +157,13 @@ variable "workers" {
     }))
     wipe_disk         = optional(bool, true)
     extra_kernel_args = optional(list(string), [])
-    config_patches    = optional(string, "")
-    instance_id       = optional(string)
+    install_image     = optional(string)
+    overlay = optional(object({
+      name  = string
+      image = string
+    }))
+    config_patches = optional(string, "")
+    instance_id    = optional(string)
   }))
   default = []
 
@@ -206,15 +216,34 @@ variable "controlplane_volumes" {
   default     = []
 }
 
-variable "controlplane_disks" {
-  description = "Pool-level disks; used when a controlplane node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
+variable "upgrade_nodes" {
+  description = "Upgrade each node in place to the installer image for talos_version when its running version differs. Set false when cluster/talos/extensions owns the upgrade."
+  type        = bool
+  default     = true
 }
 
-variable "worker_disks" {
-  description = "Pool-level disks; used when a worker node has no disks key. Per-node disks override."
-  type        = list(any)
-  default     = []
+variable "powercycle_reboot" {
+  description = "Use a full ACPI power-cycle reboot instead of kexec during the node upgrade."
+  type        = bool
+  default     = false
 }
 
+variable "upgrade_timeout" {
+  description = "Timeout for each node's upgrade, as a Go duration such as 15m or 1h30m. Applies per node, including the reboot wait."
+  type        = string
+  default     = "15m"
+  validation {
+    condition     = can(regex("^([0-9]+(ms|s|m|h))+$", var.upgrade_timeout))
+    error_message = "upgrade_timeout must be a duration such as 15m or 1h30m."
+  }
+}
+
+variable "upgrade_offline_timeout" {
+  description = "Timeout for a node to confirm it rebooted after the upgrade request, as a Go duration. Empty uses the windsor default."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.upgrade_offline_timeout == "" || can(regex("^([0-9]+(ms|s|m|h))+$", var.upgrade_offline_timeout))
+    error_message = "upgrade_offline_timeout must be empty or a duration such as 3m or 10m."
+  }
+}

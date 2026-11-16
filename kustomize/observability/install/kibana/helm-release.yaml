@@ -29,6 +29,8 @@ spec:
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]
         elasticsearch.ssl.certificate: "/usr/share/kibana/config/certs/tls.crt"
         elasticsearch.ssl.key: "/usr/share/kibana/config/certs/tls.key"
+        telemetry.optIn: false
+        telemetry.allowChangingOptInStatus: false
     resources:
       requests:
         cpu: "1000m"

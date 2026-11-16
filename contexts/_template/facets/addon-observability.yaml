@@ -40,7 +40,7 @@ requires:
   # The hosted Keycloak's issuer is a gateway URL — without a gateway, the browser
   # redirect Grafana's login sends the user to can never resolve.
   - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled != true
-    message: Grafana SSO against the hosted Keycloak needs it reachable through the gateway — enable the gateway.
+    message: With identity.driver keycloak, set gateway.enabled to true or set observability.grafana.sso to false.
 
 # =============================================================================
 # Flux systems — observability install entries, telemetry override

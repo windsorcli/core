@@ -41,7 +41,7 @@ config:
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: develop@sha256:1716bca10f6486aff6337599a1c3a4829374047d815e804a8adfb298f6d98e31
+        agent_core: develop@sha256:9246d39df01bddf0aea9f0c17dcbf8e4ef150c79c49fcf5e00dd9602ce9ef031
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
         agent_ha_cluster: develop@sha256:2a2e8c2c76729c856c1a9789136262508b5c22915b5ea1209bb15354b596c9a9
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
@@ -140,7 +140,7 @@ flux:
       - dependsOn:
           - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
         components:
-          - "${observability.enabled == true ? 'longhorn/prometheus' : ''}"
+          - "${observability.enabled == true && telemetry.metrics.enabled ? 'longhorn/prometheus' : ''}"
 
   # Mayastor — replicated NVMe-oF block storage across the disk each worker carries.
   - name: csi
@@ -184,7 +184,7 @@ flux:
   # when Longhorn is active and observability is on; the driver gate is required
   # since the dashboard is meaningless without longhorn metrics.
   - name: observability
-    when: talos_common.storage_driver == 'longhorn' && (observability.enabled == true || dev == true)
+    when: talos_common.storage_driver == 'longhorn' && observability.enabled == true
     resources:
       - components:
           - grafana/dashboards/longhorn

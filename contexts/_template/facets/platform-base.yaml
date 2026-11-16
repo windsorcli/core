@@ -8,12 +8,12 @@ metadata:
 when: (platform ?? 'none') != 'none'
 
 requires:
-  - when: "'*' in keys(docker.registries ?? {}) && (get(docker.registries['*'], 'endpoint') ?? '') == ''"
-    message: The docker.registries * entry needs endpoint.
+  - when: "'*' in keys(registries ?? {}) && (get(registries['*'], 'endpoint') ?? '') == ''"
+    message: The * entry in registries needs endpoint.
   - when: >-
-      any(values(docker.registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'endpoint') ?? '') == '') &&
+      any(values(registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'endpoint') ?? '') == '') &&
       !((platform == 'docker' || platform == 'incus') && (workstation.runtime ?? '') != '')
-    message: A docker.registries entry that sets hostname needs endpoint on a context with no workstation.
+    message: An entry in registries that sets hostname needs endpoint on a context with no workstation.
   # Split-horizon DNS on one domain is not supported.
   - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
     message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
@@ -40,13 +40,13 @@ requires:
     paths:
       - cluster.endpoint
     message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
-  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
-    message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
+  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv', 'metal'])
+    message: cluster.vip is supported on incus, proxmox, vsphere, hyperv, and metal.
   - when: lb_effective.driver == 'metallb'
     paths:
       - network.loadbalancer_ips.start
       - network.loadbalancer_ips.end
-    message: MetalLB assigns LoadBalancer addresses only from network.loadbalancer_ips.
+    message: network.loadbalancer_driver metallb assigns LoadBalancer addresses only from network.loadbalancer_ips.
 
 # =============================================================================
 # Config — effective values

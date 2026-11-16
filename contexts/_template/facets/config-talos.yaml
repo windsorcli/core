@@ -18,20 +18,18 @@ requires:
       && identity.enabled == true
       && (identity.driver ?? 'keycloak') == 'keycloak'
       && gateway.enabled != true
-    message: >-
-      kube-apiserver OIDC against the hosted Keycloak needs it reachable through
-      the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+    message: With cluster.oidc.enabled and identity.driver keycloak, set gateway.enabled to true or set cluster.oidc.issuer_url.
   - when: >-
       any(
-        values(docker.registries ?? {}),
+        values(registries ?? {}),
         ((get(#, 'username') ?? '') == '') != ((get(#, 'password') ?? '') == '')
       )
-    message: The username and password of a docker.registries entry must be set together.
+    message: The username and password of an entry in registries must be set together.
   - when: talos_registries.credentials_conflict == true
-    message: docker.registries entries with the same endpoint host need the same username and password.
+    message: Entries in registries with the same endpoint host need the same username and password.
   # Registry mode copies only the images of the Talos versions in talos_images.
   - when: (charts.registry ?? '') != '' && !(talos.talos_version in talos_images)
-    message: Registry mode supports only the Talos versions that this blueprint pins. Use a pinned Talos version, or turn off registry mode.
+    message: charts.registry supports only the Talos versions this blueprint pins; unset charts.registry.
   - when: >-
       (charts.registry ?? '') != ''
       && !(let versions = keys(talos_images ?? {}); all(filter(concat(
@@ -39,7 +37,7 @@ requires:
         map(values(cluster.controlplanes.nodes ?? {}), #.image ?? ''),
         map(values(cluster.workers.nodes ?? {}), #.image ?? '')
       ), # != ''), {let image = #; any(versions, image endsWith ('v' + #) || image contains ('v' + # + '/') || image contains ('v' + # + '@'))}))
-    message: Registry mode supports only node images of the Talos versions that this blueprint pins. Remove the node image override, or turn off registry mode.
+    message: With charts.registry set, each image in cluster.controlplanes and cluster.workers MUST use a Talos version this blueprint pins; remove the image or unset charts.registry.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -49,12 +47,12 @@ requires:
 # layers in the common defaults.
 config:
 
-  # docker.registries entries with an endpoint, parsed for the Talos registry documents.
+  # Entries in registries with an endpoint, parsed for the Talos registry documents.
   - name: talos_registries
     value:
       endpoints: >-
         ${map(
-          sortBy(filter(toPairs(docker.registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''), get(#, 0)),
+          sortBy(filter(toPairs(registries ?? {}), (get(get(#, 1), 'endpoint') ?? '') != ''), get(#, 0)),
           let entry = get(#, 1);
           let parts = split(entry.endpoint contains '://' ? entry.endpoint : 'https://' + entry.endpoint, '/');
           ({
@@ -88,7 +86,7 @@ config:
       worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # Default to the longhorn disk when longhorn is the driver, else no disks.
+      # Pool data disks that Incus compute creates on each node; the longhorn disk by default under longhorn.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
@@ -143,7 +141,7 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # RegistryMirrorConfig documents for the docker.registries endpoints and the resolved workstation caches.
+      # RegistryMirrorConfig documents for the registries endpoints and the resolved workstation caches.
       registry_mirror_documents: >-
         ${let caches = type(talos_registry_mirrors.mirrors) == 'map' ? talos_registry_mirrors.mirrors : {};
         let endpoints = map(talos_registries.endpoints, [#.registry, { endpoints: [#.url], skipFallback: true }]);
@@ -221,10 +219,15 @@ config:
           time:
             servers: ${network.ntp_servers}
 
-  # Single-node topology: no peers, so disable leader election (avoids a ~2s etcd
-  # lease write) and enable etcd auto-compaction (upstream default is off).
+  # One control plane, with or without workers: no peer controller-manager or
+  # scheduler, and no etcd peer to catch up. Disable leader election (avoids a
+  # ~2s etcd lease write) and enable etcd auto-compaction (upstream default is
+  # off). Scaling to 3 control planes drops this patch from every node, and the
+  # cluster/talos module re-applies the first control plane and waits for its
+  # health check before the new ones get their config, so leader election is
+  # back on before a second controller-manager or scheduler starts.
   - name: talos_common
-    when: topology == 'single-node'
+    when: cluster_nodes_effective.controlplanes == 1
     value:
       common_patch:
         cluster:
@@ -405,7 +408,7 @@ config:
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-      talos_version: "1.14.2"
+      talos_version: "1.14.5"
 
   - name: talos
     when: platform == 'docker' && workstation.runtime == 'colima'
@@ -445,15 +448,15 @@ config:
         kube-network-policies: "registry.k8s.io/networking/kube-network-policies:v1.1.0"
         # artifact: type=image name=registry.k8s.io/pause
         pause: "registry.k8s.io/pause:3.10.1"
-      "1.14.2":
+      "1.14.5":
         # artifact: type=image name=registry.k8s.io/coredns/coredns
         coredns: "registry.k8s.io/coredns/coredns:v1.14.7"
         # artifact: type=image name=registry.k8s.io/etcd
-        etcd: "registry.k8s.io/etcd:3.7.1"
+        etcd: "registry.k8s.io/etcd:v3.7.3"
         # artifact: type=image name=ghcr.io/siderolabs/flannel
         flannel: "ghcr.io/siderolabs/flannel:0.28.9"
         # artifact: type=image name=registry.k8s.io/networking/kube-network-policies
-        kube-network-policies: "registry.k8s.io/networking/kube-network-policies:v1.1.1"
+        kube-network-policies: "registry.k8s.io/networking/kube-network-policies:v1.1.2"
         # artifact: type=image name=registry.k8s.io/pause
         pause: "registry.k8s.io/pause:3.10.2"
   # END talos_images

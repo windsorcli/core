@@ -11,7 +11,7 @@
 # Renovate bump needs no checksum update — verification tracks the new release.
 #
 # Selectable: terraform, task, yq, promtool, kubectl, flux, kustomize, helm,
-# support-bundle.
+# support-bundle, apko.
 name: Setup tools
 description: Install the pinned Windsor CLIs selected by the tools input.
 
@@ -48,7 +48,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
-        YQ_VERSION: v4.54.2
+        YQ_VERSION: v4.54.3
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
@@ -88,7 +88,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-        FLUX_VERSION: v2.9.6
+        FLUX_VERSION: v2.10.0
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}"
@@ -126,7 +126,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=helm package=helm/helm
-        HELM_VERSION: v4.3.1
+        HELM_VERSION: v4.3.2
       run: |
         cd "$(mktemp -d)"
         asset="helm-${HELM_VERSION}-linux-amd64.tar.gz"
@@ -157,3 +157,23 @@ runs:
         tar xzf "$asset"
         sudo install -m 0755 -o root -g root support-bundle /usr/local/bin/
         support-bundle version
+
+    - name: Install apko
+      if: contains(format(',{0},', inputs.tools), ',apko,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=apko package=chainguard-dev/apko
+        APKO_VERSION: v1.4.18
+      run: |
+        cd "$(mktemp -d)"
+        base="https://github.com/chainguard-dev/apko/releases/download/${APKO_VERSION}"
+        dir="apko_${APKO_VERSION#v}_linux_amd64"
+        asset="${dir}.tar.gz"
+        curl -fsSLO "${base}/${asset}"
+        curl -fsSL "${base}/checksums.txt" -o checksums.txt
+        want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum listed for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root "${dir}/apko" /usr/local/bin/apko
+        apko version

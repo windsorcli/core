@@ -232,7 +232,7 @@ cases:
         - name: lb-resources
 
   # Registry mirrors: when terraform_output("workstation", "registries") has hostname, cluster registry_mirrors carries the cache endpoint. Colima: no certSANs.
-  - name: cluster registry_mirrors includes workstation caches when docker.registries have hostname
+  - name: cluster registry_mirrors includes workstation caches when registries have hostname
     values:
       platform: docker
       workstation:
@@ -252,11 +252,10 @@ cases:
           memory: 24
           nodes:
             controlplane-1: *cp1-node
-      docker:
-        registries:
-          gcr.io:
-            remote: "https://gcr.io"
-            hostname: "gcr.test"
+      registries:
+        gcr.io:
+          remote: "https://gcr.io"
+          hostname: "gcr.test"
     terraformOutputs: *terraform-outputs-with-workstation-registries
     expect:
       config:

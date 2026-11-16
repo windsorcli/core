@@ -106,6 +106,37 @@ run "machine_config_patch_without_disk" {
   }
 }
 
+run "install_image_defaults_to_talos_version" {
+  variables {
+    disk_selector = {
+      busPath  = ""
+      modalias = ""
+      model    = ""
+      name     = "/dev/sda"
+      serial   = ""
+      size     = "0"
+      type     = ""
+      uuid     = ""
+      wwid     = ""
+    }
+  }
+  assert {
+    condition     = strcontains(local.machine_config_patch, "\"image\": \"ghcr.io/siderolabs/installer:v1.10.1\"")
+    error_message = "Should default the install image to the installer at talos_version"
+  }
+}
+
+run "install_image_without_disk_selector" {
+  variables {
+    disk_selector = null
+    image         = "factory.talos.dev/metal-installer/abc123:v1.10.1"
+  }
+  assert {
+    condition     = yamldecode(local.machine_config_patch) == { machine = { install = { image = "factory.talos.dev/metal-installer/abc123:v1.10.1" } } }
+    error_message = "Should patch only machine.install.image when no disk_selector is provided"
+  }
+}
+
 run "config_patches_includes_extra" {
   variables {
     disk_selector = null

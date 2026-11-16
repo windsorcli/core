@@ -678,3 +678,387 @@ cases:
     exclude:
       flux:
         - name: dns
+
+  # pdns driver.
+  - name: cilium gateway exposes PowerDNS through a LoadBalancer and waits for the database
+    values:
+      platform: metal
+      dev: true
+      dns:
+        private_domain: test
+        private:
+          driver: pdns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          dependsOn:
+            - database-resources-catalog
+            - cni-install
+          install:
+            components:
+              - pdns
+              - pdns/prometheus
+              - pdns/loadbalancer
+              - pdns/cilium
+            substitutions:
+              private_domain: test
+              public_domain: ""
+            healthCheckExprs:
+              - apiVersion: postgresql.cnpg.io/v1
+                kind: Cluster
+                current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/pdns
+              substitutions:
+                external_dns_domain: test
+        - name: database
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - pdns/ha
+              - pdns/gateway
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+
+  - name: envoy gateway routes port 53 to PowerDNS
+    values:
+      platform: metal
+      dev: true
+      dns:
+        private_domain: test
+        private:
+          driver: pdns
+      gateway:
+        enabled: true
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          dependsOn:
+            - database-resources-catalog
+            - gateway-install
+          install:
+            components:
+              - pdns/gateway
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/pdns
+                - external-dns/sources/gateway-httproute
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns/loadbalancer
+              - pdns/cilium
+
+  - name: topology ha scales PowerDNS and the database
+    values:
+      platform: metal
+      dev: true
+      topology: ha
+      dns:
+        private_domain: test
+        private:
+          driver: pdns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns/ha
+        - name: database
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/ha
+
+  - name: public domain adds a public external-dns instance and zone
+    values:
+      platform: metal
+      dev: true
+      dns:
+        public_domain: public.example.com
+        private_domain: internal.example.com
+        private:
+          driver: pdns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            substitutions:
+              private_domain: internal.example.com
+              public_domain: public.example.com
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/pdns
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: public.example.com
+            - name: private
+              components:
+                - external-dns/providers/pdns
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+
+  - name: aws pdns driver replaces the cloud private zone provider
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns
+          pdns:
+            api_key: test-api-key
+    terraformOutputs:
+      network:
+        private_zone_id: Z9PRIVATEZONE
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/pdns
+    exclude:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/route53
+
+  - name: pdns driver without an API key generates one
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      pdns:
+        api_key: generated-key
+    expect:
+      terraform:
+        - name: pdns
+          path: dns/pdns-api-key
+      flux:
+        - name: dns
+          secrets:
+            pdns-api:
+              data:
+                api-key: "${terraform_output('pdns', 'api_key')}"
+
+  - name: pdns driver with an API key skips the generated one
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns
+          pdns:
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          secrets:
+            pdns-api:
+              data:
+                api-key: ${dns.private.pdns.api_key}
+    exclude:
+      terraform:
+        - name: pdns
+
+  - name: pdns-remote driver writes to an existing server without installing one
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            url: http://pdns.example.com:8081
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/pdns-remote
+              substitutions:
+                pdns_url: http://pdns.example.com:8081
+                pdns_server_id: localhost
+          secrets:
+            pdns-api:
+              data:
+                api-key: ${dns.private.pdns.api_key}
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns-remote
+              - pdns
+      terraform:
+        - name: pdns
+
+  - name: pdns-remote driver without a URL fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            api_key: test-api-key
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: pdns-remote driver without an API key fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: internal.example.com
+        private:
+          driver: pdns-remote
+          pdns:
+            url: http://pdns.example.com:8081
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: pdns driver without a private domain fails composition
+    values:
+      platform: metal
+      dns:
+        private:
+          driver: pdns
+          pdns:
+            api_key: test-api-key
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: pdns driver with the PostgreSQL service disabled fails composition
+    values:
+      platform: metal
+      dev: true
+      database:
+        postgres:
+          enabled: false
+      dns:
+        private_domain: test
+        private:
+          driver: pdns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: pdns driver with a NodePort internal gateway fails composition
+    values:
+      platform: metal
+      dev: true
+      dns:
+        private_domain: example.local
+        private:
+          driver: pdns
+      gateway:
+        enabled: true
+        driver: envoy
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: coredns driver does not render the pdns facet
+    values:
+      platform: metal
+      dev: true
+      dns:
+        private_domain: test
+        private:
+          driver: coredns
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns
+    exclude:
+      flux:
+        - name: dns
+          install:
+            components:
+              - pdns

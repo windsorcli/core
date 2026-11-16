@@ -320,6 +320,120 @@ run "instance_id_propagates" {
   }
 }
 
+# Verifies that a node's install_image reaches its machine module and other nodes use the installer at talos_version
+run "install_image_propagates" {
+  command = plan
+
+  variables {
+    talos_version = "1.14.5"
+    controlplanes = [
+      {
+        endpoint      = "10.0.0.10:50000"
+        node          = "10.0.0.10"
+        install_image = "factory.talos.dev/metal-installer/abc123:v1.14.5"
+      },
+      {
+        endpoint = "10.0.0.11:50000"
+        node     = "10.0.0.11"
+      }
+    ]
+    workers = [
+      {
+        endpoint      = "10.0.0.20:50000"
+        node          = "10.0.0.20"
+        install_image = "factory.talos.dev/metal-installer/def456:v1.14.5"
+      }
+    ]
+  }
+
+  assert {
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/abc123:v1.14.5"
+    error_message = "controlplane_bootstrap should receive the controlplane's install_image"
+  }
+  assert {
+    condition     = module.controlplanes[0].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A controlplane without install_image should use the installer at talos_version"
+  }
+  assert {
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.5"
+    error_message = "worker module should receive the worker's install_image"
+  }
+}
+
+# Verifies that a node's overlay installs from its schematic's metal installer and install_image wins over it
+run "overlay_selects_metal_installer" {
+  command = plan
+
+  override_resource {
+    target          = talos_image_factory_schematic.overlay["rpi_5"]
+    override_during = plan
+    values = {
+      id = "rpi5abc"
+    }
+  }
+
+  override_resource {
+    target          = talos_image_factory_schematic.overlay["rpi_generic"]
+    override_during = plan
+    values = {
+      id = "rpigen"
+    }
+  }
+
+  variables {
+    talos_version = "1.14.5"
+    controlplanes = [
+      {
+        endpoint = "10.0.0.10:50000"
+        node     = "10.0.0.10"
+        overlay  = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+      },
+      {
+        endpoint      = "10.0.0.11:50000"
+        node          = "10.0.0.11"
+        overlay       = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+        install_image = "factory.talos.dev/metal-installer/custom:v1.14.5"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+        overlay  = { name = "rpi_generic", image = "siderolabs/sbc-raspberrypi" }
+      },
+      {
+        endpoint = "10.0.0.21:50000"
+        node     = "10.0.0.21"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(talos_image_factory_schematic.overlay) == 2
+    error_message = "Should create one schematic per distinct overlay"
+  }
+  assert {
+    condition     = yamldecode(talos_image_factory_schematic.overlay["rpi_5"].schematic).overlay == { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
+    error_message = "The schematic should hold the node's overlay"
+  }
+  assert {
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/rpi5abc:v1.14.5"
+    error_message = "A node with an overlay should use the metal installer of its schematic"
+  }
+  assert {
+    condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/custom:v1.14.5"
+    error_message = "install_image should win over the overlay"
+  }
+  assert {
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/rpigen:v1.14.5"
+    error_message = "Each overlay should use its own schematic"
+  }
+  assert {
+    condition     = module.workers[1].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A node without an overlay or install_image should use the installer at talos_version"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
@@ -395,4 +509,185 @@ run "common_config_patches_rejects_malformed_document" {
   }
 
   expect_failures = [var.common_config_patches]
+}
+
+# Verifies that each node's disks become UserVolumeConfig docs
+run "block_docs_follow_node_disks" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+        disks    = [{ name = "data", selector = "disk.serial == 'abc'" }]
+      }
+    ]
+    workers = [
+      {
+        hostname = "worker1"
+        endpoint = "https://worker1.example.com:6443"
+        node     = "192.168.1.20"
+        disks    = [{ name = "longhorn", size = 30 }]
+      }
+    ]
+  }
+
+  assert {
+    condition     = yamldecode(local.controlplane_block_docs[0][0]).provisioning.diskSelector.match == "disk.serial == 'abc'"
+    error_message = "A disk with a selector should use that selector"
+  }
+  assert {
+    condition     = length(local.worker_block_docs[0]) == 1
+    error_message = "A worker with one disk should get one UserVolumeConfig doc"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][0]).provisioning.diskSelector.match == "!system_disk && disk.size == 30u * GB"
+    error_message = "A size-only disk should get a size-based disk selector"
+  }
+}
+
+# Verifies that nodes without disks get no UserVolumeConfig docs
+run "block_docs_empty_without_node_disks" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    workers = [
+      {
+        hostname = "worker1"
+        endpoint = "https://worker1.example.com:6443"
+        node     = "192.168.1.20"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.controlplane_block_docs[0]) == 0 && length(local.worker_block_docs[0]) == 0
+    error_message = "Nodes without disks should get no UserVolumeConfig docs"
+  }
+}
+
+# Upgrade resources cover the bootstrap control plane, the other control planes and every worker.
+run "upgrade_resources_per_node" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    talos_version    = "1.14.5"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+      { endpoint = "cp2:50000", node = "192.168.1.11" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(terraform_data.upgrade_bootstrap) == 1
+    error_message = "One bootstrap control plane upgrade expected"
+  }
+  assert {
+    condition     = length(terraform_data.upgrade_controlplane) == 1
+    error_message = "One non-bootstrap control plane upgrade expected"
+  }
+  assert {
+    condition     = length(terraform_data.upgrade_worker) == 1
+    error_message = "One worker upgrade expected"
+  }
+  assert {
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "Upgrade must trigger on the installer image for talos_version"
+  }
+}
+
+# upgrade_nodes = false leaves the upgrade to cluster/talos/extensions.
+run "upgrade_disabled" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    upgrade_nodes    = false
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(terraform_data.upgrade_bootstrap) + length(terraform_data.upgrade_controlplane) + length(terraform_data.upgrade_worker) == 0
+    error_message = "No upgrade resources expected when upgrade_nodes is false"
+  }
+}
+
+# A node's own installer image, such as a board overlay or a mirror, is the upgrade target.
+run "upgrade_uses_node_install_image" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    talos_version    = "1.14.5"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20", install_image = "registry.example.com/installer:v1.14.5" },
+    ]
+  }
+
+  assert {
+    condition     = terraform_data.upgrade_worker[0].triggers_replace[0] == "registry.example.com/installer:v1.14.5"
+    error_message = "Worker upgrade must use the node install_image"
+  }
+  assert {
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A node without an install image upgrades to the stock installer"
+  }
+}
+
+run "upgrade_timeout_rejects_bad_duration" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    upgrade_timeout  = "fifteen"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+  }
+
+  expect_failures = [var.upgrade_timeout]
+}
+
+run "upgrade_offline_timeout_rejects_bad_duration" {
+  command = plan
+
+  variables {
+    context_path            = "test"
+    cluster_endpoint        = "https://test.example.com:6443"
+    upgrade_offline_timeout = "soon"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+  }
+
+  expect_failures = [var.upgrade_offline_timeout]
 }

@@ -124,6 +124,26 @@
       "labels": ["dependencies"]
     },
     {
+      "description": "Group the Mayastor develop digest pins into one PR",
+      "matchPackageNames": ["/^docker\\.io/openebs/mayastor-/"],
+      "matchCurrentValue": "develop",
+      "matchUpdateTypes": ["digest"],
+      "groupName": "mayastor develop digests"
+    },
+    {
+      "description": "Update Flux and the Flux Operator in one PR, reviewed by hand; controller image tags MUST match flux_version",
+      "matchDepNames": [
+        "flux",
+        "fluxcd/flux2",
+        "/^ghcr\\.io/fluxcd/.+-controller$/",
+        "flux-operator",
+        "flux-instance",
+        "ghcr.io/controlplaneio-fluxcd/flux-operator"
+      ],
+      "groupName": "flux",
+      "automerge": false
+    },
+    {
       "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
       "matchPackageNames": ["ghcr.io/distribution/distribution"],
       "enabled": false
@@ -138,6 +158,21 @@
       "description": "Review Flux Mirror bumps by hand, since PR checks skip the registry leg that runs it",
       "matchPackageNames": ["fluxcd/flux-mirror"],
       "automerge": false
+    },
+    {
+      "description": "Review Grafana plugin image bumps by hand: check Grafana support, bump images/grafana-plugins/VERSION, and run task grafana:plugins to set the checksum, the image tag and the digest",
+      "matchFileNames": ["images/grafana-plugins/Dockerfile", "images/grafana-plugins/builder.yaml"],
+      "automerge": false
+    },
+    {
+      "description": "task grafana:plugins sets the Grafana plugin image tag from images/grafana-plugins/VERSION and the digest",
+      "matchPackageNames": ["ghcr.io/windsorcli/grafana-plugins"],
+      "enabled": false
+    },
+    {
+      "description": "task utils:image sets the utils image version, tag and digest",
+      "matchPackageNames": ["ghcr.io/windsorcli/utils"],
+      "enabled": false
     },
     {
       "description": "Track windsorcli/action@main for edge validation; don't pin or update",
@@ -274,6 +309,20 @@
       "depNameTemplate": "{{depName}}"
     },
     {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "description": "Parse renovate annotations on Dockerfile ARG versions",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*\\nARG\\s+[A-Z0-9_]+=(?<currentValue>v?\\d+\\.\\d+\\.\\d+)\\s"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
       "description": "Handle date-based Docker image tags (e.g., trust-pkg-debian-bookworm)",
       "customType": "regex",
       "managerFilePatterns": [
@@ -333,6 +382,7 @@
       "depNameTemplate": "{{depName}}"
     }
   ],
+  "prConcurrentLimit": 20,
   "platformAutomerge": true,
   "rebaseWhen": "conflicted",
   "addLabels": [

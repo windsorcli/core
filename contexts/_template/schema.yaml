@@ -40,6 +40,39 @@ $defs:
   k8sLabelValue:
     type: string
     pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
+  # Talos Image Factory official overlay names. Keep in step with metal_overlays in facets/platform-metal.yaml.
+  talosBoard:
+    type: string
+    enum:
+      - bananapi_m64
+      - libretech_all_h3_cc_h5
+      - pine64
+      - jetson_nano
+      - revpi_generic
+      - rpi_generic
+      - rpi_5
+      - helios64
+      - nanopi-r4s
+      - nanopi-r5s
+      - odroid-m1
+      - orangepi-5
+      - orangepi-5-max
+      - orangepi-5-plus
+      - orangepi-r1-plus-lts
+      - radxa-zero-3e
+      - rock3b
+      - rock4cplus
+      - rock4se
+      - rock5a
+      - rock5b
+      - rock5b-plus
+      - rock5t
+      - rock64
+      - rockpi4
+      - rockpi4c
+      - rockpro64
+      - turingrk1
+      - friendlyelec-cm3588-nas
   diskItem: &diskItem
     type: object
     properties:
@@ -100,14 +133,21 @@ $defs:
         mac_address:
           type: string
           pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
-          description: Fixed guest NIC MAC address on Hyper-V and Proxmox, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
+          description: Fixed guest NIC MAC address on Hyper-V, Proxmox, and Incus, for a DHCP reservation on the router. Unset lets the hypervisor assign one.
         placement:
           type: string
           minLength: 1
-          description: On Proxmox, the node that hosts this VM. It MUST be listed in proxmox.nodes. Unset follows the round-robin placement.
+          description: The Proxmox node or Incus cluster member that hosts this VM. On Proxmox it MUST be listed in proxmox.nodes. Unset follows the round-robin placement.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
+        board:
+          $ref: '#/$defs/talosBoard'
+          description: Single-board computer this node runs on, on platform metal, as a Talos Image Factory overlay name such as rpi_5. Overrides the pool's board for this node.
+        install_image:
+          type: string
+          minLength: 1
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
@@ -129,6 +169,14 @@ $defs:
     image:
       type: string
       description: Node image for this pool. Per-node image overrides when set.
+    board:
+      $ref: '#/$defs/talosBoard'
+      description: >-
+        Single-board computer the pool's nodes run on, on platform metal, as a Talos Image Factory
+        overlay name such as rpi_5 (Raspberry Pi 5) or rpi_generic (Raspberry Pi 4 and older). Nodes
+        install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
+        and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
+        uses ghcr.io/siderolabs/installer.
     instance_type:
       type: string
       description: Cloud provider instance type
@@ -515,6 +563,38 @@ properties:
           next free ID.
     description: Proxmox VE infrastructure configuration
 
+  # Incus configuration, read only when platform == 'incus' and workstation.runtime is unset.
+  incus:
+    type: object
+    additionalProperties: false
+    properties:
+      remote:
+        type: string
+        minLength: 1
+        description: Incus client remote that hosts the VMs (e.g. a cluster added with `incus remote add`). Unset uses the client's default remote.
+      targets:
+        type: array
+        items:
+          type: string
+          minLength: 1
+        minItems: 1
+        description: Member names of one Incus cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Repeating a name gives that member more VMs. Unset leaves placement to Incus.
+      network:
+        type: string
+        minLength: 1
+        description: >-
+          Existing network the VMs attach to, defined on every member (e.g. a
+          macvlan or bridge network on the LAN). Incus serves no DHCP on it, so
+          each node MUST declare its address in cluster.controlplanes.nodes or
+          cluster.workers.nodes, reserved on the LAN's DHCP server. Unset creates
+          a NAT bridge from network.cidr_block.
+      storage_pool:
+        type: string
+        minLength: 1
+        default: default
+        description: Existing storage pool for root and data disks, present on every member. IncusOS names its pool local.
+    description: Incus infrastructure configuration
+
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
   # Useful for provider-side credentials read from env (e.g. HYPERV_*).
@@ -844,8 +924,40 @@ properties:
               sensitive: true
               description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
           additionalProperties: false
-        description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror, and nodes pull its images only from that mirror. An entry with only hostname is a workstation pull-through cache.
+        description: "[DEPRECATED] Use the top-level registries key."
     additionalProperties: false
+
+  registries:
+    type: object
+    propertyNames:
+      anyOf:
+        - $ref: '#/$defs/dnsHostname'
+        - const: '*'
+    additionalProperties:
+      type: object
+      properties:
+        remote:
+          $ref: '#/$defs/httpUrl'
+          description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
+        local:
+          $ref: '#/$defs/dnsHostname'
+          description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
+        hostname:
+          $ref: '#/$defs/dnsHostname'
+          description: Hostname of the workstation pull-through cache (e.g. registry.test). Lowercase DNS-labels separated by dots.
+        endpoint:
+          type: string
+          pattern: '^(https?://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$'
+          description: Cluster mirror as an optional http or https scheme, host, optional port, and optional path (e.g. harbor.example.com:8443/windsor). The default scheme is https.
+        username:
+          type: string
+          description: Username for the mirror at endpoint. Set together with password.
+        password:
+          type: string
+          sensitive: true
+          description: Password or token for the mirror at endpoint. Set via a secret() reference, together with username.
+      additionalProperties: false
+    description: Registry config keyed by registry host (e.g. gcr.io, ghcr.io), or * for every registry without its own entry. An entry with endpoint is a cluster mirror, and nodes pull its images only from that mirror. An entry with only hostname is a workstation pull-through cache.
 
   # Cluster topology preset — selects between a single-node cluster, a
   # multi-node cluster without HA guarantees, and a fully HA cluster
@@ -904,6 +1016,7 @@ properties:
           address in cluster.controlplanes.nodes or cluster.workers.nodes. More than one
           control plane requires cluster.endpoint, which MUST sit outside the DHCP scope;
           control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
+          On metal, false turns off DHCP on the cluster.vip interface, which takes DHCP otherwise.
       ntp_servers:
         type: array
         items:
@@ -964,7 +1077,7 @@ properties:
         default: false
         description: >
           Configure the host in cluster.endpoint as the Talos shared VIP on every control plane, on Incus, Proxmox,
-          vSphere, and Hyper-V. The host MUST be an IPv4 address no control plane uses, on the control planes' layer-2 segment.
+          vSphere, Hyper-V, and metal. The host MUST be an IPv4 address no control plane uses, on the control planes' layer-2 segment.
       api_allowed_cidrs:
         type: array
         items:
@@ -1221,12 +1334,29 @@ properties:
             enum:
               - cloud
               - coredns
+              - pdns
+              - pdns-remote
               - none
-            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
+            description: Server for the private zone. cloud is the VPC-attached zone on aws, azure and gcp; coredns runs in-cluster CoreDNS; pdns runs in-cluster PowerDNS on a PostgreSQL database; pdns-remote writes to an existing PowerDNS server through its API. Unset uses cloud on aws, azure and gcp, none on hetzner, and coredns elsewhere when dns.private_domain is set.
           enabled:
             type: boolean
             deprecated: true
             description: Deprecated. Use dns.private.driver. true is an alias for coredns.
+          pdns:
+            type: object
+            description: Settings for the pdns and pdns-remote drivers.
+            properties:
+              url:
+                $ref: '#/$defs/httpUrl'
+                description: Base URL of the PowerDNS API, for example http://pdns.example.com:8081. Required for the pdns-remote driver.
+              server_id:
+                type: string
+                default: localhost
+                description: PowerDNS server ID in the API path. Used by the pdns-remote driver.
+              api_key:
+                type: string
+                description: PowerDNS API key, as a secret reference. pdns generates one when unset; pdns-remote requires it.
+            additionalProperties: false
         additionalProperties: false
     additionalProperties: false
 
@@ -1602,7 +1732,7 @@ properties:
           registries:
             type: boolean
             default: true
-            description: Create registry proxy containers (from docker.registries when true)
+            description: Create registry proxy containers (from registries when true)
         additionalProperties: false
         description: Toggle workstation services
       git:
