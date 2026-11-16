@@ -26,7 +26,7 @@ packages:
   - name: helm/helm@v4.3.1
   - name: fluxcd/flux2@v2.10.0
   - name: controlplaneio-fluxcd/flux-operator@v0.62.1
-  - name: hashicorp/vault@v2.2.1
+  - name: hashicorp/vault@v2.2.2
   - name: derailed/k9s@v0.51.0
   - name: getsops/sops@v3.13.3
   - name: 1password/cli@v2.30.3
