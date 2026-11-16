@@ -14,7 +14,7 @@ when: platform == 'metal'
 requires:
   - paths:
       - cluster.controlplanes.nodes
-    message: Metal has no compute layer; declare the controlplane nodes that windsor should talk to.
+    message: Metal provisions no machines; list the existing control planes in cluster.controlplanes.nodes.
 
 # =============================================================================
 # Config
