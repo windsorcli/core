@@ -68,6 +68,7 @@ the rule as violated and the VMs keep running.
 | Name | Version |
 |------|---------|
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 | <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.1 |
 
 ## Modules
@@ -79,6 +80,7 @@ No modules.
 | Name | Type |
 |------|------|
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
+| [terraform_data.controlplane_ids](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [vsphere_compute_cluster_vm_anti_affinity_rule.controlplane](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/compute_cluster_vm_anti_affinity_rule) | resource |
 | [vsphere_folder.vm](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/folder) | resource |
 | [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/virtual_machine) | resource |

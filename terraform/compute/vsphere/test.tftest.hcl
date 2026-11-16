@@ -330,6 +330,13 @@ run "controlplane_anti_affinity_ha" {
     ])
     error_message = "Rule should list exactly the three control-plane VM IDs"
   }
+
+  assert {
+    condition = terraform_data.controlplane_ids[0].output == [
+      for k in ["controlplane-1", "controlplane-2", "controlplane-3"] : vsphere_virtual_machine.instances[k].id
+    ]
+    error_message = "Replacement trigger should hold only the control-plane VM IDs"
+  }
 }
 
 # No cluster VMs: when there are no controlplane or worker instances,
