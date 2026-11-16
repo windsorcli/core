@@ -22,6 +22,8 @@ requires:
     paths:
       - dns.public.cloudflare.account_id
     message: A created Cloudflare zone belongs to this account.
+  - when: dns.public.driver == 'cloudflare' && (dns.public.cloudflare.proxied ?? false) == true && (dns.public.cloudflare.zone_name ?? dns.public_domain) != dns.public_domain
+    message: dns.public.cloudflare.proxied needs dns.public_domain to be the Cloudflare zone itself; unset dns.public.cloudflare.zone_name or set proxied to false.
   - when: dns.public.driver == 'cloudflare' && tls_effective.public_acme == true
     paths:
       - email

@@ -1353,7 +1353,7 @@ properties:
               proxied:
                 type: boolean
                 default: false
-                description: Route the records external-dns writes through the Cloudflare proxy. Needs a public gateway address and the zone SSL mode set to Full (strict).
+                description: Route the records external-dns writes through the Cloudflare proxy. Needs a public gateway address, dns.public_domain equal to the zone, and the zone SSL mode set to Full (strict). Only HTTP(S) ports are proxied.
             additionalProperties: false
         additionalProperties: false
       private_domain:

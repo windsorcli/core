@@ -222,8 +222,11 @@ the visitor connection.
   ListenerSet listener on another port (ADR-0022) is not reachable through
   the proxy. This is the same limit as ADR-0029 section 5 states for the
   tunnel.
-- Universal SSL covers the apex and one label below it. The guide MUST
-  say that a deeper name needs an Advanced Certificate.
+- Universal SSL covers the apex and one label below it. The facet MUST
+  reject `proxied: true` when `dns.public_domain` differs from the zone
+  name, because every gateway hostname would then sit two labels below the
+  zone. The guide MUST say that a deeper name needs an Advanced
+  Certificate.
 - A route can override the setting with the external-dns annotation
   `external-dns.alpha.kubernetes.io/cloudflare-proxied`.
 - `proxied: true` MUST be rejected together with `tunnel.driver`. The
@@ -383,8 +386,8 @@ it in this ADR. A later ADR MAY add one when users ask.
 
 The build MUST check three points that the docs reviewed do not settle:
 external-dns `v0.23.0` writes a wildcard TXT ownership record on
-Cloudflare, a proxied wildcard record is allowed on the plans the tunnel
-targets, and the chart value for `CF_API_TOKEN` takes a `secretKeyRef`.
+Cloudflare and the chart value for `CF_API_TOKEN` takes a `secretKeyRef`.
+Cloudflare documents proxied wildcard records on all plans.
 
 ## Alternatives considered
 

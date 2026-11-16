@@ -108,7 +108,7 @@ cases:
         external:
           ip: "10.5.1.10"
       dns:
-        public_domain: apps.example.com
+        public_domain: example.com
         public:
           driver: cloudflare
           cloudflare:
@@ -249,4 +249,24 @@ cases:
       dns:
         public_domain: apps.example.com
         public: *default-cloudflare
+    expectError: true
+
+  - name: proxied with a public domain below the zone fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: dev.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            zone_name: example.com
+            api_token: test-token
+            proxied: true
+    terraformOutputs: *default-terraform-outputs
     expectError: true

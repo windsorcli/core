@@ -228,7 +228,9 @@ The internal gateway keeps the `private` issuer unless
 With `proxied: true`, the records external-dns writes pass through the
 Cloudflare proxy. It needs a public gateway address and the zone SSL mode
 set to Full (strict), which the module does not manage. Universal SSL
-covers the apex and one label below it.
+covers the apex and one label below it, so `dns.public_domain` MUST be
+the zone itself; a deeper name needs Advanced Certificate Manager.
+Cloudflare proxies HTTP(S) on its listed ports only.
 
 ### Self-signed (no public domain)
 
