@@ -51,6 +51,7 @@ terraform:
     inputs:
       account_id: ${tunnel.cloudflare.account_id}
       public_domain: ${dns.public_domain}
+      zone_name: "${tunnel.cloudflare.zone_name ?? null}"
       name: ${id}
       origin_service: https://${tunnel_effective.origin_host}:443
       origin_ca_pool: "${tunnel_effective.ca_pool == true ? '/etc/tunnel/ca/ca.crt' : null}"

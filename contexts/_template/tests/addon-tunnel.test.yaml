@@ -124,6 +124,24 @@ cases:
               components:
                 - envoy/nodeport
 
+  - name: tunnel with a parent zone passes zone_name to the module
+    values:
+      platform: metal
+      dns:
+        public_domain: apps.example.com
+      tunnel:
+        driver: cloudflare
+        cloudflare:
+          account_id: acct123
+          zone_name: example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: tunnel
+          inputs:
+            zone_name: example.com
+
   - name: tunnel with the cilium gateway targets the cilium service name
     values:
       platform: metal

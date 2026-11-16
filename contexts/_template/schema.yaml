@@ -1642,6 +1642,9 @@ properties:
           account_id:
             type: string
             description: Cloudflare account that owns the tunnel.
+          zone_name:
+            type: string
+            description: Cloudflare zone that holds dns.public_domain. Defaults to dns.public_domain, which suits a domain that is itself a zone.
         additionalProperties: false
     additionalProperties: false
 
