@@ -430,7 +430,6 @@ terraform:
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
-      powercycle_reboot: ${platform == 'incus'}
       # Length-check compute output (empty until the guest reports an IP) and
       # fall through to schema-declared nodes.
       # In NodePort+NAT, compute's NAT-internal endpoints are unreachable from

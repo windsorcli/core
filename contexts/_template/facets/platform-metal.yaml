@@ -108,7 +108,6 @@ terraform:
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
-      powercycle_reboot: ${platform == 'incus'}
       controlplanes: ${metal_nodes.controlplanes}
       workers: ${metal_nodes.workers}
       controlplane_disks: ${talos_common.controlplane_disks}
