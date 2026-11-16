@@ -346,7 +346,7 @@ config:
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
             : (hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster
-              : (hyperv_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {}))),
+              : (hyperv_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null))),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
@@ -354,7 +354,7 @@ config:
             ? terraform_output("compute", "workers")
             : (hyperv_effective.nat == true ? hyperv_workers.for_cluster
               : (hyperv_effective.dhcp ? []
-                : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : []))),
+                : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : []))),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
 # =============================================================================
@@ -434,8 +434,8 @@ terraform:
       # fall through to schema-declared nodes.
       # In NodePort+NAT, compute's NAT-internal endpoints are unreachable from
       # the runner, so use for_cluster (bench-side host:port routing to each VM).
-      controlplanes: "${hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {})))}"
-      workers: "${hyperv_effective.nat == true ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])))}"
+      controlplanes: "${hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null)))}"
+      workers: "${hyperv_effective.nat == true ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])))}"
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
