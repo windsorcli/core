@@ -16,6 +16,11 @@ spec:
       serviceMonitor:
         enabled: true
 
+    hubble:
+      metrics:
+        serviceMonitor:
+          enabled: true
+
     envoy:
       prometheus:
         serviceMonitor:
