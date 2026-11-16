@@ -292,6 +292,38 @@ locals {
   }
 }
 
+locals {
+  # kubelet extraMounts on each volume's path, the part after ':' in host:dest.
+  controlplane_extra_mounts       = [for v in var.controlplane_volumes : { source = length(split(":", v)) > 1 ? split(":", v)[1] : v, destination = length(split(":", v)) > 1 ? split(":", v)[1] : v, type = "bind", options = ["rbind", "rw"] }]
+  worker_extra_mounts             = [for v in var.worker_volumes : { source = length(split(":", v)) > 1 ? split(":", v)[1] : v, destination = length(split(":", v)) > 1 ? split(":", v)[1] : v, type = "bind", options = ["rbind", "rw"] }]
+  controlplane_extra_mounts_patch = length(var.controlplane_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.controlplane_extra_mounts } } }) : ""
+  worker_extra_mounts_patch       = length(var.worker_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.worker_extra_mounts } } }) : ""
+
+  # UserVolumeConfig documents for the pool-level disks.
+  controlplane_block_docs = [for i, d in var.controlplane_disks :
+    try(d.device, "") != "" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
+      }) : yamlencode({
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      filesystem   = { type = "xfs" }
+    })
+    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+  ]
+  worker_block_docs = [for i, d in var.worker_disks :
+    try(d.device, "") != "" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
+      }) : yamlencode({
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      filesystem   = { type = "xfs" }
+    })
+    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+  ]
+}
+
 resource "talos_machine_secrets" "this" {
   count         = local.has_cluster_nodes ? 1 : 0
   talos_version = "v${var.talos_version}"
@@ -307,12 +339,13 @@ data "talos_machine_configuration" "controlplane" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
-  config_patches = compact([
+  config_patches = compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
     local.controlplane_network_patches[each.key],
     local.vip_patch,
-  ])
+    local.controlplane_extra_mounts_patch,
+  ], local.controlplane_block_docs))
 
   lifecycle {
     precondition {
@@ -332,11 +365,12 @@ data "talos_machine_configuration" "worker" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = trimprefix(var.kubernetes_version, "v")
 
-  config_patches = compact([
+  config_patches = compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
     local.worker_network_patches[each.key],
-  ])
+    local.worker_extra_mounts_patch,
+  ], local.worker_block_docs))
 }
 
 locals {

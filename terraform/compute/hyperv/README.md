@@ -61,7 +61,9 @@ No modules.
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_controlplane_disks"></a> [controlplane\_disks](#input\_controlplane\_disks) | Pool-level control-plane disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name. | `list(any)` | `[]` | no |
 | <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
+| <a name="input_controlplane_volumes"></a> [controlplane\_volumes](#input\_controlplane\_volumes) | Raw volume strings (path or host:dest) baked as control-plane kubelet extraMounts on the path (part after ':' if present). | `list(string)` | `[]` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create the virtual switch. If false, network\_name must reference an existing switch on the host | `bool` | `true` | no |
 | <a name="input_destination_dir"></a> [destination\_dir](#input\_destination\_dir) | Directory on the Hyper-V host where per-node CIDATA seed ISOs are staged (e.g. C:\hyperv\images). When empty, no CIDATA ISOs are created. | `string` | `""` | no |
 | <a name="input_extra_port_forwards"></a> [extra\_port\_forwards](#input\_extra\_port\_forwards) | Operator-supplied TCP additions applied on top of port\_forwards. Used by platform-hyperv to layer gateway.publish\_ports onto the always-on baseline (k8s/Talos APIs, gateway NodePorts). Overlap with port\_forwards is a validation error; pick non-conflicting bench-side ports | `map(number)` | `{}` | no |
@@ -94,6 +96,8 @@ No modules.
 | <a name="input_udp_port_forwards"></a> [udp\_port\_forwards](#input\_udp\_port\_forwards) | UDP equivalent of port\_forwards. A host port can be doubled up across protocols (e.g. DNS on tcp+udp 53) | `map(number)` | `{}` | no |
 | <a name="input_vhd_dir"></a> [vhd\_dir](#input\_vhd\_dir) | Default directory on the host where per-instance VHDXs are placed (e.g. C:\\hyperv\\vhds). Each instance gets <vhd\_dir>\\<name>.vhdx unless root\_disk\_path is set explicitly | `string` | `"C:\\hyperv\\vhds"` | no |
 | <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_worker_disks"></a> [worker\_disks](#input\_worker\_disks) | Pool-level worker disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name. | `list(any)` | `[]` | no |
+| <a name="input_worker_volumes"></a> [worker\_volumes](#input\_worker\_volumes) | Raw volume strings (path or host:dest) baked as worker kubelet extraMounts on the path (part after ':' if present). | `list(string)` | `[]` | no |
 
 ## Outputs
 
