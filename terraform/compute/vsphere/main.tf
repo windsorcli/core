@@ -263,7 +263,7 @@ resource "vsphere_virtual_machine" "instances" {
   for_each   = local.instances_by_name
   depends_on = [vsphere_folder.vm]
 
-  name             = each.value.name
+  name             = "${each.value.name}${var.name_suffix}"
   resource_pool_id = local.resource_pool_id
   datastore_id     = data.vsphere_datastore.this.id
   host_system_id   = data.vsphere_host.this.id
@@ -349,7 +349,7 @@ locals {
   instances_output = [
     for k, v in vsphere_virtual_machine.instances : {
       name     = v.name
-      hostname = v.name
+      hostname = k
       ipv4     = local.instance_ips[k]
       ipv6     = local.instance_ipv6s[k]
       status   = v.power_state
@@ -361,7 +361,7 @@ locals {
 
   controlplanes_output = [
     for k, v in vsphere_virtual_machine.instances : {
-      hostname = v.name
+      hostname = k
       endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name
@@ -376,7 +376,7 @@ locals {
 
   workers_output = [
     for k, v in vsphere_virtual_machine.instances : {
-      hostname = v.name
+      hostname = k
       endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name

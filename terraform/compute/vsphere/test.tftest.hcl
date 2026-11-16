@@ -668,3 +668,26 @@ run "common_config_patches_accepts_several_documents" {
     common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
   }
 }
+
+# name_suffix: the VM name carries the suffix, the instance key does not.
+run "name_suffix" {
+  command = plan
+
+  variables {
+    name_suffix = "-ctx1"
+    instances = [
+      {
+        name   = "cp"
+        role   = "controlplane"
+        count  = 1
+        cpu    = 2
+        memory = 4
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["cp"].name == "cp-ctx1"
+    error_message = "VM name should carry name_suffix"
+  }
+}
