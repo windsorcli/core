@@ -765,3 +765,114 @@ cases:
       cluster:
         driver: talos
     expectError: true
+
+  # incus.host adds the host step on the cluster's remote, and compute waits on it.
+  - name: incus.host adds the host step before compute
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        remote: home
+        targets: [nuc-1, nuc-2]
+        network: lan
+        host:
+          members:
+            nuc-1:
+              storage_source: nvme/incus
+              network_parent: enp1s0
+            nuc-2:
+              storage_source: nvme/incus
+              network_parent: eno1
+          daemon_storage_pool: local
+          projects:
+            home:
+              description: home cluster
+          certificates:
+            ci:
+              certificate: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"
+              projects: [home]
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.31:50000
+              node: 192.168.3.31
+        workers:
+          count: 0
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: host
+          path: host/incus
+          destroy: false
+          inputs:
+            remote: home
+            members:
+              nuc-1:
+                storage_source: nvme/incus
+                network_parent: enp1s0
+              nuc-2:
+                storage_source: nvme/incus
+                network_parent: eno1
+            storage_pool_name: default
+            network_name: lan
+            daemon_storage_pool: local
+            projects:
+              home:
+                description: home cluster
+            certificates:
+              ci:
+                certificate: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"
+                projects: [home]
+        - name: compute
+          dependsOn:
+            - host
+
+  # Without incus.host, the context uses objects that already exist on the cluster.
+  - name: no incus.host leaves out the host step
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    exclude:
+      terraform:
+        - name: host
+
+  # On incus.network, every member needs the parent that backs the network.
+  - name: incus.host member without network_parent fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        network: lan
+        host:
+          members:
+            nuc-1:
+              storage_source: nvme/incus
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.31:50000
+              node: 192.168.3.31
+        workers:
+          count: 0
+    expectError: true

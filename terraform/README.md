@@ -42,6 +42,7 @@ layer. Links from there land here.
 | [database/azure-postgres](database/azure-postgres/) | Resource group, private DNS zone, NSG, and optional customer-managed key for Azure Database for PostgreSQL Flexible Server. |
 | [database/gcp-cloudsql](database/gcp-cloudsql/) | Private service connection, KMS key, and admin credentials for Cloud SQL. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
+| [dns/pdns-api-key](dns/pdns-api-key/) | Generated API key for the in-cluster PowerDNS server and its external-dns provider. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/gcp-dns](dns/zone/gcp-dns/) | DNS zone on Google Cloud DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
@@ -49,6 +50,7 @@ layer. Links from there land here.
 | [gitops](gitops/) | Flux installation that hands reconciliation to the kustomize layer. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
 | [host](host/) | Host-level objects that several contexts share and that outlive any one context. |
+| [host/incus](host/incus/) | Server-scoped objects of one Incus cluster that every context on it shares, created by one context and kept on destroy. |
 | [host/proxmox](host/proxmox/) | Opt-in image datastore for Proxmox VE, created by one context and kept on destroy. |
 | [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |

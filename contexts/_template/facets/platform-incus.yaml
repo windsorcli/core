@@ -34,6 +34,10 @@ requires:
     paths:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
+  - when: >-
+      (workstation.runtime ?? '') == '' && incus.host != null && (incus.network ?? '') != ''
+      && any(values(incus.host.members), (#.network_parent ?? '') == '')
+    message: With incus.network set, give each member in incus.host.members the network_parent that backs it on that member.
 
 # =============================================================================
 # Config — Incus-specific Talos values
@@ -48,6 +52,7 @@ config:
       network: "${incus.network ?? ''}"
       lan: ${(incus.network ?? '') != ''}
       storage_pool: "${incus.storage_pool ?? 'default'}"
+      host: ${(workstation.runtime ?? '') == '' && incus.host != null}
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -175,10 +180,26 @@ config:
 # With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
+  # Storage pool, LAN network, projects, and certificates that every context on the cluster shares.
+  - name: host
+    when: incus_effective.host
+    path: host/incus
+    inputs:
+      remote: ${incus_effective.remote}
+      members: ${incus.host.members}
+      storage_pool_name: "${incus_effective.storage_pool}"
+      network_name: ${incus.network ?? null}
+      daemon_storage_pool: ${incus.host.daemon_storage_pool ?? null}
+      projects: ${incus.host.projects ?? {}}
+      certificates: ${incus.host.certificates ?? {}}
+    destroy: false
+
   # Talos VMs on a fresh NAT bridge, or on the existing incus.network, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
+    dependsOn:
+      - "${incus_effective.host ? 'host' : ''}"
     # Serialized: concurrent instance creation triggers concurrent Talos image
     # fetches, and images.windsorcli.dev rate-limits those (429).
     parallelism: 1
