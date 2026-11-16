@@ -46,6 +46,14 @@ To create or inspect this inventory out of band, `govc` reads the same
 credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 `GOVC_PASSWORD`, and `GOVC_INSECURE` — mirror the `VSPHERE_*` values into those.
 
+## Control-plane placement
+
+With two or more control planes, the module adds a soft DRS anti-affinity rule
+named `windsor-<context>-controlplane`. Every VM starts on the `host_system`
+host, and DRS then moves the control planes to separate hosts. The cluster MUST
+have DRS enabled for the rule to take effect. On a one-host cluster, DRS reports
+the rule as violated and the VMs keep running.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
@@ -60,6 +68,7 @@ credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 | Name | Version |
 |------|---------|
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 | <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.1 |
 
 ## Modules
@@ -71,6 +80,8 @@ No modules.
 | Name | Type |
 |------|------|
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
+| [terraform_data.controlplane_ids](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [vsphere_compute_cluster_vm_anti_affinity_rule.controlplane](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/compute_cluster_vm_anti_affinity_rule) | resource |
 | [vsphere_folder.vm](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/folder) | resource |
 | [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/virtual_machine) | resource |
 | [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
