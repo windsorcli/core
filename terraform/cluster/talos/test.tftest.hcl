@@ -567,3 +567,29 @@ run "upgrade_disabled" {
     error_message = "No upgrade resources expected when upgrade_nodes is false"
   }
 }
+
+# A node's own installer image, such as a board overlay or a mirror, is the upgrade target.
+run "upgrade_uses_node_install_image" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    talos_version    = "1.14.5"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20", install_image = "registry.example.com/installer:v1.14.5" },
+    ]
+  }
+
+  assert {
+    condition     = terraform_data.upgrade_worker[0].triggers_replace[0] == "registry.example.com/installer:v1.14.5"
+    error_message = "Worker upgrade must use the node install_image"
+  }
+  assert {
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A node without an install image upgrades to the stock installer"
+  }
+}

@@ -270,22 +270,25 @@ module "workers" {
 #-----------------------------------------------------------------------------------------------------------------------
 # In-place Talos Upgrade
 #-----------------------------------------------------------------------------------------------------------------------
-# Upgrades a node to the installer image for var.talos_version unless it already runs that version.
+# Upgrades a node to its installer image (install_image, board overlay, else the stock installer) unless it already
+# runs var.talos_version.
 # Order: bootstrap control plane, other control planes, workers. The step MUST run with parallelism 1 so nodes in a group upgrade one at a time.
 
 locals {
-  upgrade_image = "ghcr.io/siderolabs/installer:v${var.talos_version}"
-  upgrade_flags = var.powercycle_reboot ? " --reboot-mode powercycle" : ""
+  stock_installer             = "ghcr.io/siderolabs/installer:v${var.talos_version}"
+  controlplane_upgrade_images = [for image in local.controlplane_install_images : coalesce(image, local.stock_installer)]
+  worker_upgrade_images       = [for image in local.worker_install_images : coalesce(image, local.stock_installer)]
+  upgrade_flags               = var.powercycle_reboot ? " --reboot-mode powercycle" : ""
 }
 
 resource "terraform_data" "upgrade_bootstrap" {
   count      = var.upgrade_nodes && length(var.controlplanes) > 0 ? 1 : 0
   depends_on = [module.controlplane_bootstrap, module.controlplanes, module.workers]
 
-  triggers_replace = [local.upgrade_image]
+  triggers_replace = [local.controlplane_upgrade_images[0]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.upgrade_image} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_upgrade_images[0]} --skip-if-current --timeout 15m${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -297,10 +300,10 @@ resource "terraform_data" "upgrade_controlplane" {
   count      = var.upgrade_nodes ? max(length(var.controlplanes) - 1, 0) : 0
   depends_on = [terraform_data.upgrade_bootstrap]
 
-  triggers_replace = [local.upgrade_image]
+  triggers_replace = [local.controlplane_upgrade_images[count.index + 1]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.upgrade_image} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_upgrade_images[count.index + 1]} --skip-if-current --timeout 15m${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -312,10 +315,10 @@ resource "terraform_data" "upgrade_worker" {
   count      = var.upgrade_nodes ? length(var.workers) : 0
   depends_on = [terraform_data.upgrade_bootstrap, terraform_data.upgrade_controlplane]
 
-  triggers_replace = [local.upgrade_image]
+  triggers_replace = [local.worker_upgrade_images[count.index]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.upgrade_image} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_upgrade_images[count.index]} --skip-if-current --timeout 15m${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
