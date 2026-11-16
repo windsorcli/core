@@ -229,7 +229,7 @@ jobs:
   # then applies HEAD on top without reinit. registry runs fresh with every
   # chart and image pulled from a workstation registry.
   # Each leg is a checked-in context under contexts/<name>/values.yaml:
-  # monk (fresh, identity and demo),
+  # monk (fresh, identity, lean),
   # brodie (upgrade), butcher (registry, flannel and envoy).
   integration:
     name: Integration (${{ matrix.name }})
@@ -326,15 +326,16 @@ jobs:
           git fetch origin main
           git checkout origin/main
 
-      # The flags stand in for contexts/${{ matrix.name }}/values.yaml, which origin/main lacks.
-      # CPU/memory are pinned to the runner's capacity.
+      # origin/main has no contexts/${{ matrix.name }}, so the baseline reads HEAD's values.yaml.
       # Falls back without gitops.concurrency if origin/main predates it.
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
-          flags="--platform docker --set dev=true --set id=${{ matrix.name }} --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8"
-          windsor init ${{ matrix.name }} --reset $flags --set gitops.concurrency=2 \
-            || windsor init ${{ matrix.name }} --reset $flags
+          values=contexts/${{ matrix.name }}/values.yaml
+          mkdir -p "$(dirname "$values")"
+          git show ${{ github.sha }}:"$values" > "$values"
+          windsor init ${{ matrix.name }} --reset \
+            || { yq -i 'del(.gitops.concurrency)' "$values"; windsor init ${{ matrix.name }} --reset; }
 
       - name: Baseline — Show blueprint
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
