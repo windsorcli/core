@@ -124,6 +124,59 @@ cases:
             - components:
                 - longhorn/prometheus
 
+  - name: longhorn dashboard patch omitted when observability is disabled
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+      observability:
+        enabled: false
+    exclude:
+      flux:
+        - name: observability
+
+  - name: longhorn dashboard patch present in dev with observability unset
+    values:
+      dev: true
+      dns:
+        private_domain: example.test
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/longhorn
+
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default
     values:

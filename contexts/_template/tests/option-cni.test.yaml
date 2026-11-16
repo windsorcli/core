@@ -589,3 +589,41 @@ cases:
           install:
             components:
               - cilium/encryption
+
+  - name: observability disabled omits the cilium dashboard
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+      observability:
+        enabled: false
+        dashboards: grafana
+    exclude:
+      flux:
+        - name: observability
+
+  - name: observability enabled adds the cilium dashboard
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        private_domain: example.test
+      observability:
+        enabled: true
+        dashboards: grafana
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/cilium
