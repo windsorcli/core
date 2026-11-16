@@ -12,8 +12,8 @@ mock_provider "incus" {
 }
 
 variables {
-  remote  = "lab"
-  dataset = "nvme/incus"
+  remote            = "lab"
+  storage_pool_name = "nvme"
 }
 
 # A cluster gets the pool defined on every member, then created once.
@@ -27,12 +27,12 @@ run "creates_pool_on_every_member" {
 
   assert {
     condition     = incus_storage_pool.member["node2"].target == "node2" && incus_storage_pool.member["node2"].config.source == "nvme/incus"
-    error_message = "member pool must target its member with the dataset as source"
+    error_message = "member pool must target its member with <pool>/incus as source"
   }
 
   assert {
-    condition     = incus_storage_pool.main.name == "default" && incus_storage_pool.main.driver == "zfs" && incus_storage_pool.main.target == null
-    error_message = "cluster pool must be a zfs pool named default with no target"
+    condition     = incus_storage_pool.main.name == "nvme" && incus_storage_pool.main.driver == "zfs" && incus_storage_pool.main.target == null
+    error_message = "cluster pool must be a zfs pool named nvme with no target"
   }
 
   assert {
@@ -61,6 +61,20 @@ run "creates_pool_on_single_server" {
   assert {
     condition     = incus_storage_pool.main.config.source == "nvme/incus"
     error_message = "single-server pool must take the dataset as source"
+  }
+}
+
+# An explicit dataset replaces <pool>/incus.
+run "uses_explicit_dataset" {
+  command = plan
+
+  variables {
+    dataset = "tank/vms"
+  }
+
+  assert {
+    condition     = incus_storage_pool.member["node1"].config.source == "tank/vms"
+    error_message = "member pool must take the explicit dataset as source"
   }
 }
 

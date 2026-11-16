@@ -11,7 +11,6 @@ variable "remote" {
 variable "storage_pool_name" {
   description = "Name of the shared storage pool."
   type        = string
-  default     = "default"
 
   validation {
     condition     = var.storage_pool_name != ""
@@ -20,11 +19,12 @@ variable "storage_pool_name" {
 }
 
 variable "dataset" {
-  description = "ZFS dataset on every member that backs the storage pool (e.g. nvme/incus)."
+  description = "ZFS dataset on every member that backs the storage pool. Null uses <storage_pool_name>/incus."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9_.:-]+(/[A-Za-z0-9_.:-]+)*$", var.dataset))
+    condition     = var.dataset == null || can(regex("^[A-Za-z0-9_.:-]+(/[A-Za-z0-9_.:-]+)*$", var.dataset))
     error_message = "dataset must be a ZFS dataset path such as nvme/incus."
   }
 }

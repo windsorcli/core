@@ -49,6 +49,8 @@ cases:
       platform: incus
       gateway:
         enabled: false
+      incus:
+        network: nat
       network:
         <<: *default-network
         dhcp: true
@@ -605,7 +607,7 @@ cases:
               - siderolabs/util-linux-tools
             powercycle_reboot: true
 
-  # incus.targets spreads the VMs round-robin, and a cluster attaches them to the lan bridge.
+  # incus.targets spreads the VMs round-robin on the default lan bridge and local pool.
   - name: targets place nodes round-robin on the lan bridge
     values:
       platform: incus
@@ -641,7 +643,7 @@ cases:
             create_network: false
             attach_to_bridge: true
             static_dhcp_leases: false
-            default_storage_pool: default
+            default_storage_pool: local
             instances:
               - name: controlplane-0
                 target: nuc-1
@@ -655,8 +657,8 @@ cases:
               - name: worker-1
                 target: nuc-2
 
-  # One member keeps the NAT bridge default.
-  - name: one target keeps the nat bridge
+  # incus.network nat creates the NAT bridge.
+  - name: network nat creates the nat bridge
     values:
       platform: incus
       gateway:
@@ -665,7 +667,7 @@ cases:
         <<: *default-network
         dhcp: true
       incus:
-        targets: [nuc-1, nuc-1]
+        network: nat
       cluster:
         driver: talos
     terraformOutputs: *default-terraform-outputs
@@ -710,8 +712,8 @@ cases:
               - name: worker
                 target: nuc-1
 
-  # Without incus.targets, Incus picks the member.
-  - name: no targets leaves placement to incus
+  # Without incus.targets, compute/incus spreads the nodes across the members on the lan bridge.
+  - name: no targets leaves placement to compute on the lan bridge
     values:
       platform: incus
       gateway:
@@ -724,6 +726,8 @@ cases:
         - name: compute
           inputs:
             remote: null
+            network_name: lan
+            attach_to_bridge: true
             instances:
               - name: controlplane
                 target: null
@@ -741,7 +745,6 @@ cases:
         dhcp: true
       incus:
         remote: home
-        targets: [nuc-1, nuc-2, nuc-3]
         network: lan
         storage_pool: local
       cluster:
@@ -771,13 +774,11 @@ cases:
             default_storage_pool: local
             instances:
               - name: controlplane
-                target: nuc-1
                 ipv4: 192.168.3.31
                 wait_for_ipv4: false
                 network_config:
                   hwaddr: "02:00:00:00:00:31"
               - name: worker
-                target: nuc-1
                 ipv4: 192.168.3.41
                 wait_for_ipv4: false
                 network_config: {}
@@ -797,7 +798,7 @@ cases:
         driver: talos
     expectError: true
 
-  # incus.host adds the host step on the cluster's remote, and compute waits on it.
+  # incus.host creates incus.storage_pool on the cluster's remote, and compute waits on it.
   - name: incus.host adds the host step before compute
     values:
       platform: incus
@@ -808,9 +809,8 @@ cases:
         dhcp: true
       incus:
         remote: home
-        targets: [nuc-1, nuc-2]
-        host:
-          dataset: nvme/incus
+        storage_pool: nvme
+        host: true
       cluster:
         driver: talos
         controlplanes:
@@ -829,11 +829,24 @@ cases:
           destroy: false
           inputs:
             remote: home
-            storage_pool_name: default
-            dataset: nvme/incus
+            storage_pool_name: nvme
         - name: compute
           dependsOn:
             - host
+          inputs:
+            default_storage_pool: nvme
+
+  # IncusOS already creates local, so incus.host needs another pool.
+  - name: incus.host with the local pool fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      incus:
+        host: true
+      cluster: *default-cluster
+    expectError: true
 
   # Without incus.host, the context uses objects that already exist on the cluster.
   - name: no incus.host leaves out the host step
@@ -841,6 +854,8 @@ cases:
       platform: incus
       gateway:
         enabled: false
+      incus:
+        network: nat
       network:
         <<: *default-network
         dhcp: true

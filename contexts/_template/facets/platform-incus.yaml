@@ -10,26 +10,28 @@ metadata:
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
 requires:
+  - when: (workstation.runtime ?? '') == '' && incus.host == true && (incus.storage_pool ?? 'local') == 'local'
+    message: With incus.host set to true, set incus.storage_pool to a pool other than local, such as nvme.
   - when: >-
-      (workstation.runtime ?? '') == '' && ((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0]))
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') != 'nat'
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: On incus.network, give each control plane its reserved LAN address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && ((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0]))
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') != 'nat'
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
     message: On incus.network, give each worker its reserved LAN address in cluster.workers.nodes under worker-1 to worker-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && !((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])) && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') == 'nat' && network.dhcp != true
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && !((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])) && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') == 'nat' && network.dhcp != true
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
@@ -40,17 +42,15 @@ requires:
 # =============================================================================
 config:
 
-  # Remote, cluster members, and LAN bridge for the standalone compute step. A cluster defaults to the lan bridge.
+  # Remote, cluster members, LAN bridge, and shared pool for the standalone compute step.
   - name: incus_effective
     value:
       remote: ${incus.remote ?? null}
       targets: ${incus.targets ?? []}
-      network: >-
-        ${incus.network ?? (any(incus.targets ?? [], # != (incus.targets ?? [''])[0]) ? 'lan' : '')}
-      lan: >-
-        ${(incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])}
-      storage_pool: "${incus.storage_pool ?? 'default'}"
-      host: ${(workstation.runtime ?? '') == '' && incus.host != null}
+      network: "${(incus.network ?? 'lan') == 'nat' ? '' : (incus.network ?? 'lan')}"
+      lan: ${(incus.network ?? 'lan') != 'nat'}
+      storage_pool: "${incus.storage_pool ?? 'local'}"
+      host: ${(workstation.runtime ?? '') == '' && incus.host == true}
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -185,10 +185,9 @@ terraform:
     inputs:
       remote: ${incus_effective.remote}
       storage_pool_name: "${incus_effective.storage_pool}"
-      dataset: "${incus.host.dataset}"
     destroy: false
 
-  # Talos VMs on a fresh NAT bridge, or on the host bridge in incus.network, with disks on incus.storage_pool.
+  # Talos VMs on the host bridge in incus.network, or a NAT bridge, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus

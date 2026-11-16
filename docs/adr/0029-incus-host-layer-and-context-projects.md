@@ -1,9 +1,9 @@
 ---
-title: "ADR-0029: Incus host layer, LAN bridge, and one project per context"
-description: One context per Incus cluster creates the shared storage pool. Every context attaches its VMs to a host bridge named lan by default and builds its stack in its own project. Amends ADR-0028 section 3.
+title: "ADR-0029: Incus defaults, host layer, and one project per context"
+description: VMs default to the IncusOS local pool, the lan host bridge, and every cluster member. One context per cluster MAY create a shared pool on another disk. Each context builds its stack in its own project. Amends ADR-0028 section 3.
 ---
 
-# ADR-0029: Incus host layer, LAN bridge, and one project per context
+# ADR-0029: Incus defaults, host layer, and one project per context
 
 ## Status
 
@@ -11,9 +11,11 @@ Proposed (2026-11-15). Amends two rules in [ADR-0028](0028-supported-incus-platf
 section 3:
 
 - "Core creates every object in the `default` project. `incus.project` is not
-  supported." Section 4 below replaces it.
+  supported." Section 5 below replaces it.
 - "Composition MUST fail when `incus.targets` names more than one member and
   `incus.network` is unset." Section 2 below replaces it with a default.
+- `incus.targets` as the only way to spread VMs across members. Section 3
+  below adds a default placement.
 
 The rest of ADR-0028 stands. Scope is the standalone `incus` platform
 (`workstation.runtime` unset). The Colima workstation path keeps the `default`
@@ -28,6 +30,12 @@ same cluster and builds only its stack.
 
 Facts from `main` and the Incus, IncusOS, and Talos docs and source:
 
+- IncusOS creates a ZFS pool `local` on the system drive with an `incus`
+  volume, and an Incus storage pool `local` with source `local/incus`. A
+  cluster formed from IncusOS members has `local` on every member. A second
+  disk becomes another IncusOS pool, and `create-volume` with `use` set to
+  `incus` adds its `<pool>/incus` dataset
+  ([IncusOS storage](https://linuxcontainers.org/incus-os/docs/main/reference/system/storage/)).
 - A storage pool on an Incus cluster is defined on each member with its
   member-specific `source`, then created once for the cluster
   ([cluster storage](https://linuxcontainers.org/incus/docs/main/howto/cluster_config_storage/)).
@@ -76,15 +84,19 @@ Facts from `main` and the Incus, IncusOS, and Talos docs and source:
 
 ## Decision
 
-### 1. Host layer
+### 1. Storage pool and host layer
 
-`host/incus` is the host layer. The name follows `host/proxmox`. `platform`
-already names the facet that selects the platform (`platform: incus`).
+`incus.storage_pool` defaults to `local`, the pool IncusOS creates on every
+member. A context that uses `local` needs no host layer.
 
-The host layer creates the storage pool `incus.storage_pool` (default
-`default`) on every member, with the ZFS dataset `incus.host.dataset` as its
-source. It reads the members from the cluster, so a member that joins later
-gets the pool on the next apply.
+`host/incus` is the host layer for a pool on another disk. The name follows
+`host/proxmox`. `platform` already names the facet that selects the platform
+(`platform: incus`). With `incus.host: true`, it creates `incus.storage_pool`
+on every member with the ZFS dataset `<incus.storage_pool>/incus` as its
+source, which matches the IncusOS volume convention. It reads the members from
+the cluster, so a member that joins later gets the pool on the next apply.
+Composition MUST fail when `incus.host` is true and `incus.storage_pool` is
+`local`, because IncusOS already created that pool.
 
 One context per Incus cluster MUST set `incus.host`. That context owns the pool
 in its state and applies first. A context that targets the same cluster MUST
@@ -94,14 +106,15 @@ has `prevent_destroy`.
 
 | Object | Owner |
 |---|---|
-| Storage pool | Host layer |
+| `local` storage pool | IncusOS install |
+| Storage pool on another disk | Host layer |
 | LAN bridge | IncusOS bootstrap (section 2) |
 | Trusted operator certificate | IncusOS bootstrap |
-| Project, profiles, cached images, custom volumes, instances | Context (section 4) |
+| Project, profiles, cached images, custom volumes, instances | Context (section 5) |
 
 Core manages no cluster groups, no network ACLs, and no
 `storage.images_volume`, `storage.backups_volume`, or `storage.logs_volume`
-keys. `incus.targets` names members. ACLs apply to managed bridge and OVN
+keys. ACLs apply to managed bridge and OVN
 networks, and the LAN bridge is neither. The storage keys are IncusOS server
 housekeeping, set at install.
 
@@ -111,23 +124,36 @@ housekeeping, set at install.
 member that hosts a VM. `compute/incus` attaches each VM to it as a bridged NIC
 and creates no network. Core MUST NOT guess a member's bridge.
 
-When `incus.targets` names more than one member, the default is `lan`. A
-cluster cannot use the NAT bridge that Core creates, so `lan` is the only
-working default. The IncusOS bootstrap MUST name the instances interface `lan`
-on every member, or the context MUST set `incus.network` to the name it uses.
-With one member or no `incus.targets`, unset `incus.network` keeps the NAT
-bridge.
+On the standalone `incus` platform, the default is `lan`. A cluster cannot use
+the NAT bridge that Core creates, so `lan` is the only default that works on
+one server and on a cluster. The IncusOS bootstrap MUST name the instances
+interface `lan` on every member, or the context MUST set `incus.network` to the
+name it uses. `incus.network: nat` creates the NAT bridge from
+`network.cidr_block` on a single server.
 
 The address rules of ADR-0028 section 1 apply: on the LAN bridge, each node
 declares its address, reserved on the LAN DHCP server.
 
-### 3. Network objects outside Core
+### 3. Placement
+
+With `incus.targets` unset, `compute/incus` reads the members from the cluster
+and places the instances round-robin across them, sorted by name, in pool
+order. A node's `placement` and `incus.targets` override it. On a single
+server, instances get no target.
+
+An instance and its data volumes MUST keep the member they were created on.
+The provider replaces an instance when its `target` changes, so a member that
+joins, or an edit to `incus.targets`, would otherwise recreate Talos nodes.
+`compute/incus` ignores later `target` changes. Moving a node is an
+`incus move`.
+
+### 4. Network objects outside Core
 
 Core creates no `physical` network for the LAN. A `physical` network with a
 per-member `parent` would only map different bridge names to one name, and the
 same name on every member removes that need.
 
-### 4. One project per context
+### 5. One project per context
 
 `incus.project` names the project for the context's stack. The default is the
 context `id`, not the context name, because the name can repeat across
@@ -149,7 +175,7 @@ A context that runs under a certificate restricted to its project cannot
 create that project. Core does not support that case. A later ADR MAY add it,
 with the project and certificate created by the host-owning context.
 
-### 5. Names
+### 6. Names
 
 Instance names stay as they are: `controlplane`, `worker-1`, and so on. The
 project scopes them, so they need no `-<id>` suffix.
@@ -169,7 +195,7 @@ carry the same value, so the compute output matches the node.
 The result is a readable Kubernetes node name that is unique on a shared LAN,
 including in a router's DNS of DHCP hostnames.
 
-### 6. Images
+### 7. Images
 
 The Talos image belongs to the context. Each project caches its own copy, so
 two contexts can pin different Talos versions, and the copy goes with the
@@ -179,8 +205,10 @@ limit.
 
 ## Consequences
 
-- A cluster context sets `incus.remote`, `incus.targets`, and node addresses.
-  The host-owning context also sets `incus.host.dataset`.
+- A cluster context sets `incus.remote` and node addresses. A context with a
+  pool on another disk also sets `incus.storage_pool`, and the host-owning
+  context sets `incus.host: true`.
+- A single server without a `lan` interface sets `incus.network: nat`.
 - The IncusOS bootstrap names the instances interface `lan` on each member.
   Renaming it recreates the bridge and drops what is on it, including the
   management address when it shares that interface.

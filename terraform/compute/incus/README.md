@@ -19,7 +19,7 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 
 ## Clusters
 
-`remote` names an Incus client remote, such as a cluster added with `incus remote add`. Each instance's `target` names the cluster member that hosts it. An instance without a `target` goes wherever Incus places it.
+`remote` names an Incus client remote, such as a cluster added with `incus remote add`. Each instance's `target` names the cluster member that hosts it. On a cluster, instances without a `target` go round-robin across the members, sorted by name, in the order of `instances`. On a single server, they have no `target`. An instance and its data volumes keep the member they were created on: a later `target` change has no effect, and `incus move` moves an instance.
 
 The `platform-incus` facet sets these from `incus.remote` and `incus.targets`. Control plane N and worker N take entry (N - 1) of `incus.targets`, modulo its length. A node's `placement` in `cluster.controlplanes.nodes` or `cluster.workers.nodes` overrides the round-robin entry.
 
@@ -66,6 +66,7 @@ The facet does this when `incus.network` is set. Each node then declares its res
 | [incus_storage_pool.pools](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_pool) | resource |
 | [incus_storage_volume.disks](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_volume) | resource |
 | [terraform_data.ip_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [incus_cluster.main](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/data-sources/cluster) | data source |
 
 ## Inputs
 

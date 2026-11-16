@@ -40,7 +40,24 @@ provider "incus" {
 # Locals
 # =============================================================================
 
+# The incus_cluster data source lists the members that untargeted instances spread across.
+data "incus_cluster" "main" {
+  remote = var.remote
+}
+
 locals {
+  cluster_members = data.incus_cluster.main.is_clustered ? sort(keys(data.incus_cluster.main.members)) : []
+
+  # Expanded instance names in order, each mapped to its member round-robin.
+  placement_names = flatten([
+    for instance in var.instances : [
+      for i in range(instance.count) : instance.count > 1 ? "${instance.name}-${i}" : instance.name
+    ]
+  ])
+  placement = {
+    for idx, name in local.placement_names : name => length(local.cluster_members) > 0 ? local.cluster_members[idx % length(local.cluster_members)] : null
+  }
+
   # Longest context_id each name allows, after removing the characters its rule rejects.
   context_id_rules = {
     network = { id = var.context_id, max = var.network_type == "bridge" ? 15 - length("net-") : 63 }
@@ -133,7 +150,7 @@ locals {
     for instance in var.instances : [
       for i in range(lookup(instance, "count", 1)) : {
         instance_name = instance.count > 1 ? "${instance.name}-${i}" : instance.name
-        target        = instance.target
+        target        = instance.target != null ? instance.target : local.placement[instance.count > 1 ? "${instance.name}-${i}" : instance.name]
         disks         = lookup(instance, "disks", [])
       }
     ]
@@ -197,6 +214,10 @@ resource "incus_storage_volume" "disks" {
   project = var.project
 
   depends_on = [incus_storage_pool.pools]
+
+  lifecycle {
+    ignore_changes = [target]
+  }
 }
 
 # =============================================================================
@@ -227,7 +248,7 @@ locals {
         type           = instance.type
         description    = instance.count > 1 && instance.description != null ? "${instance.description} (${i + 1}/${instance.count})" : instance.description
         ephemeral      = instance.ephemeral
-        target         = instance.target
+        target         = instance.target != null ? instance.target : local.placement[instance.count > 1 ? "${instance.name}-${i}" : instance.name]
         networks       = instance.networks
         network_config = instance.network_config
         ipv4 = instance.ipv4 != null && instance.count > 1 ? (

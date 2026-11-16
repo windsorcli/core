@@ -25,6 +25,7 @@ data "incus_cluster" "main" {
 
 locals {
   members = data.incus_cluster.main.is_clustered ? data.incus_cluster.main.members : {}
+  dataset = coalesce(var.dataset, "${var.storage_pool_name}/incus")
 }
 
 # =============================================================================
@@ -40,7 +41,7 @@ resource "incus_storage_pool" "member" {
   name   = var.storage_pool_name
   driver = "zfs"
   config = {
-    source = var.dataset
+    source = local.dataset
   }
 
   lifecycle {
@@ -54,7 +55,7 @@ resource "incus_storage_pool" "main" {
   name        = var.storage_pool_name
   driver      = "zfs"
   description = "Shared instance storage"
-  config      = length(local.members) > 0 ? {} : { source = var.dataset }
+  config      = length(local.members) > 0 ? {} : { source = local.dataset }
 
   depends_on = [incus_storage_pool.member]
 

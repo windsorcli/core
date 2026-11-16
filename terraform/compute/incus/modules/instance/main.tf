@@ -135,6 +135,7 @@ locals {
   )
 }
 
+# The incus_instance stays on the member it was created on when its target changes.
 resource "incus_instance" "this" {
   name        = var.name
   description = var.description
@@ -144,6 +145,10 @@ resource "incus_instance" "this" {
   remote      = var.remote
   target      = var.target
   ephemeral   = var.ephemeral
+
+  lifecycle {
+    ignore_changes = [target]
+  }
 
   # Wait for network addresses on primary interface (eth0)
   # - IPv4: waits if static IPv4 is set, or if wait_for_network is true (DHCP)
