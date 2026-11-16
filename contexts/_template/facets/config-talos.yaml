@@ -196,10 +196,10 @@ config:
       # and the kubeReserved block below each merge a sibling key into this.
       worker_patch: {}
 
-      # Each role's Talos config patches for the platform's role inputs: the pool's own patches first, then
-      # core's role patch, so core's settings win where both set the same key.
-      controlplane_config_patches: "${join(concat(map(cluster.controlplanes.config_patches ?? [], string(#)), filter([talos_common.oidc_ca_file_patch ?? ''], # != '')), '\\n---\\n')}"
-      worker_config_patches: "${join(concat(map(cluster.workers.config_patches ?? [], string(#)), talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : []), '\\n---\\n')}"
+      # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
+      # pool's own patches, so the user's settings win where both set the same key.
+      controlplane_config_patches: "${join(concat(filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
+      worker_config_patches: "${join(concat(talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : [], map(cluster.workers.config_patches ?? [], string(#))), '\\n---\\n')}"
 
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common

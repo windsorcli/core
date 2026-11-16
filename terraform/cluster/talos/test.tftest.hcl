@@ -434,14 +434,16 @@ run "overlay_selects_metal_installer" {
   }
 }
 
-# Verifies that role and node config patches may hold several documents and apply between the common patches and the module's own
-run "role_and_node_config_patches_apply_after_common" {
+# Verifies that role and node config patches may hold several documents and apply after the common and module patches
+run "role_and_node_config_patches_apply_last" {
   command = plan
 
   variables {
     common_config_patches       = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
     controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n---\napiVersion: v1alpha1\nkind: VolumeConfig\nname: IMAGECACHE\n"
     worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    controlplane_volumes        = ["/var/mnt/local"]
+    worker_volumes              = ["/var/mnt/local"]
     controlplanes = [
       {
         endpoint       = "10.0.0.10:50000"
@@ -458,12 +460,12 @@ run "role_and_node_config_patches_apply_after_common" {
   }
 
   assert {
-    condition     = local.controlplane_config_patches[0][0] == var.common_config_patches && local.controlplane_config_patches[0][1] == var.controlplane_config_patches && local.controlplane_config_patches[0][2] == var.controlplanes[0].config_patches
-    error_message = "A control plane's common, role, then node patches should come before the module's own patches"
+    condition     = length(local.controlplane_config_patches[0]) == 4 && local.controlplane_config_patches[0][0] == var.common_config_patches && local.controlplane_config_patches[0][2] == var.controlplane_config_patches && local.controlplane_config_patches[0][3] == var.controlplanes[0].config_patches
+    error_message = "A control plane's role, then node patches should come after the common and module patches"
   }
   assert {
-    condition     = local.worker_config_patches[0][0] == var.common_config_patches && local.worker_config_patches[0][1] == var.worker_config_patches
-    error_message = "A worker's role patches should come right after the common patches"
+    condition     = length(local.worker_config_patches[0]) == 3 && local.worker_config_patches[0][0] == var.common_config_patches && local.worker_config_patches[0][2] == var.worker_config_patches
+    error_message = "A worker's role patches should come after the common and module patches"
   }
 }
 

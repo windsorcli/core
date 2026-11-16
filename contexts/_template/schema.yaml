@@ -159,7 +159,7 @@ $defs:
             minProperties: 1
           description: >-
             Talos config patches for this node on platform metal, in the form talosctl --config-patch takes.
-            Applied after its pool's config_patches and before Windsor's generated patches.
+            Applied last, after Windsor's patches and its pool's config_patches, so it wins where they set the same key.
         volumes:
           type: array
           items:
@@ -193,8 +193,8 @@ $defs:
       description: >-
         Talos config patches for every node in the pool, in the form talosctl --config-patch takes: a
         strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig. Applied
-        after Windsor's patches for every node and before its role and generated patches, which win where
-        both set the same key.
+        after Windsor's own patches, so it wins where both set the same key. A node's config_patches
+        apply after it.
     instance_type:
       type: string
       description: Cloud provider instance type

@@ -60,7 +60,7 @@ No modules.
 | <a name="input_common_config_patches"></a> [common\_config\_patches](#input\_common\_config\_patches) | Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig. | `string` | `""` | no |
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
-| <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos config patches, baked after common\_config\_patches and before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
+| <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos config patches, baked after common\_config\_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
 | <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create the virtual switch. If false, network\_name must reference an existing switch on the host | `bool` | `true` | no |
 | <a name="input_destination_dir"></a> [destination\_dir](#input\_destination\_dir) | Directory on the Hyper-V host where per-node CIDATA seed ISOs are staged (e.g. C:\hyperv\images). When empty, no CIDATA ISOs are created. | `string` | `""` | no |
@@ -93,7 +93,7 @@ No modules.
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles. | `string` | `""` | no |
 | <a name="input_udp_port_forwards"></a> [udp\_port\_forwards](#input\_udp\_port\_forwards) | UDP equivalent of port\_forwards. A host port can be doubled up across protocols (e.g. DNS on tcp+udp 53) | `map(number)` | `{}` | no |
 | <a name="input_vhd_dir"></a> [vhd\_dir](#input\_vhd\_dir) | Default directory on the host where per-instance VHDXs are placed (e.g. C:\\hyperv\\vhds). Each instance gets <vhd\_dir>\\<name>.vhdx unless root\_disk\_path is set explicitly | `string` | `"C:\\hyperv\\vhds"` | no |
-| <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos config patches, baked after common\_config\_patches and before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
+| <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos config patches, baked after common\_config\_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
 
 ## Outputs
 

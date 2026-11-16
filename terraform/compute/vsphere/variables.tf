@@ -102,7 +102,7 @@ variable "common_config_patches" {
 }
 
 variable "controlplane_config_patches" {
-  description = "Controlplane-only Talos config patches, baked after common_config_patches and before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines."
+  description = "Controlplane-only Talos config patches, baked after common_config_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
 
@@ -113,7 +113,7 @@ variable "controlplane_config_patches" {
 }
 
 variable "worker_config_patches" {
-  description = "Worker-only Talos config patches, baked after common_config_patches and before the module's own patches. An empty string, valid YAML, or several YAML documents separated by --- lines."
+  description = "Worker-only Talos config patches, baked after common_config_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
 

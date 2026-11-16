@@ -461,18 +461,18 @@ cases:
                 sysctls:
                   vm.swappiness: "1"
             worker_config_patches: |-
-              apiVersion: v1alpha1
-              kind: VolumeConfig
-              name: EPHEMERAL
-              provisioning:
-                maxSize: 20GiB
-              ---
               machine:
                 kubelet:
                   extraConfig:
                     kubeReserved:
                       cpu: 80m
                       memory: 1843Mi
+              ---
+              apiVersion: v1alpha1
+              kind: VolumeConfig
+              name: EPHEMERAL
+              provisioning:
+                maxSize: 20GiB
 
   - name: pool config_patches reach the cluster step under a workstation runtime
     values:

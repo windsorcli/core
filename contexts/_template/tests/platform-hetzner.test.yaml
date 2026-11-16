@@ -187,7 +187,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n---\nmachine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete"
+            controlplane_config_patches: "machine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   # Flux controller concurrency scales above the floor of 4 for a large control
   # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.

@@ -111,7 +111,7 @@ terraform:
       # Docker only: the control plane's kubelet sizes itself from the shared
       # Docker daemon's host, not its own container's cgroup quota, so it
       # reserves its own gap against that host (host_cpu/host_memory), as its
-      # own document after the shared role patches. Inlined as one expression,
+      # own document before the shared role patches, so the pool's patches win. Inlined as one expression,
       # not split into a separate config value referenced here: the gap's
       # emptiness isn't knowable until compute applies, so any expression that
       # reads a deferred value back from a different config block sees
@@ -137,7 +137,7 @@ terraform:
                   }
                 }
               }), '\n');
-          join(filter([talos_common.controlplane_config_patches, gap], # != ''), '\n---\n')}
+          join(filter([gap, talos_common.controlplane_config_patches], # != ''), '\n---\n')}
       worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

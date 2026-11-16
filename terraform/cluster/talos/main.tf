@@ -132,21 +132,18 @@ locals {
     if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
 
-  # Each node's config patches, in apply order: the common patches, the caller's role and node patches, then the
-  # module's own patches, which win wherever they set the same key.
-  controlplane_config_patches = [for i, cp in var.controlplanes : [for p in compact(concat([
-    var.common_config_patches,
-    var.controlplane_config_patches,
-    cp.config_patches,
-    local.vip_patch,
-    local.controlplane_extra_mounts_patch,
-  ], local.controlplane_block_docs[i])) : p if p != "null"]]
-  worker_config_patches = [for i, w in var.workers : [for p in compact(concat([
-    var.common_config_patches,
-    var.worker_config_patches,
-    w.config_patches,
-    local.worker_extra_mounts_patch,
-  ], local.worker_block_docs[i])) : p if p != "null"]]
+  # Each node's config patches, in apply order: the common patches, the module's own patches, then the caller's role
+  # and node patches, which win wherever they set the same key.
+  controlplane_config_patches = [for i, cp in var.controlplanes : [for p in compact(concat(
+    [var.common_config_patches, local.vip_patch, local.controlplane_extra_mounts_patch],
+    local.controlplane_block_docs[i],
+    [var.controlplane_config_patches, cp.config_patches],
+  )) : p if p != "null"]]
+  worker_config_patches = [for i, w in var.workers : [for p in compact(concat(
+    [var.common_config_patches, local.worker_extra_mounts_patch],
+    local.worker_block_docs[i],
+    [var.worker_config_patches, w.config_patches],
+  )) : p if p != "null"]]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

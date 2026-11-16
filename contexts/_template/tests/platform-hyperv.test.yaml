@@ -106,15 +106,15 @@ cases:
                   vm.swappiness: "1"
             worker_config_patches: |-
               machine:
-                sysctls:
-                  vm.swappiness: "10"
-              ---
-              machine:
                 kubelet:
                   extraConfig:
                     kubeReserved:
                       cpu: 80m
                       memory: 1843Mi
+              ---
+              machine:
+                sysctls:
+                  vm.swappiness: "10"
         - name: cluster
           path: cluster/talos
           inputs:

@@ -152,9 +152,9 @@ data "talos_machine_configuration" "controlplane" {
 
   config_patches = compact([
     var.common_config_patches,
-    var.controlplane_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
     local.vip_patch,
+    var.controlplane_config_patches,
   ])
 
   lifecycle {
@@ -177,8 +177,8 @@ data "talos_machine_configuration" "worker" {
 
   config_patches = compact([
     var.common_config_patches,
-    var.worker_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
+    var.worker_config_patches,
   ])
 }
 
