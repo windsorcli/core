@@ -240,3 +240,13 @@ variable "powercycle_reboot" {
   type        = bool
   default     = false
 }
+
+variable "upgrade_timeout" {
+  description = "Timeout for each node's upgrade, as a Go duration such as 15m or 1h30m. Applies per node, including the reboot wait."
+  type        = string
+  default     = "15m"
+  validation {
+    condition     = can(regex("^([0-9]+(ms|s|m|h))+$", var.upgrade_timeout))
+    error_message = "upgrade_timeout must be a duration such as 15m or 1h30m."
+  }
+}

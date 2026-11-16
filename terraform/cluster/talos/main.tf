@@ -288,7 +288,7 @@ resource "terraform_data" "upgrade_bootstrap" {
   triggers_replace = [local.controlplane_upgrade_images[0]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_upgrade_images[0]} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_upgrade_images[0]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -303,7 +303,7 @@ resource "terraform_data" "upgrade_controlplane" {
   triggers_replace = [local.controlplane_upgrade_images[count.index + 1]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_upgrade_images[count.index + 1]} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_upgrade_images[count.index + 1]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -318,7 +318,7 @@ resource "terraform_data" "upgrade_worker" {
   triggers_replace = [local.worker_upgrade_images[count.index]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_upgrade_images[count.index]} --skip-if-current --timeout 15m${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_upgrade_images[count.index]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
