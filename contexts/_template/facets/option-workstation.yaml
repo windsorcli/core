@@ -378,6 +378,8 @@ terraform:
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_pool_config_patches: ${talos_common.controlplane_pool_config_patches}
+      worker_pool_config_patches: ${talos_common.worker_pool_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

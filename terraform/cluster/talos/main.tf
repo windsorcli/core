@@ -110,26 +110,26 @@ locals {
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
   controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    coalesce(d.device, "-") != "-" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
   worker_block_docs = [for w in var.workers : [for i, d in w.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    coalesce(d.device, "-") != "-" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
 }
 
@@ -195,7 +195,8 @@ module "controlplane_bootstrap" {
     var.controlplane_config_patches,
     local.vip_patch,
     local.controlplane_extra_mounts_patch,
-    lookup(var.controlplanes[0], "config_patches", []),
+    var.controlplane_pool_config_patches,
+    var.controlplanes[0].config_patches,
   ], local.controlplane_block_docs[0])) : p if p != "null"]
 }
 
@@ -228,7 +229,8 @@ module "controlplanes" {
     var.controlplane_config_patches,
     local.vip_patch,
     local.controlplane_extra_mounts_patch,
-    lookup(var.controlplanes[count.index + 1], "config_patches", []),
+    var.controlplane_pool_config_patches,
+    var.controlplanes[count.index + 1].config_patches,
   ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]
 }
 
@@ -263,7 +265,8 @@ module "workers" {
     var.common_config_patches,
     var.worker_config_patches,
     local.worker_extra_mounts_patch,
-    lookup(var.workers[count.index], "config_patches", []),
+    var.worker_pool_config_patches,
+    var.workers[count.index].config_patches,
   ], local.worker_block_docs[count.index])) : p if p != "null"]
 }
 

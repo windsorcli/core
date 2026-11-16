@@ -108,7 +108,16 @@ variable "controlplanes" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name      = optional(string)
+      size      = optional(number)
+      selector  = optional(string)
+      device    = optional(string)
+      type      = optional(string)
+      path      = optional(string)
+      source    = optional(string)
+      read_only = optional(bool)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -133,8 +142,8 @@ variable "controlplanes" {
   default = []
 
   validation {
-    condition     = alltrue([for controlplane in var.controlplanes : controlplane.config_patches == "" || can(yamldecode(controlplane.config_patches))])
-    error_message = "Each controlplane's config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for controlplane in var.controlplanes : alltrue([for doc in split("\n---\n", controlplane.config_patches) : doc == "" || can(yamldecode(doc))])])
+    error_message = "Each controlplane's config_patches must be an empty string or valid YAML documents."
   }
 }
 
@@ -143,7 +152,16 @@ variable "workers" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name      = optional(string)
+      size      = optional(number)
+      selector  = optional(string)
+      device    = optional(string)
+      type      = optional(string)
+      path      = optional(string)
+      source    = optional(string)
+      read_only = optional(bool)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -168,8 +186,8 @@ variable "workers" {
   default = []
 
   validation {
-    condition     = alltrue([for worker in var.workers : worker.config_patches == "" || can(yamldecode(worker.config_patches))])
-    error_message = "Each worker's config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for worker in var.workers : alltrue([for doc in split("\n---\n", worker.config_patches) : doc == "" || can(yamldecode(doc))])])
+    error_message = "Each worker's config_patches must be an empty string or valid YAML documents."
   }
 }
 
@@ -214,5 +232,25 @@ variable "controlplane_volumes" {
   description = "Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present)."
   type        = list(string)
   default     = []
+}
+
+variable "controlplane_pool_config_patches" {
+  description = "Talos config patches for every control plane, applied after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.controlplane_pool_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "controlplane_pool_config_patches must be an empty string or valid YAML documents."
+  }
+}
+
+variable "worker_pool_config_patches" {
+  description = "Talos config patches for every worker, applied after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.worker_pool_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "worker_pool_config_patches must be an empty string or valid YAML documents."
+  }
 }
 

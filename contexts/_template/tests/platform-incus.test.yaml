@@ -426,6 +426,75 @@ cases:
               - openebs
               - openebs/dynamic-localpv
 
+  # Pool config_patches reach the cluster step, with or without a workstation runtime.
+  - name: pool config_patches reach the cluster step
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          <<: *default-workers
+          config_patches:
+            - apiVersion: v1alpha1
+              kind: VolumeConfig
+              name: EPHEMERAL
+              provisioning:
+                maxSize: 20GiB
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+            worker_pool_config_patches: |-
+              apiVersion: v1alpha1
+              kind: VolumeConfig
+              name: EPHEMERAL
+              provisioning:
+                maxSize: 20GiB
+
+  - name: pool config_patches reach the cluster step under a workstation runtime
+    values:
+      platform: incus
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1: *cp1-node
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+
   # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
     values:

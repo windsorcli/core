@@ -434,6 +434,106 @@ run "overlay_selects_metal_installer" {
   }
 }
 
+# Verifies that pool and node config patches with several documents are accepted
+run "pool_and_node_config_patches_accept_several_documents" {
+  command = plan
+
+  variables {
+    controlplane_pool_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n---\napiVersion: v1alpha1\nkind: VolumeConfig\nname: IMAGECACHE\n"
+    worker_pool_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    controlplanes = [
+      {
+        endpoint       = "10.0.0.10:50000"
+        node           = "10.0.0.10"
+        config_patches = "apiVersion: v1alpha1\nkind: VolumeConfig\nname: EPHEMERAL\nprovisioning:\n  diskSelector:\n    match: \"!system_disk\"\n---\nmachine:\n  sysctls:\n    vm.dirty_ratio: \"5\"\n"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+      }
+    ]
+  }
+
+  assert {
+    condition     = slice(module.controlplane_bootstrap.config_patches, length(module.controlplane_bootstrap.config_patches) - 2, length(module.controlplane_bootstrap.config_patches)) == tolist([var.controlplane_pool_config_patches, var.controlplanes[0].config_patches])
+    error_message = "A control plane's pool patches and then its node patches should come after the module's own patches"
+  }
+  assert {
+    condition     = module.workers[0].config_patches[length(module.workers[0].config_patches) - 1] == var.worker_pool_config_patches
+    error_message = "A worker's pool patches should come last when it has no node patches or disks"
+  }
+}
+
+# Verifies that a malformed document in pool or node config patches is rejected
+run "pool_and_node_config_patches_reject_malformed_document" {
+  command = plan
+  expect_failures = [
+    var.controlplane_pool_config_patches,
+    var.worker_pool_config_patches,
+    var.controlplanes,
+  ]
+
+  variables {
+    controlplane_pool_config_patches = "machine: {}\n---\nnot: valid: yaml: ["
+    worker_pool_config_patches       = "not: valid: yaml: ["
+    controlplanes = [
+      {
+        endpoint       = "10.0.0.10:50000"
+        node           = "10.0.0.10"
+        config_patches = "machine: {}\n---\nnot: valid: yaml: ["
+      }
+    ]
+  }
+}
+
+# Verifies that a worker list mixing nodes with and without disks plans, and each node gets its own volumes
+run "disks_mixed_across_nodes" {
+  command = plan
+
+  variables {
+    controlplanes = [
+      {
+        endpoint = "10.0.0.10:50000"
+        node     = "10.0.0.10"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+        disks = [
+          { name = "data-1", selector = "disk.transport == 'usb'" },
+          { name = "raw", device = "/dev/sdc" },
+          { name = "sized", size = 100 },
+        ]
+      },
+      {
+        endpoint = "10.0.0.21:50000"
+        node     = "10.0.0.21"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.worker_block_docs[0]) == 3 && length(local.worker_block_docs[1]) == 0
+    error_message = "Each worker should get a volume per disk it lists"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][0]).provisioning.diskSelector.match == "disk.transport == 'usb'"
+    error_message = "A selector disk should use its selector"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][1]).volumeType == "disk" && yamldecode(local.worker_block_docs[0][1]).provisioning.diskSelector.match == "disk.dev_path == '/dev/sdc'"
+    error_message = "A device disk should be a whole-disk volume pinned to its dev_path"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][2]).provisioning.diskSelector.match == "!system_disk && disk.size == 100u * GB"
+    error_message = "A size-only disk should use the size-based selector"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported

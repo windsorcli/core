@@ -452,6 +452,77 @@ cases:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi
 
+  # Pool config_patches reach the cluster step as YAML documents; a node's config_patches ride on the node.
+  - name: pool and node config_patches reach cluster
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1:
+              <<: *cp1-node
+              config_patches:
+                - apiVersion: v1alpha1
+                  kind: VolumeConfig
+                  name: EPHEMERAL
+                  provisioning:
+                    diskSelector:
+                      match: "!system_disk && disk.transport == 'usb'"
+                - machine:
+                    sysctls:
+                      vm.dirty_ratio: "5"
+        workers:
+          count: 1
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "10"
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+          volumes:
+            - /var/mnt/local
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+            worker_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "10"
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+                config_patches: |-
+                  apiVersion: v1alpha1
+                  kind: VolumeConfig
+                  name: EPHEMERAL
+                  provisioning:
+                    diskSelector:
+                      match: "!system_disk && disk.transport == 'usb'"
+                  ---
+                  machine:
+                    sysctls:
+                      vm.dirty_ratio: "5"
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
+
   # A board with no Image Factory overlay fails composition.
   - name: unknown pool board fails composition
     values:

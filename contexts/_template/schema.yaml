@@ -73,6 +73,15 @@ $defs:
       - rockpro64
       - turingrk1
       - friendlyelec-cm3588-nas
+  talosConfigPatches:
+    type: array
+    items:
+      type: object
+      minProperties: 1
+    description: >-
+      Talos machine config patches, one per item, in the form talosctl --config-patch takes: a
+      strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig.
+      Talos validates them when the cluster step applies the config.
   diskItem: &diskItem
     type: object
     properties:
@@ -152,6 +161,9 @@ $defs:
           type: array
           items: *diskItem
           description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
+        config_patches:
+          $ref: '#/$defs/talosConfigPatches'
+          description: Talos config patches for this node on platform metal, applied after its pool's config_patches.
         volumes:
           type: array
           items:
@@ -177,6 +189,9 @@ $defs:
         install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
         and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
         uses ghcr.io/siderolabs/installer.
+    config_patches:
+      $ref: '#/$defs/talosConfigPatches'
+      description: Talos config patches for every node in the pool, applied after Windsor's own patches.
     instance_type:
       type: string
       description: Cloud provider instance type
