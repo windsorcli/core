@@ -103,13 +103,13 @@ locals {
   controlplane_extra_mounts_patch = length(var.controlplane_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.controlplane_extra_mounts } } }) : ""
   worker_extra_mounts_patch       = length(var.worker_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.worker_extra_mounts } } }) : ""
 
-  # Per-node UserVolumeConfig docs: node.disks if set, else pool-level (controlplane_disks / worker_disks).
+  # Per-node UserVolumeConfig docs from node.disks; nodes without disks get none.
   # Three cases, all resolved at plan time — no post-boot discovery needed:
   #   device set   → raw block volume (volumeType: disk), pinned to dev_path
   #   selector set → filesystem volume (xfs), CEL expression provided by caller (e.g. metal per-node serial)
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
-  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in lookup(cp, "disks", var.controlplane_disks) :
+  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
     try(d.device, "") != "" ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
@@ -120,7 +120,7 @@ locals {
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
   ]]
-  worker_block_docs = [for w in var.workers : [for i, d in lookup(w, "disks", var.worker_disks) :
+  worker_block_docs = [for w in var.workers : [for i, d in w.disks :
     try(d.device, "") != "" ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }

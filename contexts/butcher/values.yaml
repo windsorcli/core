@@ -1,0 +1,15 @@
+id: butcher
+platform: docker
+dev: true
+cluster:
+  controlplanes:
+    cpu: 3
+    memory: 8
+  cni:
+    driver: flannel
+gateway:
+  driver: envoy
+gitops:
+  concurrency: 2
+observability:
+  enabled: false
