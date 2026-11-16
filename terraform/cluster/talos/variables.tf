@@ -195,7 +195,7 @@ variable "common_config_patches" {
 }
 
 variable "controlplane_config_patches" {
-  description = "A YAML string of controlplane config patches, applied before the module's own patches. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
+  description = "A YAML string of controlplane config patches, applied after common_config_patches and before the module's own patches. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
   validation {
@@ -205,7 +205,7 @@ variable "controlplane_config_patches" {
 }
 
 variable "worker_config_patches" {
-  description = "A YAML string of worker config patches, applied before the module's own patches. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
+  description = "A YAML string of worker config patches, applied after common_config_patches and before the module's own patches. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
   validation {

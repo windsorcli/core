@@ -402,8 +402,8 @@ terraform:
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${join(concat(map(cluster.controlplanes.config_patches ?? [], string(#)), filter([talos_common.oidc_ca_file_patch ?? ''], # != '')), '\\n---\\n')}"
-      worker_config_patches: "${join(concat(map(cluster.workers.config_patches ?? [], string(#)), filter([talos_common.worker_config_patches ?? ''], # != '')), '\\n---\\n')}"
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
       destination_dir: "${hyperv_effective.images_dir}"
       network_gateway: ${network.gateway}
       network_nameservers: ${network.nameservers}
@@ -436,8 +436,8 @@ terraform:
       controlplanes: "${hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null)))}"
       workers: "${hyperv_effective.nat == true ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])))}"
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${join(concat(map(cluster.controlplanes.config_patches ?? [], string(#)), filter([talos_common.oidc_ca_file_patch ?? ''], # != '')), '\\n---\\n')}"
-      worker_config_patches: "${join(concat(map(cluster.workers.config_patches ?? [], string(#)), filter([talos_common.worker_config_patches ?? ''], # != '')), '\\n---\\n')}"
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
       # Shared identity from compute. skip_machine_config_apply follows

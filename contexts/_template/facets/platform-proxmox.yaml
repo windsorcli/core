@@ -231,8 +231,8 @@ terraform:
           : (proxmox_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0
             ? filter(cluster_node_entries.workers, # != null) : []))}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${join(concat(map(cluster.controlplanes.config_patches ?? [], string(#)), filter([talos_common.oidc_ca_file_patch ?? ''], # != '')), '\\n---\\n')}"
-      worker_config_patches: "${join(concat(map(cluster.workers.config_patches ?? [], string(#)), filter([talos_common.worker_config_patches ?? ''], # != '')), '\\n---\\n')}"
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

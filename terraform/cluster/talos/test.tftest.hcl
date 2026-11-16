@@ -434,8 +434,8 @@ run "overlay_selects_metal_installer" {
   }
 }
 
-# Verifies that role and node config patches may hold several documents and apply before the module's own patches
-run "role_and_node_config_patches_apply_first" {
+# Verifies that role and node config patches may hold several documents and apply between the common patches and the module's own
+run "role_and_node_config_patches_apply_after_common" {
   command = plan
 
   variables {
@@ -458,12 +458,12 @@ run "role_and_node_config_patches_apply_first" {
   }
 
   assert {
-    condition     = local.controlplane_config_patches[0][0] == var.controlplane_config_patches && local.controlplane_config_patches[0][1] == var.controlplanes[0].config_patches && local.controlplane_config_patches[0][2] == var.common_config_patches
-    error_message = "A control plane's role patches and then its node patches should come before the module's own patches"
+    condition     = local.controlplane_config_patches[0][0] == var.common_config_patches && local.controlplane_config_patches[0][1] == var.controlplane_config_patches && local.controlplane_config_patches[0][2] == var.controlplanes[0].config_patches
+    error_message = "A control plane's common, role, then node patches should come before the module's own patches"
   }
   assert {
-    condition     = local.worker_config_patches[0][0] == var.worker_config_patches && local.worker_config_patches[0][1] == var.common_config_patches
-    error_message = "A worker's role patches should come first"
+    condition     = local.worker_config_patches[0][0] == var.common_config_patches && local.worker_config_patches[0][1] == var.worker_config_patches
+    error_message = "A worker's role patches should come right after the common patches"
   }
 }
 

@@ -73,15 +73,6 @@ $defs:
       - rockpro64
       - turingrk1
       - friendlyelec-cm3588-nas
-  talosConfigPatches:
-    type: array
-    items:
-      type: object
-      minProperties: 1
-    description: >-
-      Talos machine config patches, one per item, in the form talosctl --config-patch takes: a
-      strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig.
-      Talos validates them when the cluster step applies the config.
   diskItem: &diskItem
     type: object
     properties:
@@ -162,8 +153,13 @@ $defs:
           items: *diskItem
           description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
         config_patches:
-          $ref: '#/$defs/talosConfigPatches'
-          description: Talos config patches for this node on platform metal, applied after its pool's config_patches and before Windsor's own patches.
+          type: array
+          items:
+            type: object
+            minProperties: 1
+          description: >-
+            Talos config patches for this node on platform metal, in the form talosctl --config-patch takes.
+            Applied after its pool's config_patches and before Windsor's generated patches.
         volumes:
           type: array
           items:
@@ -190,8 +186,15 @@ $defs:
         and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
         uses ghcr.io/siderolabs/installer.
     config_patches:
-      $ref: '#/$defs/talosConfigPatches'
-      description: Talos config patches for every node in the pool, applied before Windsor's own patches, which win where both set the same key.
+      type: array
+      items:
+        type: object
+        minProperties: 1
+      description: >-
+        Talos config patches for every node in the pool, in the form talosctl --config-patch takes: a
+        strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig. Applied
+        after Windsor's patches for every node and before its role and generated patches, which win where
+        both set the same key.
     instance_type:
       type: string
       description: Cloud provider instance type

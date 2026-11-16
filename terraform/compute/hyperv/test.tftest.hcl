@@ -944,8 +944,8 @@ run "common_config_patches_accepts_several_documents" {
   }
 }
 
-# Role config patches bake first into each role's machineconfig
-run "role_config_patches_bake_first" {
+# Role config patches bake right after the common patches into each role's machineconfig
+run "role_config_patches_bake_after_common" {
   command = plan
 
   variables {
@@ -956,6 +956,7 @@ run "role_config_patches_bake_first" {
     destination_dir             = "C:/hyperv/images"
     network_gateway             = "10.5.0.1"
     network_cidr                = "10.5.0.0/16"
+    common_config_patches = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
     controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
     worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
     instances = [
@@ -965,12 +966,12 @@ run "role_config_patches_bake_first" {
   }
 
   assert {
-    condition     = data.talos_machine_configuration.controlplane["controlplane"].config_patches[0] == var.controlplane_config_patches
-    error_message = "The control-plane role patches should bake first"
+    condition     = data.talos_machine_configuration.controlplane["controlplane"].config_patches[1] == var.controlplane_config_patches
+    error_message = "The control-plane role patches should bake right after the common patches"
   }
   assert {
-    condition     = data.talos_machine_configuration.worker["worker"].config_patches[0] == var.worker_config_patches
-    error_message = "The worker role patches should bake first"
+    condition     = data.talos_machine_configuration.worker["worker"].config_patches[1] == var.worker_config_patches
+    error_message = "The worker role patches should bake right after the common patches"
   }
 }
 
