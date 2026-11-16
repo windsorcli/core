@@ -20,4 +20,5 @@ spec:
     registry: txt
     txtOwnerId: ${txt_owner_id}
     extraArgs:
-      - --zone-id-filter=${external_dns_zone_id_filter:-}
+      # A missing zone ID falls back to a filter that matches no zone.
+      - --zone-id-filter=${external_dns_zone_id_filter:-unresolved}
