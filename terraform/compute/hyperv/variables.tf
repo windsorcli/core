@@ -344,3 +344,15 @@ variable "worker_config_patches" {
   type        = string
   default     = ""
 }
+
+variable "controlplane_pool_config_patches" {
+  description = "Talos config patches for every control plane, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+}
+
+variable "worker_pool_config_patches" {
+  description = "Talos config patches for every worker, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+}

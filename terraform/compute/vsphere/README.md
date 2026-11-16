@@ -93,6 +93,7 @@ No modules.
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_controlplane_pool_config_patches"></a> [controlplane\_pool\_config\_patches](#input\_controlplane\_pool\_config\_patches) | Talos config patches for every control plane, baked after the module's own patches. An empty string or YAML documents separated by --- lines. | `string` | `""` | no |
 | <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
 | <a name="input_datacenter"></a> [datacenter](#input\_datacenter) | vSphere datacenter name (exact match as shown in the vCenter inventory) | `string` | n/a | yes |
 | <a name="input_datastore"></a> [datastore](#input\_datastore) | Datastore or datastore cluster name where VM disks are placed | `string` | n/a | yes |
@@ -106,6 +107,7 @@ No modules.
 | <a name="input_resource_pool"></a> [resource\_pool](#input\_resource\_pool) | Resource pool path relative to the compute cluster. Empty string uses the cluster's root resource pool | `string` | `""` | no |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles. | `string` | `""` | no |
 | <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_worker_pool_config_patches"></a> [worker\_pool\_config\_patches](#input\_worker\_pool\_config\_patches) | Talos config patches for every worker, baked after the module's own patches. An empty string or YAML documents separated by --- lines. | `string` | `""` | no |
 
 ## Outputs
 

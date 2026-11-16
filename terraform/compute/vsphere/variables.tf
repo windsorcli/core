@@ -113,6 +113,18 @@ variable "worker_config_patches" {
   default     = ""
 }
 
+variable "controlplane_pool_config_patches" {
+  description = "Talos config patches for every control plane, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+}
+
+variable "worker_pool_config_patches" {
+  description = "Talos config patches for every worker, baked after the module's own patches. An empty string or YAML documents separated by --- lines."
+  type        = string
+  default     = ""
+}
+
 variable "per_node_config_patches" {
   description = "Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos_machine_configuration config_patches."
   type        = map(string)

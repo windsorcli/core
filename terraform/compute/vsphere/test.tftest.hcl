@@ -668,3 +668,33 @@ run "common_config_patches_accepts_several_documents" {
     common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
   }
 }
+
+# Pool config patches bake last into each role's machineconfig
+run "pool_config_patches_baked" {
+  command = plan
+
+  variables {
+    talos_version                    = "1.12.6"
+    cluster_endpoint                 = "https://10.5.0.10:6443"
+    controlplane_pool_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
+    worker_pool_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, image = "talos", ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, image = "talos", ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = reverse(data.talos_machine_configuration.controlplane["controlplane"].config_patches)[0] == var.controlplane_pool_config_patches
+    error_message = "The control-plane pool patches should bake last"
+  }
+  assert {
+    condition     = reverse(data.talos_machine_configuration.worker["worker"].config_patches)[0] == var.worker_pool_config_patches
+    error_message = "The worker pool patches should bake last"
+  }
+}

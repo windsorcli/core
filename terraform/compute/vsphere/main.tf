@@ -155,6 +155,7 @@ data "talos_machine_configuration" "controlplane" {
     var.controlplane_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
     local.vip_patch,
+    var.controlplane_pool_config_patches,
   ])
 
   lifecycle {
@@ -179,6 +180,7 @@ data "talos_machine_configuration" "worker" {
     var.common_config_patches,
     var.worker_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
+    var.worker_pool_config_patches,
   ])
 }
 

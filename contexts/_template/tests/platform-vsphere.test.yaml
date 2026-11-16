@@ -103,6 +103,54 @@ cases:
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
 
+  # Pool config_patches bake into compute and reach the cluster step.
+  - name: pool config_patches bake into compute and reach cluster
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          count: 1
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+        workers:
+          count: 0
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "10"
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            controlplane_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+            worker_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "10"
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_pool_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+
   - name: cluster.vip bakes the VIP into the control planes
     values:
       platform: vsphere

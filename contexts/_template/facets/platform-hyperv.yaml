@@ -404,6 +404,8 @@ terraform:
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_pool_config_patches: ${talos_common.controlplane_pool_config_patches}
+      worker_pool_config_patches: ${talos_common.worker_pool_config_patches}
       destination_dir: "${hyperv_effective.images_dir}"
       network_gateway: ${network.gateway}
       network_nameservers: ${network.nameservers}

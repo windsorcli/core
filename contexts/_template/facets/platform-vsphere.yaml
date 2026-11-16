@@ -207,6 +207,8 @@ terraform:
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
+      controlplane_pool_config_patches: ${talos_common.controlplane_pool_config_patches}
+      worker_pool_config_patches: ${talos_common.worker_pool_config_patches}
       per_node_config_patches: >-
         ${fromPairs(concat(
           map(vsphere_controlplanes.nodes, [
