@@ -84,13 +84,13 @@ config:
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
-            : values(cluster.controlplanes.nodes ?? {}),
+            : filter(cluster_node_entries.controlplanes, # != null),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+            : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # Incus limits and Talos SKU label per pool.
@@ -229,8 +229,8 @@ terraform:
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
-      controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
-      workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
+      controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
+      workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
