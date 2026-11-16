@@ -184,7 +184,7 @@ flux:
   # when Longhorn is active and observability is on; the driver gate is required
   # since the dashboard is meaningless without longhorn metrics.
   - name: observability
-    when: talos_common.storage_driver == 'longhorn' && (observability.enabled == true || dev == true)
+    when: talos_common.storage_driver == 'longhorn' && observability.enabled == true
     resources:
       - components:
           - grafana/dashboards/longhorn
