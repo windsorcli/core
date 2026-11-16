@@ -5,11 +5,11 @@ type: object
 
 $defs:
   # DNS-1123 label: lowercase alphanumerics and hyphens, starts/ends alphanumeric, 1-63 chars.
-  dnsLabel:
+  dns_label:
     type: string
     pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
-  # Multi-label DNS hostname: one or more dnsLabels joined by dots.
-  dnsHostname:
+  # Multi-label DNS hostname: one or more DNS labels joined by dots.
+  dns_hostname:
     type: string
     pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
   # Strict IPv4 dotted-quad, each octet 0-255.
@@ -17,15 +17,15 @@ $defs:
     type: string
     pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
   # POSIX absolute path.
-  posixPath:
+  posix_path:
     type: string
     pattern: '^/[A-Za-z0-9._/\-]+$'
   # POSIX absolute path with optional `:<dest-path>` suffix (Docker-style bind mount).
-  bindMountPath:
+  bind_mount_path:
     type: string
     pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
   # http or https URL.
-  httpUrl:
+  http_url:
     type: string
     pattern: '^https?://\S+$'
   # RFC 4122 UUID (8-4-4-4-12 hex).
@@ -33,15 +33,15 @@ $defs:
     type: string
     pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
   # Kubernetes label/taint key: optional `<dns-subdomain>/` prefix plus name.
-  k8sLabelKey:
+  k8s_label_key:
     type: string
     pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
   # Kubernetes label/taint value: bounded alphanumeric or empty.
-  k8sLabelValue:
+  k8s_label_value:
     type: string
     pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
   # Talos Image Factory official overlay names. Keep in step with metal_overlays in facets/platform-metal.yaml.
-  talosBoard:
+  talos_board:
     type: string
     enum:
       - bananapi_m64
@@ -73,11 +73,11 @@ $defs:
       - rockpro64
       - turingrk1
       - friendlyelec-cm3588-nas
-  diskItem: &diskItem
+  disk_item: &disk_item
     type: object
     properties:
       name:
-        $ref: '#/$defs/dnsLabel'
+        $ref: '#/$defs/dns_label'
         description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
       size:
         type: integer
@@ -93,7 +93,7 @@ $defs:
         type: string
         description: Disk type (platform-specific; e.g. cloud disk type or "default")
       path:
-        $ref: '#/$defs/posixPath'
+        $ref: '#/$defs/posix_path'
         description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local). Optional for block storage when device is set.
       source:
         type: string
@@ -110,10 +110,10 @@ $defs:
         description: Mount as read-only
     required:
       - name
-  nodesSchema: &nodesSchema
+  nodes_schema: &nodes_schema
     type: object
     propertyNames:
-      $ref: '#/$defs/dnsLabel'
+      $ref: '#/$defs/dns_label'
     additionalProperties:
       type: object
       properties:
@@ -122,13 +122,13 @@ $defs:
           pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$'
           description: Node endpoint as IPv4 dotted-quad, with an optional `:port` suffix in the 1-65535 TCP range (typically Talos apid on 50000 or the NodePort-mode forward like 40000-40199). Facets split host:port on `:`, so IPv6 is not supported here.
         hostname:
-          $ref: '#/$defs/dnsHostname'
+          $ref: '#/$defs/dns_hostname'
           description: Node hostname. Lowercase DNS-labels separated by dots (RFC 1123); single-label like `controlplane-1` or multi-label like `controlplane-1.cluster.local`.
         node:
           type: string
           anyOf:
             - $ref: '#/$defs/ipv4'
-            - $ref: '#/$defs/dnsHostname'
+            - $ref: '#/$defs/dns_hostname'
           description: Node identifier — IPv4 dotted-quad (typical for static-node providers) or a DNS-labelled hostname. Used by talosctl and downstream facets to address the machine.
         mac_address:
           type: string
@@ -142,7 +142,7 @@ $defs:
           type: string
           description: Node image. Overrides pool-level image when set.
         board:
-          $ref: '#/$defs/talosBoard'
+          $ref: '#/$defs/talos_board'
           description: Single-board computer this node runs on, on platform metal, as a Talos Image Factory overlay name such as rpi_5. Overrides the pool's board for this node.
         install_image:
           type: string
@@ -150,18 +150,18 @@ $defs:
           description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
-          items: *diskItem
+          items: *disk_item
           description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
         volumes:
           type: array
           items:
-            $ref: '#/$defs/bindMountPath'
+            $ref: '#/$defs/bind_mount_path'
           description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
       required:
         - endpoint
         - node
     description: Named node configurations. Keys must be DNS-1123 labels (lowercase alphanumerics and hyphens, starting and ending with alphanumeric, max 63 chars) since they flow downstream as kubelet hostnames.
-  nodePool: &nodePool
+  node_pool: &node_pool
     count:
       type: integer
       minimum: 0
@@ -170,7 +170,7 @@ $defs:
       type: string
       description: Node image for this pool. Per-node image overrides when set.
     board:
-      $ref: '#/$defs/talosBoard'
+      $ref: '#/$defs/talos_board'
       description: >-
         Single-board computer the pool's nodes run on, on platform metal, as a Talos Image Factory
         overlay name such as rpi_5 (Raspberry Pi 5) or rpi_generic (Raspberry Pi 4 and older). Nodes
@@ -194,7 +194,7 @@ $defs:
       description: Root/OS disk size in GB
     disks:
       type: array
-      items: *diskItem
+      items: *disk_item
       description: Additional data disks (pool-level). Platform attach and/or block storage.
     hostports:
       type: array
@@ -202,17 +202,17 @@ $defs:
         type: string
         pattern: "^[0-9]+:[0-9]+/(tcp|udp)$"
       description: Host port mappings (format "host:container/protocol")
-    nodes: *nodesSchema
+    nodes: *nodes_schema
     volumes:
       type: array
       items:
-        $ref: '#/$defs/bindMountPath'
+        $ref: '#/$defs/bind_mount_path'
       description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Block/device storage uses disks instead.
 
 properties:
   # Context identity (from windsor.yaml or values)
   id:
-    $ref: '#/$defs/dnsLabel'
+    $ref: '#/$defs/dns_label'
     description: Context id (short identifier for this deployment). Flows into cluster names, terraform workspace names, and other downstream identifiers that require a DNS-1123 label.
 
   # Infrastructure platform — canonical key that selects the platform facet.
@@ -286,13 +286,13 @@ properties:
         pattern: '^[a-z]{2,3}(-[a-z]+)+-\d+$'
         description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Covers all AWS partition formats — commercial (us-west-2, eu-central-1), GovCloud (us-gov-west-1), China (cn-north-1), and ISO (us-iso-east-1).
       endpoint_url:
-        $ref: '#/$defs/httpUrl'
+        $ref: '#/$defs/http_url'
         description: Custom endpoint URL for AWS services (e.g. LocalStack testing). http or https URL.
       s3_hostname:
-        $ref: '#/$defs/dnsHostname'
+        $ref: '#/$defs/dns_hostname'
         description: Custom hostname for the S3 service. Lowercase DNS-labels separated by dots; no scheme, port, or trailing dot.
       mwaa_endpoint:
-        $ref: '#/$defs/httpUrl'
+        $ref: '#/$defs/http_url'
         description: Endpoint for Managed Workflows for Apache Airflow. http or https URL.
     description: AWS provider authentication and endpoint configuration
 
@@ -392,7 +392,7 @@ properties:
         sensitive: true
         description: Hetzner Cloud API token for the Terraform providers and in-cluster hcloud/DNS secrets. Set via a secret() reference or the HCLOUD_TOKEN environment variable.
       dns_parent_zone:
-        $ref: '#/$defs/dnsHostname'
+        $ref: '#/$defs/dns_hostname'
         description: Parent DNS zone in the same Hetzner account for auto-delegating dns.public_domain (e.g. windsorcli.dev when public_domain is hetzner.windsorcli.dev). When set, Terraform creates the NS delegation record in the parent. Leave unset to delegate manually.
     description: Hetzner Cloud provider location and credentials
 
@@ -897,19 +897,19 @@ properties:
         type: object
         propertyNames:
           anyOf:
-            - $ref: '#/$defs/dnsHostname'
+            - $ref: '#/$defs/dns_hostname'
             - const: '*'
         additionalProperties:
           type: object
           properties:
             remote:
-              $ref: '#/$defs/httpUrl'
+              $ref: '#/$defs/http_url'
               description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
             local:
-              $ref: '#/$defs/dnsHostname'
+              $ref: '#/$defs/dns_hostname'
               description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
             hostname:
-              $ref: '#/$defs/dnsHostname'
+              $ref: '#/$defs/dns_hostname'
               description: Hostname of the workstation pull-through cache (e.g. registry.test). Lowercase DNS-labels separated by dots.
             endpoint:
               type: string
@@ -930,19 +930,19 @@ properties:
     type: object
     propertyNames:
       anyOf:
-        - $ref: '#/$defs/dnsHostname'
+        - $ref: '#/$defs/dns_hostname'
         - const: '*'
     additionalProperties:
       type: object
       properties:
         remote:
-          $ref: '#/$defs/httpUrl'
+          $ref: '#/$defs/http_url'
           description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
         local:
-          $ref: '#/$defs/dnsHostname'
+          $ref: '#/$defs/dns_hostname'
           description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
         hostname:
-          $ref: '#/$defs/dnsHostname'
+          $ref: '#/$defs/dns_hostname'
           description: Hostname of the workstation pull-through cache (e.g. registry.test). Lowercase DNS-labels separated by dots.
         endpoint:
           type: string
@@ -1088,14 +1088,14 @@ properties:
       controlplanes:
         type: object
         properties:
-          <<: *nodePool
+          <<: *node_pool
           count:
             type: integer
             minimum: 1
             default: 1
             description: Number of control plane nodes
           nodes:
-            <<: *nodesSchema
+            <<: *nodes_schema
             description: >
               Named control plane node configurations. On Hyper-V, vSphere, Proxmox,
               and Incus, node/endpoint IPv4 is the guest NIC address unless
@@ -1111,13 +1111,13 @@ properties:
       workers:
         type: object
         properties:
-          <<: *nodePool
+          <<: *node_pool
           count:
             type: integer
             minimum: 0
             description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
-            <<: *nodesSchema
+            <<: *nodes_schema
             description: >
               Named worker node configurations. On Hyper-V, vSphere, Proxmox, and
               Incus, node/endpoint IPv4 is the guest NIC address unless network.dhcp
@@ -1127,7 +1127,7 @@ properties:
           volumes:
             type: array
             items:
-              $ref: '#/$defs/bindMountPath'
+              $ref: '#/$defs/bind_mount_path'
             default:
               - "/var/mnt/local"
             description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
@@ -1139,7 +1139,7 @@ properties:
       pools:
         type: object
         propertyNames:
-          $ref: '#/$defs/dnsLabel'
+          $ref: '#/$defs/dns_label'
         additionalProperties:
           type: object
           required:
@@ -1196,9 +1196,9 @@ properties:
             labels:
               type: object
               propertyNames:
-                $ref: '#/$defs/k8sLabelKey'
+                $ref: '#/$defs/k8s_label_key'
               additionalProperties:
-                $ref: '#/$defs/k8sLabelValue'
+                $ref: '#/$defs/k8s_label_value'
               description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsorcli.dev/pool=<name> and windsorcli.dev/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
@@ -1209,9 +1209,9 @@ properties:
                   - effect
                 properties:
                   key:
-                    $ref: '#/$defs/k8sLabelKey'
+                    $ref: '#/$defs/k8s_label_key'
                   value:
-                    $ref: '#/$defs/k8sLabelValue'
+                    $ref: '#/$defs/k8s_label_value'
                   effect:
                     type: string
                     enum:
@@ -1229,7 +1229,7 @@ properties:
             type: string
             description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
           local_base_path:
-            $ref: '#/$defs/posixPath'
+            $ref: '#/$defs/posix_path'
             default: "/var/mnt/local"
             description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
           quota:
@@ -1303,11 +1303,11 @@ properties:
     type: object
     properties:
       domain:
-        $ref: '#/$defs/dnsHostname'
+        $ref: '#/$defs/dns_hostname'
         deprecated: true
         description: Deprecated. Use dns.private_domain. Fallback for private_domain when that is unset; never sets public_domain.
       public_domain:
-        $ref: '#/$defs/dnsHostname'
+        $ref: '#/$defs/dns_hostname'
         description: >
           Publicly-routable DNS zone for the deployment. Provisions a
           public DNS zone on the active platform (Route53, Azure DNS,
@@ -1323,7 +1323,7 @@ properties:
         default: true
         description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
       private_domain:
-        $ref: '#/$defs/dnsHostname'
+        $ref: '#/$defs/dns_hostname'
         description: Private DNS zone, served by the dns.private.driver. Must differ from dns.public_domain. Lowercase DNS labels separated by dots.
       private:
         type: object
@@ -1346,7 +1346,7 @@ properties:
             description: Settings for the pdns and pdns-remote drivers.
             properties:
               url:
-                $ref: '#/$defs/httpUrl'
+                $ref: '#/$defs/http_url'
                 description: Base URL of the PowerDNS API, for example http://pdns.example.com:8081. Required for the pdns-remote driver.
               server_id:
                 type: string
@@ -1379,7 +1379,7 @@ properties:
         description: Internal ACME server that issues gateway certificates in place of the cluster CA and the selfsigned fallback.
         properties:
           server:
-            $ref: '#/$defs/httpUrl'
+            $ref: '#/$defs/http_url'
             description: ACME directory URL. The CA MUST pre-authorize the gateway domains for the account.
           ca_bundle:
             type: string
@@ -1451,7 +1451,7 @@ properties:
         type: object
         properties:
           name:
-            $ref: '#/$defs/dnsLabel'
+            $ref: '#/$defs/dns_label'
             default: local
             description: Flux GitRepository name used as the primary source for reconciliations.
         additionalProperties: false
@@ -1689,7 +1689,7 @@ properties:
         type: string
         anyOf:
           - $ref: '#/$defs/ipv4'
-          - $ref: '#/$defs/dnsHostname'
+          - $ref: '#/$defs/dns_hostname'
         description: Address of the workstation, used for SSH to configure workstation networking. IPv4 dotted-quad or DNS-labelled hostname.
       runtime:
         type: string
@@ -1706,7 +1706,7 @@ properties:
             type: string
             anyOf:
               - $ref: '#/$defs/ipv4'
-              - $ref: '#/$defs/dnsHostname'
+              - $ref: '#/$defs/dns_hostname'
             description: DNS server address resolved from workstation infrastructure. IPv4 dotted-quad or DNS-labelled hostname.
           forward:
             type: array
@@ -1714,7 +1714,7 @@ properties:
               type: string
               anyOf:
                 - $ref: '#/$defs/ipv4'
-                - $ref: '#/$defs/dnsHostname'
+                - $ref: '#/$defs/dns_hostname'
             description: Forward DNS servers. IPv4 dotted-quad or DNS-labelled hostname per entry.
         additionalProperties: false
       services:

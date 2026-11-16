@@ -29,7 +29,7 @@ config:
 
   # Talos Image Factory official overlays by board name, with the overlay image that carries each
   # board's firmware and bootloader. Source: factory.talos.dev/version/<talos version>/overlays/official.
-  # The keys MUST match the talosBoard enum in schema.yaml, which rejects other boards.
+  # The keys MUST match the talos_board enum in schema.yaml, which rejects other boards.
   - name: metal_overlays
     value:
       bananapi_m64: siderolabs/sbc-allwinner
