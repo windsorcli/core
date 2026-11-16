@@ -107,8 +107,6 @@ terraform:
               []
             ))}
 
-      controlplane_disks: ${cluster.controlplanes.disks ?? []}
-      worker_disks: ${cluster.workers.disks ?? []}
       common_config_patches: ${talos_common.common_config_patches}
       # Docker only: the control plane's kubelet sizes itself from the shared
       # Docker daemon's host, not its own container's cgroup quota, so it

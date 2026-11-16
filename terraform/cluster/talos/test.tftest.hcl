@@ -510,3 +510,71 @@ run "common_config_patches_rejects_malformed_document" {
 
   expect_failures = [var.common_config_patches]
 }
+
+# Verifies that each node's disks become UserVolumeConfig docs
+run "block_docs_follow_node_disks" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+        disks    = [{ name = "data", selector = "disk.serial == 'abc'" }]
+      }
+    ]
+    workers = [
+      {
+        hostname = "worker1"
+        endpoint = "https://worker1.example.com:6443"
+        node     = "192.168.1.20"
+        disks    = [{ name = "longhorn", size = 30 }]
+      }
+    ]
+  }
+
+  assert {
+    condition     = yamldecode(local.controlplane_block_docs[0][0]).provisioning.diskSelector.match == "disk.serial == 'abc'"
+    error_message = "A disk with a selector should use that selector"
+  }
+  assert {
+    condition     = length(local.worker_block_docs[0]) == 1
+    error_message = "A worker with one disk should get one UserVolumeConfig doc"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][0]).provisioning.diskSelector.match == "!system_disk && disk.size == 30u * GB"
+    error_message = "A size-only disk should get a size-based disk selector"
+  }
+}
+
+# Verifies that nodes without disks get no UserVolumeConfig docs
+run "block_docs_empty_without_node_disks" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    workers = [
+      {
+        hostname = "worker1"
+        endpoint = "https://worker1.example.com:6443"
+        node     = "192.168.1.20"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.controlplane_block_docs[0]) == 0 && length(local.worker_block_docs[0]) == 0
+    error_message = "Nodes without disks should get no UserVolumeConfig docs"
+  }
+}
