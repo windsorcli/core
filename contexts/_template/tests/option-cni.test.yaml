@@ -620,6 +620,7 @@ cases:
         private_domain: example.test
       observability:
         enabled: true
+        dashboards: grafana
     expect:
       flux:
         - name: observability
