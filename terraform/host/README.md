@@ -13,6 +13,6 @@ module and [`host/proxmox`](proxmox) for the Proxmox VE module.
 
 ## Modules
 
-- [incus](incus/) — Server-scoped objects of one Incus cluster that several contexts share, kept on destroy.
+- [incus](incus/) — Shared ZFS storage pool on every member of one Incus cluster, kept on destroy.
 - [proxmox](proxmox/) — Opt-in image datastore for Proxmox VE, created by one context and kept on destroy.
 <!-- END_TERRAFORM_MODULES -->

@@ -11,46 +11,44 @@ when: "platform == 'incus' && cluster.driver == 'talos'"
 
 requires:
   - when: >-
-      (workstation.runtime ?? '') == '' && (incus.network ?? '') != ''
+      (workstation.runtime ?? '') == '' && ((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0]))
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: On incus.network, give each control plane its reserved LAN address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && (incus.network ?? '') != ''
+      (workstation.runtime ?? '') == '' && ((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0]))
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
     message: On incus.network, give each worker its reserved LAN address in cluster.workers.nodes under worker-1 to worker-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && (incus.network ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && !((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])) && network.dhcp != true
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && (incus.network ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && !((incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])) && network.dhcp != true
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
-  - when: >-
-      (workstation.runtime ?? '') == '' && incus.host != null && (incus.network ?? '') != ''
-      && any(values(incus.host.members), (#.network_parent ?? '') == '')
-    message: With incus.network set, give each member in incus.host.members the network_parent that backs it on that member.
 
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================
 config:
 
-  # Remote, cluster members, and LAN network for the standalone compute step.
+  # Remote, cluster members, and LAN bridge for the standalone compute step. A cluster defaults to the lan bridge.
   - name: incus_effective
     value:
       remote: ${incus.remote ?? null}
       targets: ${incus.targets ?? []}
-      network: "${incus.network ?? ''}"
-      lan: ${(incus.network ?? '') != ''}
+      network: >-
+        ${incus.network ?? (any(incus.targets ?? [], # != (incus.targets ?? [''])[0]) ? 'lan' : '')}
+      lan: >-
+        ${(incus.network ?? '') != '' || any(incus.targets ?? [], # != (incus.targets ?? [''])[0])}
       storage_pool: "${incus.storage_pool ?? 'default'}"
       host: ${(workstation.runtime ?? '') == '' && incus.host != null}
 
@@ -180,21 +178,17 @@ config:
 # With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
-  # Storage pool, LAN network, projects, and certificates that every context on the cluster shares.
+  # Storage pool that every context on the cluster shares.
   - name: host
     when: incus_effective.host
     path: host/incus
     inputs:
       remote: ${incus_effective.remote}
-      members: ${incus.host.members}
       storage_pool_name: "${incus_effective.storage_pool}"
-      network_name: ${incus.network ?? null}
-      daemon_storage_pool: ${incus.host.daemon_storage_pool ?? null}
-      projects: ${incus.host.projects ?? {}}
-      certificates: ${incus.host.certificates ?? {}}
+      dataset: "${incus.host.dataset}"
     destroy: false
 
-  # Talos VMs on a fresh NAT bridge, or on the existing incus.network, with disks on incus.storage_pool.
+  # Talos VMs on a fresh NAT bridge, or on the host bridge in incus.network, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
@@ -207,6 +201,7 @@ terraform:
       remote: ${incus_effective.remote}
       network_name: "${incus_effective.network}"
       create_network: ${!incus_effective.lan}
+      attach_to_bridge: ${incus_effective.lan}
       static_dhcp_leases: ${!incus_effective.lan}
       default_storage_pool: "${incus_effective.storage_pool}"
       network_cidr: ${network.cidr_block}

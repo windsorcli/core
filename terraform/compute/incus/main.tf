@@ -532,13 +532,14 @@ module "instances" {
   target      = lookup(each.value, "target", null)
   ephemeral   = lookup(each.value, "ephemeral", false)
 
-  network_name   = local.network_name
-  networks       = lookup(each.value, "networks", [])
-  network_config = lookup(each.value, "network_config", {})
-  ipv4           = var.static_dhcp_leases ? lookup(each.value, "ipv4", null) : null
-  ipv6           = var.static_dhcp_leases ? lookup(each.value, "ipv6", null) : null
-  wait_for_ipv4  = lookup(each.value, "wait_for_ipv4", true)
-  wait_for_ipv6  = lookup(each.value, "wait_for_ipv6", null)
+  network_name     = local.network_name
+  attach_to_bridge = var.attach_to_bridge
+  networks         = lookup(each.value, "networks", [])
+  network_config   = lookup(each.value, "network_config", {})
+  ipv4             = var.static_dhcp_leases ? lookup(each.value, "ipv4", null) : null
+  ipv6             = var.static_dhcp_leases ? lookup(each.value, "ipv6", null) : null
+  wait_for_ipv4    = lookup(each.value, "wait_for_ipv4", true)
+  wait_for_ipv6    = lookup(each.value, "wait_for_ipv6", null)
 
   limits        = lookup(each.value, "limits", null)
   profiles      = lookup(each.value, "profiles", [])

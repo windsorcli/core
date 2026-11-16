@@ -582,11 +582,12 @@ properties:
         type: string
         minLength: 1
         description: >-
-          Existing network the VMs attach to, defined on every member (e.g. a
-          macvlan or bridge network on the LAN). Incus serves no DHCP on it, so
-          each node MUST declare its address in cluster.controlplanes.nodes or
-          cluster.workers.nodes, reserved on the LAN's DHCP server. Unset creates
-          a NAT bridge from network.cidr_block.
+          Host bridge on every member that the VMs attach to (e.g. lan). Incus
+          serves no DHCP on it, so each node MUST declare its address in
+          cluster.controlplanes.nodes or cluster.workers.nodes, reserved on the
+          LAN's DHCP server. When targets names more than one member, the
+          default is lan. Otherwise unset creates a NAT bridge from
+          network.cidr_block.
       storage_pool:
         type: string
         minLength: 1
@@ -596,64 +597,13 @@ properties:
         type: object
         additionalProperties: false
         required:
-          - members
+          - dataset
         properties:
-          members:
-            type: object
-            minProperties: 1
-            additionalProperties:
-              type: object
-              additionalProperties: false
-              required:
-                - storage_source
-              properties:
-                storage_source:
-                  type: string
-                  minLength: 1
-                  description: ZFS dataset on this member that backs storage_pool (e.g. nvme/incus).
-                network_parent:
-                  type: string
-                  minLength: 1
-                  description: Bridge or interface on this member that backs network (e.g. enp86s0). Required when network is set.
-            description: Cluster members keyed by member name.
-          daemon_storage_pool:
+          dataset:
             type: string
-            minLength: 1
-            description: Pool that holds an images, backups, and logs volume on each member, set as that member's image, backup, and log storage (e.g. local). Unset leaves those server keys alone.
-          projects:
-            type: object
-            additionalProperties:
-              type: object
-              additionalProperties: false
-              properties:
-                description:
-                  type: string
-            description: Projects keyed by name, each with its own images, profiles, and storage volumes.
-          certificates:
-            type: object
-            additionalProperties:
-              type: object
-              additionalProperties: false
-              required:
-                - certificate
-              properties:
-                certificate:
-                  type: string
-                  pattern: "^-----BEGIN CERTIFICATE-----"
-                  description: PEM-encoded client certificate.
-                description:
-                  type: string
-                projects:
-                  type: array
-                  items:
-                    type: string
-                    minLength: 1
-                  description: Projects the certificate is restricted to. Unset trusts it on the whole server.
-            description: Trusted client certificates keyed by name.
-        description: >-
-          Server-scoped objects of the Incus cluster: storage_pool and network
-          on every member, projects, and trusted certificates. Set in one
-          context per cluster. Kept on destroy.
+            pattern: "^[A-Za-z0-9_.:-]+(/[A-Za-z0-9_.:-]+)*$"
+            description: ZFS dataset on every member that backs storage_pool (e.g. nvme/incus).
+        description: Creates storage_pool on every member of the Incus cluster. Set in one context per cluster. Kept on destroy.
     description: Incus infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

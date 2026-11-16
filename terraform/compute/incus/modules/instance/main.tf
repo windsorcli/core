@@ -31,9 +31,7 @@ locals {
       for idx, network_name in var.networks : "eth${idx}" => {
         type = "nic"
         properties = merge(
-          {
-            network = network_name
-          },
+          var.attach_to_bridge ? { nictype = "bridged", parent = network_name } : { network = network_name },
           var.network_config,
           # Add static IPv4/IPv6 if specified
           # Device ipv4.address/ipv6.address expects IP only, not CIDR notation
@@ -54,9 +52,7 @@ locals {
       "eth0" = {
         type = "nic"
         properties = merge(
-          {
-            network = var.network_name
-          },
+          var.attach_to_bridge ? { nictype = "bridged", parent = var.network_name } : { network = var.network_name },
           var.network_config,
           # Add static IPv4/IPv6 if specified
           # Device ipv4.address/ipv6.address expects IP only, not CIDR notation

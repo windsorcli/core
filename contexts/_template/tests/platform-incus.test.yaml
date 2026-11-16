@@ -605,14 +605,14 @@ cases:
               - siderolabs/util-linux-tools
             powercycle_reboot: true
 
-  # incus.remote and incus.targets spread the VMs round-robin across cluster members.
-  - name: targets place nodes round-robin on the remote cluster
+  # incus.targets spreads the VMs round-robin, and a cluster attaches them to the lan bridge.
+  - name: targets place nodes round-robin on the lan bridge
     values:
       platform: incus
       gateway:
         enabled: false
       network:
-        <<: *default-network
+        cidr_block: 192.168.0.0/22
         dhcp: true
       incus:
         remote: home
@@ -621,8 +621,15 @@ cases:
         driver: talos
         controlplanes:
           count: 3
+          nodes:
+            controlplane-1: {endpoint: "192.168.3.21:50000", node: 192.168.3.21}
+            controlplane-2: {endpoint: "192.168.3.22:50000", node: 192.168.3.22}
+            controlplane-3: {endpoint: "192.168.3.23:50000", node: 192.168.3.23}
         workers:
           count: 2
+          nodes:
+            worker-1: {endpoint: "192.168.3.24:50000", node: 192.168.3.24}
+            worker-2: {endpoint: "192.168.3.25:50000", node: 192.168.3.25}
     terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
@@ -630,13 +637,15 @@ cases:
           path: compute/incus
           inputs:
             remote: home
-            create_network: true
-            static_dhcp_leases: true
+            network_name: lan
+            create_network: false
+            attach_to_bridge: true
+            static_dhcp_leases: false
             default_storage_pool: default
             instances:
               - name: controlplane-0
                 target: nuc-1
-                wait_for_ipv4: true
+                wait_for_ipv4: false
               - name: controlplane-1
                 target: nuc-2
               - name: controlplane-2
@@ -645,6 +654,28 @@ cases:
                 target: nuc-1
               - name: worker-1
                 target: nuc-2
+
+  # One member keeps the NAT bridge default.
+  - name: one target keeps the nat bridge
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      incus:
+        targets: [nuc-1, nuc-1]
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            create_network: true
+            attach_to_bridge: false
+            static_dhcp_leases: true
 
   # A node's placement overrides its round-robin member.
   - name: placement overrides the round-robin target
@@ -778,31 +809,16 @@ cases:
       incus:
         remote: home
         targets: [nuc-1, nuc-2]
-        network: lan
         host:
-          members:
-            nuc-1:
-              storage_source: nvme/incus
-              network_parent: enp1s0
-            nuc-2:
-              storage_source: nvme/incus
-              network_parent: eno1
-          daemon_storage_pool: local
-          projects:
-            home:
-              description: home cluster
-          certificates:
-            ci:
-              certificate: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"
-              projects: [home]
+          dataset: nvme/incus
       cluster:
         driver: talos
         controlplanes:
           count: 1
           nodes:
             controlplane-1:
-              endpoint: 192.168.3.31:50000
-              node: 192.168.3.31
+              endpoint: 192.168.3.21:50000
+              node: 192.168.3.21
         workers:
           count: 0
     terraformOutputs: *default-terraform-outputs
@@ -813,23 +829,8 @@ cases:
           destroy: false
           inputs:
             remote: home
-            members:
-              nuc-1:
-                storage_source: nvme/incus
-                network_parent: enp1s0
-              nuc-2:
-                storage_source: nvme/incus
-                network_parent: eno1
             storage_pool_name: default
-            network_name: lan
-            daemon_storage_pool: local
-            projects:
-              home:
-                description: home cluster
-            certificates:
-              ci:
-                certificate: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"
-                projects: [home]
+            dataset: nvme/incus
         - name: compute
           dependsOn:
             - host
@@ -849,30 +850,3 @@ cases:
     exclude:
       terraform:
         - name: host
-
-  # On incus.network, every member needs the parent that backs the network.
-  - name: incus.host member without network_parent fails composition
-    values:
-      platform: incus
-      gateway:
-        enabled: false
-      network:
-        cidr_block: 192.168.0.0/22
-        dhcp: true
-      incus:
-        network: lan
-        host:
-          members:
-            nuc-1:
-              storage_source: nvme/incus
-      cluster:
-        driver: talos
-        controlplanes:
-          count: 1
-          nodes:
-            controlplane-1:
-              endpoint: 192.168.3.31:50000
-              node: 192.168.3.31
-        workers:
-          count: 0
-    expectError: true

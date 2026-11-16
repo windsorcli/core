@@ -679,3 +679,14 @@ run "hyphenated_context_id" {
     error_message = "Network name should keep the hyphenated context_id"
   }
 }
+
+run "rejects_attach_to_bridge_with_created_network" {
+  command = plan
+
+  variables {
+    create_network   = true
+    attach_to_bridge = true
+  }
+
+  expect_failures = [var.attach_to_bridge]
+}
