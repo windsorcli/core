@@ -17,14 +17,3 @@ variable "storage_pool_name" {
     error_message = "storage_pool_name must not be empty."
   }
 }
-
-variable "dataset" {
-  description = "ZFS dataset on every member that backs the storage pool. Null uses <storage_pool_name>/incus."
-  type        = string
-  default     = null
-
-  validation {
-    condition     = var.dataset == null || can(regex("^[A-Za-z0-9_.:-]+(/[A-Za-z0-9_.:-]+)*$", var.dataset))
-    error_message = "dataset must be a ZFS dataset path such as nvme/incus."
-  }
-}

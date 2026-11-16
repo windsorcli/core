@@ -5,9 +5,8 @@ description: Shared ZFS storage pool on every member of one Incus cluster, kept 
 
 A ZFS storage pool on every member of one Incus cluster. The module reads the
 members from the cluster, defines the pool on each member with the ZFS dataset
-`<storage_pool_name>/incus` as its source, or `dataset` when set, then creates
-it once for the cluster. On a server that is not
-clustered, it creates the pool directly.
+`<storage_pool_name>/incus` as its source, then creates it once for the cluster.
+On a server that is not clustered, it creates the pool directly.
 
 ## Prerequisites
 
@@ -52,7 +51,6 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_dataset"></a> [dataset](#input\_dataset) | ZFS dataset on every member that backs the storage pool. Null uses <storage\_pool\_name>/incus. | `string` | `null` | no |
 | <a name="input_remote"></a> [remote](#input\_remote) | Incus client remote of the cluster. Null uses the client's default remote. | `string` | `null` | no |
 | <a name="input_storage_pool_name"></a> [storage\_pool\_name](#input\_storage\_pool\_name) | Name of the shared storage pool. | `string` | n/a | yes |
 

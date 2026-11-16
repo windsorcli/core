@@ -25,7 +25,7 @@ data "incus_cluster" "main" {
 
 locals {
   members = data.incus_cluster.main.is_clustered ? data.incus_cluster.main.members : {}
-  dataset = coalesce(var.dataset, "${var.storage_pool_name}/incus")
+  dataset = "${var.storage_pool_name}/incus"
 }
 
 # =============================================================================

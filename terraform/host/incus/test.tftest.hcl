@@ -63,27 +63,3 @@ run "creates_pool_on_single_server" {
     error_message = "single-server pool must take the dataset as source"
   }
 }
-
-# An explicit dataset replaces <pool>/incus.
-run "uses_explicit_dataset" {
-  command = plan
-
-  variables {
-    dataset = "tank/vms"
-  }
-
-  assert {
-    condition     = incus_storage_pool.member["node1"].config.source == "tank/vms"
-    error_message = "member pool must take the explicit dataset as source"
-  }
-}
-
-run "rejects_malformed_dataset" {
-  command = plan
-
-  variables {
-    dataset = "/nvme/incus"
-  }
-
-  expect_failures = [var.dataset]
-}
