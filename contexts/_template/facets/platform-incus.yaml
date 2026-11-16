@@ -208,6 +208,8 @@ terraform:
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
+      powercycle_reboot: true
       controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       common_config_patches: ${talos_common.common_config_patches}

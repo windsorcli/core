@@ -578,3 +578,116 @@ run "block_docs_empty_without_node_disks" {
     error_message = "Nodes without disks should get no UserVolumeConfig docs"
   }
 }
+
+# Upgrade resources cover the bootstrap control plane, the other control planes and every worker.
+run "upgrade_resources_per_node" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    talos_version    = "1.14.5"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+      { endpoint = "cp2:50000", node = "192.168.1.11" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(terraform_data.upgrade_bootstrap) == 1
+    error_message = "One bootstrap control plane upgrade expected"
+  }
+  assert {
+    condition     = length(terraform_data.upgrade_controlplane) == 1
+    error_message = "One non-bootstrap control plane upgrade expected"
+  }
+  assert {
+    condition     = length(terraform_data.upgrade_worker) == 1
+    error_message = "One worker upgrade expected"
+  }
+  assert {
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "Upgrade must trigger on the installer image for talos_version"
+  }
+}
+
+# upgrade_nodes = false leaves the upgrade to cluster/talos/extensions.
+run "upgrade_disabled" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    upgrade_nodes    = false
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(terraform_data.upgrade_bootstrap) + length(terraform_data.upgrade_controlplane) + length(terraform_data.upgrade_worker) == 0
+    error_message = "No upgrade resources expected when upgrade_nodes is false"
+  }
+}
+
+# A node's own installer image, such as a board overlay or a mirror, is the upgrade target.
+run "upgrade_uses_node_install_image" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    talos_version    = "1.14.5"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+    workers = [
+      { endpoint = "w1:50000", node = "192.168.1.20", install_image = "registry.example.com/installer:v1.14.5" },
+    ]
+  }
+
+  assert {
+    condition     = terraform_data.upgrade_worker[0].triggers_replace[0] == "registry.example.com/installer:v1.14.5"
+    error_message = "Worker upgrade must use the node install_image"
+  }
+  assert {
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    error_message = "A node without an install image upgrades to the stock installer"
+  }
+}
+
+run "upgrade_timeout_rejects_bad_duration" {
+  command = plan
+
+  variables {
+    context_path     = "test"
+    cluster_endpoint = "https://test.example.com:6443"
+    upgrade_timeout  = "fifteen"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+  }
+
+  expect_failures = [var.upgrade_timeout]
+}
+
+run "upgrade_offline_timeout_rejects_bad_duration" {
+  command = plan
+
+  variables {
+    context_path            = "test"
+    cluster_endpoint        = "https://test.example.com:6443"
+    upgrade_offline_timeout = "soon"
+    controlplanes = [
+      { endpoint = "cp1:50000", node = "192.168.1.10" },
+    ]
+  }
+
+  expect_failures = [var.upgrade_offline_timeout]
+}
