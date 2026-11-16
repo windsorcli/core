@@ -160,7 +160,7 @@ config:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      tls_effective.public_acme == true
+      tls_effective.public_acme == true && dns_zone_effective.cloud == true
     value:
       issuer_component: public-issuer/acme/hetzner
 
@@ -230,7 +230,7 @@ terraform:
   # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     inputs:
       hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
@@ -348,7 +348,7 @@ flux:
 
   # DNS — external-dns via the Hetzner webhook provider, public zone only.
   - name: dns
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     secrets:
       hetzner-dns:
         data:
@@ -381,7 +381,7 @@ flux:
   # system-pki-trust, so the target is named explicitly. cert-manager's ACME
   # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
   - name: pki
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     secrets:
       hetzner-dns:
         namespaces: [system-pki]

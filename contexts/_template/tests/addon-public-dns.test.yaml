@@ -1,0 +1,252 @@
+# addon-public-dns.yaml facet tests
+# Cloudflare as the public DNS driver: zone stack, external-dns, DNS-01 solver.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.20"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+  cloudflare: &default-cloudflare
+    driver: cloudflare
+    cloudflare:
+      api_token: test-token
+
+  terraform-outputs: &default-terraform-outputs
+    dns-zone:
+      zone_id: zone123
+
+cases:
+  - name: cloudflare on metal provisions the zone, external-dns, and the DNS-01 issuer
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+          inputs:
+            domain_name: apps.example.com
+            create_zone: "false"
+      flux:
+        - name: dns
+          resources:
+            - name: cloudflare
+              components:
+                - external-dns
+                - external-dns/providers/cloudflare
+              substitutions:
+                external_dns_name: external-dns-cloudflare
+                external_dns_domain: apps.example.com
+                external_dns_zone_id_filter: zone123
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/cloudflare
+              substitutions:
+                acme_server: https://acme-v02.api.letsencrypt.org/directory
+                acme_dns_zone: apps.example.com
+
+  - name: zone_name and create_zone reach the zone stack
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+            create_zone: true
+            account_id: abc123
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+          inputs:
+            domain_name: example.com
+            create_zone: "true"
+            account_id: abc123
+
+  - name: proxied adds the proxy component
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            proxied: true
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: dns
+          resources:
+            - name: cloudflare
+              components:
+                - external-dns
+                - external-dns/providers/cloudflare
+                - external-dns/providers/cloudflare/proxied
+
+  - name: an internal gateway on metal stays on the private issuer
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+        public: *default-cloudflare
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: private
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-acme
+
+  - name: cloudflare on aws replaces the Route53 zone and issuer
+    values:
+      platform: aws
+      aws:
+        region: us-east-1
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        public: *default-cloudflare
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/cloudflare
+
+  - name: a missing api_token fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public:
+          driver: cloudflare
+    expectError: true
+
+  - name: create_zone without account_id fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            create_zone: true
+    expectError: true
+
+  - name: the cloud driver on metal fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      gateway:
+        external:
+          ip: "10.5.1.10"
+          tls:
+            issuer: selfsigned
+      dns:
+        public_domain: apps.example.com
+        public:
+          driver: cloud
+    expectError: true
+
+  - name: a public driver with dns.public_zone false fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+          tls:
+            issuer: selfsigned
+      dns:
+        public_domain: apps.example.com
+        public_zone: false
+        public: *default-cloudflare
+    expectError: true
+
+  - name: cloudflare without email fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+    expectError: true
