@@ -240,7 +240,7 @@ config:
   # platform facet creates an lb-install.
   - name: lb_effective
     value:
-      controller_required: "${(platform == 'aws' && cluster.driver != 'talos') || platform == 'hetzner' || lb_effective.enabled == true}"
+      controller_required: "${(platform == 'aws' && (cluster.driver ?? 'eks') == 'eks') || platform == 'hetzner' || lb_effective.enabled == true}"
 
   # DNS domains. public_domain: publicly-routable zone (external-dns, ACME SAN),
   # set only by dns.public_domain. private_domain: in-cluster records (CoreDNS),
@@ -260,7 +260,7 @@ config:
         driver: >-
           ${dns.private.enabled == true ? 'coredns' :
           ((dns.private_domain ?? '') == '' || platform == 'hetzner' ? 'none' :
-          ((platform == 'aws' && cluster.driver != 'talos') || platform == 'azure' || platform == 'gcp' ? 'cloud' :
+          ((platform == 'aws' && (cluster.driver ?? 'eks') == 'eks') || platform == 'azure' || platform == 'gcp' ? 'cloud' :
           (dns.private.enabled == false || cluster_provisioned != true ||
           ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
 

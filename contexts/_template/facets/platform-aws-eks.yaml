@@ -4,7 +4,7 @@ metadata:
   name: aws-eks
   description: "AWS provider basic infrastructure"
 
-when: platform == 'aws' && cluster.driver != 'talos'
+when: platform == 'aws' && cluster.driver == 'eks'
 
 # =============================================================================
 # Requires
