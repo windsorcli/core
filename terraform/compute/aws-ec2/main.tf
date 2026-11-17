@@ -1,4 +1,4 @@
-# The aws-ec2 compute module launches Talos Linux nodes on EC2 at fixed private IPs in an existing subnet, so the metal platform's cluster/talos step can bootstrap them as it would bare-metal machines.
+# The aws-ec2 compute module launches Talos Linux nodes on EC2 in a subnet, at fixed or subnet-assigned private IPs, for the aws platform's cluster/talos step to bootstrap.
 
 terraform {
   required_version = ">= 1.12.2"

@@ -16,7 +16,7 @@ variable "region" {
 }
 
 variable "subnet_id" {
-  description = "Existing subnet to launch the nodes in. Every node address must fall inside it."
+  description = "Subnet to launch the nodes in. Every fixed node address must fall inside it."
   type        = string
 }
 
@@ -26,10 +26,10 @@ variable "talos_version" {
 }
 
 variable "controlplanes" {
-  description = "Control plane nodes to launch, each at its fixed private IP."
+  description = "Control plane nodes to launch. A node without an address takes one from the subnet."
   type = list(object({
     hostname = string
-    node     = string
+    node     = optional(string)
   }))
 
   validation {
@@ -39,10 +39,10 @@ variable "controlplanes" {
 }
 
 variable "workers" {
-  description = "Worker nodes to launch, each at its fixed private IP."
+  description = "Worker nodes to launch. A node without an address takes one from the subnet."
   type = list(object({
     hostname = string
-    node     = string
+    node     = optional(string)
   }))
   default = []
 }

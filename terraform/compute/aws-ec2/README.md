@@ -1,21 +1,23 @@
 ---
 title: AWS EC2
-description: Launches Talos Linux nodes on EC2 at fixed private IPs for the metal platform.
+description: Launches Talos Linux nodes on EC2 for the aws platform when the cluster driver is talos.
 ---
 
-Launches Talos Linux nodes as EC2 instances in an existing subnet. Each node
-boots the published Talos AMI for `talos_version` at the private IP its
-`cluster.controlplanes.nodes` or `cluster.workers.nodes` entry declares, so the
-`metal` platform's `cluster/talos` step bootstraps them as it would bare-metal
-machines. A shared security group opens the Talos API, the Kubernetes API and
-NodePorts to the VPC CIDR. Root volumes are gp3, sized from each pool's
-`root_disk_size`, `root_disk_iops` and `root_disk_throughput`, and encrypted
-with a KMS key the module creates. Every resource carries the context id tag.
-When `ephemeral` is true, resources also carry `windsorcli.dev/ephemeral` and a
-fixed `windsorcli.dev/created-at` time for cleanup of short-lived nodes.
+Launches Talos Linux nodes as EC2 instances in one subnet. Each node boots the
+published Talos AMI for `talos_version`. A node whose `cluster.controlplanes.nodes`
+or `cluster.workers.nodes` entry declares an address launches at that private IP.
+Any other node takes an address from the subnet. The `aws` platform's
+`cluster/talos` step then bootstraps the nodes. A shared security group opens
+the Talos API, the Kubernetes API and NodePorts to the VPC CIDR. Root volumes
+are gp3, sized from each pool's `root_disk_size`, `root_disk_iops` and
+`root_disk_throughput`, and encrypted with a KMS key the module creates. Every
+resource carries the context id tag. When `ephemeral` is true, resources also
+carry `windsorcli.dev/ephemeral` and a fixed `windsorcli.dev/created-at` time
+for cleanup of short-lived nodes.
 
-Enable it with `platform: metal` and `compute.driver: aws-ec2`. The AWS
-provider authenticates from the context's ambient credentials.
+Enable it with `platform: aws` and `cluster.driver: talos`. Nodes launch in the
+VPC the `network` step creates, or in `network.subnet_id` when it is set. The
+AWS provider authenticates from the context's ambient credentials.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -63,14 +65,14 @@ No modules.
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder. | `string` | `""` | no |
 | <a name="input_controlplane_instance_type"></a> [controlplane\_instance\_type](#input\_controlplane\_instance\_type) | EC2 instance type for control plane nodes. | `string` | n/a | yes |
 | <a name="input_controlplane_root_volume"></a> [controlplane\_root\_volume](#input\_controlplane\_root\_volume) | gp3 root volume for control plane nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
-| <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | Control plane nodes to launch, each at its fixed private IP. | <pre>list(object({<br/>    hostname = string<br/>    node     = string<br/>  }))</pre> | n/a | yes |
+| <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | Control plane nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | n/a | yes |
 | <a name="input_ephemeral"></a> [ephemeral](#input\_ephemeral) | Tags every resource as ephemeral with its creation time, for cleanup of short-lived nodes. | `bool` | `false` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS region to launch the nodes in. | `string` | n/a | yes |
-| <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | Existing subnet to launch the nodes in. Every node address must fall inside it. | `string` | n/a | yes |
+| <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | Subnet to launch the nodes in. Every fixed node address must fall inside it. | `string` | n/a | yes |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version whose published AMI the nodes boot, with or without a leading v. | `string` | n/a | yes |
 | <a name="input_worker_instance_type"></a> [worker\_instance\_type](#input\_worker\_instance\_type) | EC2 instance type for worker nodes. Defaults to the control plane type. | `string` | `""` | no |
 | <a name="input_worker_root_volume"></a> [worker\_root\_volume](#input\_worker\_root\_volume) | gp3 root volume for worker nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
-| <a name="input_workers"></a> [workers](#input\_workers) | Worker nodes to launch, each at its fixed private IP. | <pre>list(object({<br/>    hostname = string<br/>    node     = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_workers"></a> [workers](#input\_workers) | Worker nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | `[]` | no |
 
 ## Outputs
 

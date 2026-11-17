@@ -1,10 +1,10 @@
 kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: aws
+  name: aws-eks
   description: "AWS provider basic infrastructure"
 
-when: platform == 'aws'
+when: platform == 'aws' && cluster.driver != 'talos'
 
 # =============================================================================
 # Requires

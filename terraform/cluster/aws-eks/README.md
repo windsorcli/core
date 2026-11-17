@@ -10,7 +10,7 @@ in-cluster ServiceAccounts can assume IAM roles via IRSA. A fixed
 `system` node group, tainted `CriticalAddonsOnly=true:NoSchedule`, is
 always created regardless of `var.pools`; additional pools come from
 `var.pools`, or the `var.node_groups` fallback when pools is empty. The
-blueprint's platform-aws facet defaults to one autoscaling `general`
+blueprint's platform-aws-eks facet defaults to one autoscaling `general`
 pool alongside it. The `additions/` submodule creates the `system-dns` namespace and the
 external-dns ConfigMap that EKS needs out-of-band.
 

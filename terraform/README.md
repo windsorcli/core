@@ -31,7 +31,7 @@ layer. Links from there land here.
 | [cni](cni/) | Out-of-band Cilium bootstrap for Talos clusters before Flux. |
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
 | [compute](compute/) | Talos compute substrate across Docker, Hyper-V, Incus, and Proxmox VE. |
-| [compute/aws-ec2](compute/aws-ec2/) | Launches Talos Linux nodes on EC2 at fixed private IPs for the metal platform. |
+| [compute/aws-ec2](compute/aws-ec2/) | Launches Talos Linux nodes on EC2 for the aws platform when the cluster driver is talos. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
 | [compute/hcloud](compute/hcloud/) | Provisions Talos Linux nodes on Hetzner Cloud. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |

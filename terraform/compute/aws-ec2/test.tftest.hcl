@@ -192,3 +192,23 @@ run "rejects_a_tiny_root_volume" {
 
   expect_failures = [var.controlplane_root_volume]
 }
+
+run "subnet_assigns_unaddressed_nodes" {
+  command = apply
+
+  variables {
+    controlplanes = [
+      { hostname = "controlplane-1" },
+    ]
+  }
+
+  assert {
+    condition     = output.controlplanes[0].node == aws_instance.this["controlplane-1"].private_ip
+    error_message = "A node without an address should report the address the subnet assigned."
+  }
+
+  assert {
+    condition     = output.controlplanes[0].endpoint == "${aws_instance.this["controlplane-1"].private_ip}:50000"
+    error_message = "The endpoint should use the assigned address."
+  }
+}

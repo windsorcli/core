@@ -1,4 +1,4 @@
-# platform-aws.yaml facet tests
+# platform-aws-eks.yaml facet tests
 # Tests AWS EKS infrastructure with VPC networking
 
 x-defaults:
@@ -279,7 +279,7 @@ cases:
         # Gateway-on + public-domain path: external-dns layers the
         # gateway-httproute source on top of the route53 provider. HTTPRoute
         # CRDs come from the crds layer, so no gateway-install dep. Locks the
-        # conditional in platform-aws.yaml's dns system for the public branch.
+        # conditional in platform-aws-eks.yaml's dns system for the public branch.
         - name: dns
           dependsOn:
             - policy-resources

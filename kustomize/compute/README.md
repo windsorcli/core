@@ -85,6 +85,6 @@ Helm release of the Kubernetes cluster-autoscaler in `system-compute`. Watches f
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the `compute` wiring.
+- [contexts/_template/facets/platform-aws-eks.yaml](../../contexts/_template/facets/platform-aws-eks.yaml) for the `compute` wiring.
 - [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/) for the node-group autoscaling bounds, ASG discovery tags, and the autoscaler IAM role.
 - Related add-ons: [policy](../policy/) (admits the autoscaler pod), [lb](../lb/) (the other AWS-gated controller pattern).
