@@ -454,6 +454,6 @@ Removes the `web-https` listener so a `ListenerSet` can take port 443. `web-http
 ## See also
 
 - [contexts/_template/facets/option-gateway.yaml](../../contexts/_template/facets/option-gateway.yaml) for the canonical wiring.
-- [contexts/_template/facets/platform-aws-eks.yaml](../../contexts/_template/facets/platform-aws-eks.yaml) for the NLB merge on the AWS path.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the NLB merge on the AWS path.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure ILB merge on the private-access path.
 - Related add-ons: [pki](../pki/) (gateway certificate), [lb](../lb/) (data-plane Service LB), [dns](../dns/) (external-dns publication), [cni](../cni/) (cilium driver).

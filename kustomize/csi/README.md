@@ -201,7 +201,7 @@ Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default 
 
 ## See also
 
-- [contexts/_template/facets/platform-aws-eks.yaml](../../contexts/_template/facets/platform-aws-eks.yaml) for the AWS EBS wiring.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the AWS EBS wiring.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure Disk wiring.
 - [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) for OpenEBS and Longhorn driver selection.
 - [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the single-node OpenEBS overlay.

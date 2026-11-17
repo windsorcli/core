@@ -1,9 +1,24 @@
-# platform-aws-eks.yaml facet tests
-# Tests AWS EKS infrastructure with VPC networking
+# platform-aws.yaml facet tests
+# Tests AWS EKS and Talos-on-EC2 infrastructure with VPC networking
 
 x-defaults:
   aws: &default-aws
     region: us-west-2
+
+  talos-aws: &talos-aws
+    region: us-east-2
+
+  talos-terraform-outputs: &talos-terraform-outputs
+    network:
+      private_subnet_ids:
+        - subnet-aaa
+        - subnet-bbb
+    compute:
+      controlplanes:
+        - endpoint: 10.5.1.37:50000
+          node: 10.5.1.37
+          hostname: controlplane-1
+      workers: []
 
 cases:
   # Minimal: Test default behavior with required fields only
@@ -279,7 +294,7 @@ cases:
         # Gateway-on + public-domain path: external-dns layers the
         # gateway-httproute source on top of the route53 provider. HTTPRoute
         # CRDs come from the crds layer, so no gateway-install dep. Locks the
-        # conditional in platform-aws-eks.yaml's dns system for the public branch.
+        # conditional in platform-aws.yaml's dns system for the public branch.
         - name: dns
           dependsOn:
             - policy-resources
@@ -946,4 +961,185 @@ cases:
         public_zone: false
       pki:
         public_issuer: acme
+    expectError: true
+
+  - name: talos on aws launches nodes in the VPC it creates
+    values:
+      platform: aws
+      aws: *talos-aws
+      gateway:
+        enabled: false
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+    terraformOutputs: *talos-terraform-outputs
+    expect:
+      terraform:
+        - name: backend
+          path: backend/s3
+        - name: network
+          path: network/aws-vpc
+          dependsOn:
+            - backend
+          inputs:
+            single_nat_gateway: true
+        - name: compute
+          path: compute/aws-ec2
+          dependsOn:
+            - backend
+            - network
+          inputs:
+            region: us-east-2
+            subnet_id: subnet-aaa
+            controlplanes:
+              - hostname: controlplane-1
+                node: null
+            workers: []
+            controlplane_instance_type: m6a.2xlarge
+            controlplane_root_volume:
+              size: 100
+            ephemeral: false
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - pki
+            - compute
+          inputs:
+            cluster_endpoint: https://10.5.1.37:6443
+            controlplanes:
+              - endpoint: 10.5.1.37:50000
+                node: 10.5.1.37
+                hostname: controlplane-1
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+    exclude:
+      terraform:
+        - name: cluster-additions
+      flux:
+        - name: lb
+        - name: compute
+      crds:
+        - aws-load-balancer-controller-3.6.0
+
+  - name: talos on aws launches declared node addresses with a local backend
+    values:
+      platform: aws
+      ephemeral: true
+      aws: *talos-aws
+      terraform:
+        backend:
+          type: local
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.150.0.0/16
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+          root_disk_size: 200
+          nodes:
+            controlplane-1:
+              endpoint: 10.150.1.37:50000
+              node: 10.150.1.37
+              hostname: controlplane-1
+        workers:
+          count: 1
+          instance_type: m6a.large
+          root_disk_size: 50
+          nodes:
+            worker-1:
+              endpoint: 10.150.1.40:50000
+              node: 10.150.1.40
+              hostname: worker-1
+    terraformOutputs: *talos-terraform-outputs
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          dependsOn: []
+          inputs:
+            cidr_block: 10.150.0.0/16
+        - name: compute
+          path: compute/aws-ec2
+          dependsOn:
+            - network
+          inputs:
+            subnet_id: subnet-aaa
+            controlplanes:
+              - hostname: controlplane-1
+                node: 10.150.1.37
+            workers:
+              - hostname: worker-1
+                node: 10.150.1.40
+            worker_instance_type: m6a.large
+            controlplane_root_volume:
+              size: 200
+            worker_root_volume:
+              size: 50
+            ephemeral: true
+    exclude:
+      terraform:
+        - name: backend
+
+  - name: talos on aws generates a hostname per counted worker
+    values:
+      platform: aws
+      aws: *talos-aws
+      gateway:
+        enabled: false
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+        workers:
+          count: 2
+    terraformOutputs: *talos-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/aws-ec2
+          inputs:
+            workers:
+              - hostname: worker-1
+                node: null
+              - hostname: worker-2
+                node: null
+
+  - name: talos on aws without an instance type fails
+    values:
+      platform: aws
+      aws: *talos-aws
+      gateway:
+        enabled: false
+      cluster:
+        driver: talos
+    expectError: true
+
+  - name: talos on aws with a public domain fails
+    values:
+      platform: aws
+      aws: *talos-aws
+      email: ops@example.com
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+    expectError: true
+
+  - name: talos on aws with a LoadBalancer gateway fails
+    values:
+      platform: aws
+      aws: *talos-aws
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
     expectError: true

@@ -209,7 +209,7 @@ Deprecated alias for `metallb-arp` (same L2Advertisement mechanism). Removed in 
 
 ## See also
 
-- [contexts/_template/facets/platform-aws-eks.yaml](../../contexts/_template/facets/platform-aws-eks.yaml) for aws-lb-controller wiring.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for aws-lb-controller wiring.
 - [contexts/_template/facets/platform-docker.yaml](../../contexts/_template/facets/platform-docker.yaml) for MetalLB wiring on docker hosts.
 - [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) for MetalLB wiring on incus hosts.
 - Related add-ons: [gateway](../gateway/) (data-plane Service consumes lb), [cni](../cni/) (Cilium's L2 announcer is an alternative to lb on Talos, see `cilium/l2`), [policy](../policy/).

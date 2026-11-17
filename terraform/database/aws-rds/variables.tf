@@ -32,7 +32,7 @@ variable "vpc_id" {
   default     = null
   validation {
     condition     = var.operation == "destroy" || var.vpc_id != null
-    error_message = "vpc_id is required; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws-eks facet."
+    error_message = "vpc_id is required; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws facet."
   }
 }
 
@@ -42,7 +42,7 @@ variable "cluster_security_group_id" {
   default     = null
   validation {
     condition     = var.operation == "destroy" || var.cluster_security_group_id != null
-    error_message = "cluster_security_group_id is required; pipe cluster/aws-eks's cluster_security_group_id output, e.g. inputs.cluster_security_group_id = terraform_output('cluster', 'cluster_security_group_id') in the platform-aws-eks facet."
+    error_message = "cluster_security_group_id is required; pipe cluster/aws-eks's cluster_security_group_id output, e.g. inputs.cluster_security_group_id = terraform_output('cluster', 'cluster_security_group_id') in the platform-aws facet."
   }
 }
 

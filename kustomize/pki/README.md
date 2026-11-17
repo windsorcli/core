@@ -318,7 +318,7 @@ ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth
 ## See also
 
 - [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the base cert-manager and the pki/ca Terraform step.
-- [contexts/_template/facets/platform-aws-eks.yaml](../../contexts/_template/facets/platform-aws-eks.yaml) for ACME on Route53 wiring.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for ACME on Route53 wiring.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for ACME on AzureDNS plus workload-identity wiring.
 - [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) for trust-manager and private CA wiring.
 - Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/) (consumes the ClusterIssuer for the external gateway cert), [observability](../observability/) (Elasticsearch consumes the private CA).

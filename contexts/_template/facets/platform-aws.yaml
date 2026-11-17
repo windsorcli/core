@@ -1,10 +1,10 @@
 kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: aws-eks
+  name: aws
   description: "AWS provider basic infrastructure"
 
-when: platform == 'aws' && cluster.driver == 'eks'
+when: platform == 'aws'
 
 # =============================================================================
 # Requires
@@ -20,6 +20,18 @@ requires:
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
+  - when: cluster.driver == 'talos'
+    paths:
+      - cluster.controlplanes.instance_type
+    message: Talos on AWS needs cluster.controlplanes.instance_type.
+  - when: cluster.driver == 'talos' && (dns.public_domain ?? '') != ''
+    message: Talos on AWS has no public DNS zone; unset dns.public_domain.
+  - when: cluster.driver == 'talos' && dns.private.driver == 'cloud'
+    message: Talos on AWS has no cloud private DNS; set dns.private.driver to coredns or none.
+  - when: >-
+      cluster.driver == 'talos' && gateway.enabled == true &&
+      (gateway_exposure.external == 'LoadBalancer' || gateway_exposure.internal == 'LoadBalancer')
+    message: Talos on AWS has no cloud load balancer; set gateway.service_type to NodePort or disable the gateway.
 
 # =============================================================================
 # Config
@@ -37,6 +49,52 @@ config:
     value:
       issuer_component: public-issuer/acme/route53
 
+  - name: aws_talos_nodes
+    when: cluster.driver == 'talos'
+    value:
+      controlplanes: >-
+        ${len(cluster.controlplanes.nodes ?? {}) > 0
+          ? map(values(cluster.controlplanes.nodes), fromPairs([
+              ["hostname", #.hostname],
+              ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
+            ]))
+          : map(1..int(cluster_nodes_effective.controlplanes), fromPairs([
+              ["hostname", "controlplane-" + string(#)],
+              ["node", nil]
+            ]))}
+      workers: >-
+        ${cluster_nodes_effective.workers == 0
+          ? []
+          : (len(cluster.workers.nodes ?? {}) > 0
+            ? map(values(cluster.workers.nodes), fromPairs([
+                ["hostname", #.hostname],
+                ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
+              ]))
+            : map(1..int(cluster_nodes_effective.workers), fromPairs([
+                ["hostname", "worker-" + string(#)],
+                ["node", nil]
+              ])))}
+
+  - name: cluster_endpoint_fallback
+    when: cluster.driver == 'talos'
+    value:
+      endpoint: >-
+        ${
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : ""
+        }
+
+  - name: talos_node_targets
+    when: cluster.driver == 'talos'
+    value:
+      controlplanes: >-
+        ${map(terraform_output("compute", "controlplanes") ?? [],
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(terraform_output("compute", "workers") ?? [],
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================
@@ -44,7 +102,7 @@ config:
 # chart's own CRD install is skipped.
 crds:
   # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-  - aws-load-balancer-controller-3.6.0
+  - "${cluster.driver == 'eks' ? 'aws-load-balancer-controller-3.6.0' : ''}"
 
 # =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
@@ -71,7 +129,7 @@ terraform:
       - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       cidr_block: ${network.cidr_block}
-      domain_name: ${dns.private_domain ?? ""}
+      domain_name: "${cluster.driver == 'eks' ? (dns.private_domain ?? '') : ''}"
       # Cheap default runs a single shared NAT gateway; topology: ha lights up
       # one NAT per AZ. The subnet footprint stays multi-AZ either way.
       single_nat_gateway: "${topology != 'ha'}"
@@ -91,6 +149,7 @@ terraform:
   # just the dns-zone, empty when ACME is off.
   - name: cluster
     path: cluster/aws-eks
+    when: cluster.driver == 'eks'
     dependsOn:
       - network
     inputs:
@@ -125,6 +184,7 @@ terraform:
   # destroy: false — IAM/IRSA/aws-auth entries; the cluster delete takes them.
   - name: cluster-additions
     path: cluster/aws-eks/additions
+    when: cluster.driver == 'eks'
     dependsOn:
       - cluster
     destroy: false
@@ -132,7 +192,7 @@ terraform:
   # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
   # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
   - name: cni
-    when: "cluster.cni.driver == 'cilium'"
+    when: "cluster.driver == 'eks' && cluster.cni.driver == 'cilium'"
     path: cni/cilium
     dependsOn:
       - cluster
@@ -142,25 +202,54 @@ terraform:
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
       chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
-  # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
-  # With Cilium: wait for the `cni` step so pod networking is healthy first.
-  - name: gitops
-    when: "cluster.cni.driver != 'cilium'"
-    path: gitops/flux
+  - name: compute
+    path: compute/aws-ec2
+    when: cluster.driver == 'talos'
     dependsOn:
-      - cluster
+      - "${backend_effective.managed == true ? 'backend' : ''}"
+      - network
     inputs:
-      concurrency: 5
-    destroy: false
+      region: ${aws.region}
+      subnet_id: ${terraform_output('network', 'private_subnet_ids')[0]}
+      talos_version: ${talos.talos_version}
+      controlplanes: ${aws_talos_nodes.controlplanes}
+      workers: ${aws_talos_nodes.workers}
+      controlplane_instance_type: ${cluster.controlplanes.instance_type}
+      worker_instance_type: ${cluster.workers.instance_type ?? ''}
+      controlplane_root_volume:
+        size: ${cluster.controlplanes.root_disk_size ?? 100}
+      worker_root_volume:
+        size: ${cluster.workers.root_disk_size ?? 100}
+      ephemeral: ${ephemeral ?? false}
+
+  - name: cluster
+    path: cluster/talos
+    when: cluster.driver == 'talos'
+    parallelism: 1
+    dependsOn:
+      - compute
+      - pki
+    inputs:
+      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      controlplanes: ${terraform_output("compute", "controlplanes") ?? []}
+      workers: ${terraform_output("compute", "workers") ?? []}
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
 
   - name: gitops
-    when: "cluster.cni.driver == 'cilium'"
     path: gitops/flux
     dependsOn:
       - cluster
-      - cni
+      - "${cluster.driver == 'eks' && cluster.cni.driver == 'cilium' ? 'cni' : ''}"
     inputs:
-      concurrency: 5
+      concurrency: "${cluster.driver == 'talos' ? max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10)) : 5}"
     destroy: false
 
 # =============================================================================
@@ -173,6 +262,7 @@ terraform:
 flux:
 
   - name: pki
+    when: cluster.driver == 'eks'
     resources:
       - components:
           # acme_hosted_zone_id defers terraform_output until dns-zone applies.
@@ -198,7 +288,7 @@ flux:
   # by aws-load-balancer-controller. Ordering the controller to tear down
   # after the Service avoids stuck finalizers on destroy.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    when: "cluster.driver == 'eks' && gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     resources:
       - name: external
         when: (dns.public_domain ?? '') != ''
@@ -220,6 +310,7 @@ flux:
   # Identity in system-lb). vpc_id and aws_region pass explicitly: worker
   # hop-limit 1 blocks pod-network IMDS. aws_region has no default.
   - name: lb
+    when: cluster.driver == 'eks'
     install:
       components:
         - aws-lb-controller
@@ -235,6 +326,7 @@ flux:
   # Discovers groups via the k8s.io/cluster-autoscaler tags the aws-eks module
   # applies; authenticates through its Pod Identity association.
   - name: compute
+    when: cluster.driver == 'eks'
     install:
       components:
         - cluster-autoscaler
@@ -248,6 +340,7 @@ flux:
   # CSI — AWS EBS, default block storage on EKS. single_storage_type sets the
   # StorageClass volumeType (gp3 recommended).
   - name: csi
+    when: cluster.driver == 'eks'
     install:
       components:
         - aws-ebs
@@ -259,7 +352,7 @@ flux:
   # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute resources, one instance per zone.
   # IAM comes from the cluster module (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
-    when: "dns_zone_effective.enabled == true || dns.private.driver == 'cloud'"
+    when: "cluster.driver == 'eks' && (dns_zone_effective.enabled == true || dns.private.driver == 'cloud')"
     install:
       timeout: 5m
       interval: 5m
