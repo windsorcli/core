@@ -445,8 +445,8 @@ properties:
   # VSPHERE_ALLOW_UNVERIFIED_SSL); this block carries only the vSphere inventory
   # pointers the facet cannot derive — datacenter, cluster, datastore, and port
   # group. All four are required for compute; `folder` and `resource_pool` are
-  # optional and default to the datacenter root VM folder and the cluster's root
-  # pool respectively.
+  # optional and default to a `windsor-<context id>` VM folder and the cluster's
+  # root pool respectively.
   vsphere:
     type: object
     additionalProperties: false
@@ -475,7 +475,8 @@ properties:
         type: string
         description: >
           VM folder path relative to the datacenter VM folder root
-          (e.g. "prod/talos"). Leave unset to place VMs at the datacenter root.
+          (e.g. "prod/talos"). The folder must already exist. Leave unset to
+          create a `windsor-<context id>` folder for this deployment.
       resource_pool:
         type: string
         description: >
