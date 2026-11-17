@@ -56,7 +56,7 @@ spec:
     image:
       repository: quay.io/cilium/cilium
       # artifact: type=image name=quay.io/cilium/cilium
-      tag: v1.20.3@sha256:95cfa5c2427cc6b452c00908778d0566311f572589284af949d06a013db1a849
+      tag: v1.20.5@sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526
       useDigest: false
 
     certgen:
