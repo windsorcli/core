@@ -71,7 +71,6 @@ terraform:
 
   - name: network
     path: network/aws-vpc
-    when: (network.subnet_id ?? '') == ''
     dependsOn:
       - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
@@ -82,10 +81,10 @@ terraform:
     path: compute/aws-ec2
     dependsOn:
       - "${backend_effective.managed == true ? 'backend' : ''}"
-      - "${(network.subnet_id ?? '') == '' ? 'network' : ''}"
+      - network
     inputs:
       region: ${aws.region}
-      subnet_id: "${network.subnet_id ?? terraform_output('network', 'private_subnet_ids')[0]}"
+      subnet_id: ${terraform_output('network', 'private_subnet_ids')[0]}
       talos_version: ${talos.talos_version}
       controlplanes: ${aws_talos_nodes.controlplanes}
       workers: ${aws_talos_nodes.workers}
@@ -93,12 +92,8 @@ terraform:
       worker_instance_type: ${cluster.workers.instance_type ?? ''}
       controlplane_root_volume:
         size: ${cluster.controlplanes.root_disk_size ?? 100}
-        iops: ${cluster.controlplanes.root_disk_iops ?? 3000}
-        throughput: ${cluster.controlplanes.root_disk_throughput ?? 125}
       worker_root_volume:
         size: ${cluster.workers.root_disk_size ?? 100}
-        iops: ${cluster.workers.root_disk_iops ?? 3000}
-        throughput: ${cluster.workers.root_disk_throughput ?? 125}
       ephemeral: ${ephemeral ?? false}
 
   - name: cluster

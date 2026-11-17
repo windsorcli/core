@@ -9,14 +9,14 @@ or `cluster.workers.nodes` entry declares an address launches at that private IP
 Any other node takes an address from the subnet. The `aws` platform's
 `cluster/talos` step then bootstraps the nodes. A shared security group opens
 the Talos API, the Kubernetes API and NodePorts to the VPC CIDR. Root volumes
-are gp3, sized from each pool's `root_disk_size`, `root_disk_iops` and
-`root_disk_throughput`, and encrypted with a KMS key the module creates. Every
+are gp3, sized from each pool's `root_disk_size` at 3000 IOPS and 125 MB/s,
+and encrypted with a KMS key the module creates. Every
 resource carries the context id tag. When `ephemeral` is true, resources also
 carry `windsorcli.dev/ephemeral` and a fixed `windsorcli.dev/created-at` time
 for cleanup of short-lived nodes.
 
 Enable it with `platform: aws` and `cluster.driver: talos`. Nodes launch in the
-VPC the `network` step creates, or in `network.subnet_id` when it is set. The
+first private subnet of the VPC the `network` step creates. The
 AWS provider authenticates from the context's ambient credentials.
 
 <!-- BEGIN_TF_DOCS -->

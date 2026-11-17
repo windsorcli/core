@@ -144,14 +144,6 @@ $defs:
       type: integer
       minimum: 1
       description: Root/OS disk size in GB
-    root_disk_iops:
-      type: integer
-      minimum: 1
-      description: Provisioned IOPS for the root disk where the platform supports it
-    root_disk_throughput:
-      type: integer
-      minimum: 1
-      description: Provisioned root disk throughput in MB/s where the platform supports it
     disks:
       type: array
       items: *diskItem
@@ -883,13 +875,6 @@ properties:
           conflicts with existing routes on the host. On gcp, 172.16.0.0/12
           is reserved for the cluster's pod and Service ranges, the control
           plane, and Cloud SQL's private service range.
-      subnet_id:
-        type: string
-        pattern: '^subnet-[0-9a-f]+$'
-        description: >
-          Existing AWS subnet for Talos nodes when platform is aws and
-          cluster.driver is talos. When set, Windsor creates no VPC and every
-          declared node address MUST fall inside this subnet.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
