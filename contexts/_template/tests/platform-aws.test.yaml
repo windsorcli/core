@@ -947,3 +947,82 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  - name: network.existing reads the existing VPC instead of creating one
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      network:
+        existing:
+          id: vpc-0a1b2c3d4e5f
+          subnets:
+            public: [subnet-0aaa, subnet-0bbb]
+            private: [subnet-0ccc, subnet-0ddd]
+            isolated: [subnet-0eee, subnet-0fff]
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc-data
+          dependsOn:
+            - backend
+          inputs:
+            vpc_id: vpc-0a1b2c3d4e5f
+            public_subnet_ids: [subnet-0aaa, subnet-0bbb]
+            private_subnet_ids: [subnet-0ccc, subnet-0ddd]
+            isolated_subnet_ids: [subnet-0eee, subnet-0fff]
+        - name: cluster
+          path: cluster/aws-eks
+          dependsOn:
+            - network
+
+  - name: network.existing with only private subnets leaves the other tiers empty
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      network:
+        existing:
+          id: vpc-0a1b2c3d4e5f
+          subnets:
+            private: [subnet-0ccc, subnet-0ddd]
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc-data
+          inputs:
+            vpc_id: vpc-0a1b2c3d4e5f
+            public_subnet_ids: []
+            private_subnet_ids: [subnet-0ccc, subnet-0ddd]
+            isolated_subnet_ids: []
+
+  - name: network.existing without private subnets fails composition
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      network:
+        existing:
+          id: vpc-0a1b2c3d4e5f
+    expectError: true
+
+  - name: network.existing with rds and no isolated subnets fails composition
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      network:
+        existing:
+          id: vpc-0a1b2c3d4e5f
+          subnets:
+            private: [subnet-0ccc, subnet-0ddd]
+      database:
+        postgres:
+          cloud:
+            enabled: true
+            driver: rds
+    expectError: true

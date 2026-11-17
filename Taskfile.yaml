@@ -56,6 +56,11 @@ tasks:
     cmds:
       - scripts/utils-image.sh --check
 
+  network:outputs:check:
+    desc: Verify each terraform/network/*-data module declares the same outputs as its sibling (CI guard)
+    cmds:
+      - scripts/network-output-parity.sh
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

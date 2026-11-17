@@ -578,3 +578,15 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  - name: network.existing on azure fails composition
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      network:
+        existing:
+          id: /subscriptions/0000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet
+          subnets:
+            private: [/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/private]
+    expectError: true

@@ -53,6 +53,7 @@ layer. Links from there land here.
 | [host/incus](host/incus/) | Shared ZFS storage pool on every member of one Incus cluster, kept on destroy. |
 | [host/proxmox](host/proxmox/) | Opt-in image datastore for Proxmox VE, created by one context and kept on destroy. |
 | [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
+| [network/aws-vpc-data](network/aws-vpc-data/) | Reads an existing VPC and its subnets for EKS. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
 | [network/gcp-vpc](network/gcp-vpc/) | VPC, subnets, and firewall rules for GKE. |

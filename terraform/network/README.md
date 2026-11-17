@@ -56,6 +56,28 @@ module also creates a VPC-scoped private Route53 zone so workloads
 inside the VPC resolve internal names. The module also enables VPC
 flow logs (delivered to CloudWatch under a KMS key) for audit.
 
+### Existing AWS VPC
+
+```yaml
+platform: aws
+network:
+  existing:
+    id: vpc-0a1b2c3d4e5f
+    subnets:
+      public:   [subnet-0aaa, subnet-0bbb]
+      private:  [subnet-0ccc, subnet-0ddd]
+      isolated: [subnet-0eee, subnet-0fff]
+```
+
+Setting `network.existing.id` swaps `aws-vpc` for `aws-vpc-data`
+under the same `network` step. The module reads the VPC and subnets
+through data sources and creates only the RDS DB subnet group, so
+`windsor destroy` leaves the network in place. `network.cidr_block`
+is ignored. Cluster nodes go in the `private` subnets, which must span
+at least two availability zones. RDS needs `isolated` subnets across
+two zones. `public` may be empty. One subnet may appear in more than
+one tier when the network has fewer than three.
+
 ### Azure VNet
 
 ```mermaid
@@ -123,6 +145,12 @@ The AWS VPC module's `azs`, `public_subnets`, and `private_subnets`
 lists are positional. Entry `i` of each list describes the same AZ. A
 length mismatch is an error at plan time.
 
+In an existing AWS VPC, the network owner provides egress, flow logs,
+and the private Route53 zone. Size the private subnets for nodes plus
+pods, since the VPC CNI gives every pod a subnet address. A `/26` per
+AZ caps the cluster near sixty pods, and the failure shows up as
+Pending pods long after apply succeeds.
+
 ## Security
 
 VPC private subnets have no public IPs and no inbound routes from the
@@ -140,6 +168,7 @@ the subnet layer.
 
 ## Modules
 
+- [aws-vpc-data](aws-vpc-data/) — Reads an existing VPC and its subnets for EKS.
 - [aws-vpc](aws-vpc/) — VPC + public/private subnets + NAT for EKS.
 - [azure-vnet](azure-vnet/) — VNet + subnets for AKS.
 - [gcp-vpc](gcp-vpc/) — VPC, subnets, and firewall rules for GKE.

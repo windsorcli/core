@@ -85,6 +85,9 @@ jobs:
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
+      - name: Validate network output parity
+        run: task network:outputs:check
+
       # Regenerate vendored files from source.yaml and fail if the tree drifts.
       - name: Validate vendored assets
         run: |

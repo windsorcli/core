@@ -20,6 +20,15 @@ requires:
     paths:
       - email
     message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
+  - when: (network.existing.id ?? '') != ''
+    paths:
+      - network.existing.subnets.private
+    message: Deploying into an existing network needs the subnets to place cluster nodes in.
+  - when: >-
+      (network.existing.id ?? '') != '' && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
+    paths:
+      - network.existing.subnets.isolated
+    message: RDS in an existing network needs isolated subnets for its DB subnet group.
 
 # =============================================================================
 # Config
@@ -66,6 +75,7 @@ terraform:
   # VPC with the requested CIDR. domain_name feeds the private VPC-scoped
   # Route53 zone (from dns.private_domain); the public zone lives in dns-zone.
   - name: network
+    when: (network.existing.id ?? '') == ''
     path: network/aws-vpc
     dependsOn:
       - "${backend_effective.managed == true ? 'backend' : ''}"
@@ -75,6 +85,17 @@ terraform:
       # Cheap default runs a single shared NAT gateway; topology: ha lights up
       # one NAT per AZ. The subnet footprint stays multi-AZ either way.
       single_nat_gateway: "${topology != 'ha'}"
+
+  - name: network
+    when: (network.existing.id ?? '') != ''
+    path: network/aws-vpc-data
+    dependsOn:
+      - "${backend_effective.managed == true ? 'backend' : ''}"
+    inputs:
+      vpc_id: ${network.existing.id}
+      public_subnet_ids: ${network.existing.subnets.public ?? []}
+      private_subnet_ids: ${network.existing.subnets.private ?? []}
+      isolated_subnet_ids: ${network.existing.subnets.isolated ?? []}
 
   # Public Route53 zone when dns_zone_effective is enabled. Own stack so its
   # lifecycle (and NS delegation) is independent of the cluster's.
