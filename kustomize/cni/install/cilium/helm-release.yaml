@@ -50,7 +50,7 @@ spec:
         # The chart appends -generic to the repository.
         repository: quay.io/cilium/operator
         # artifact: type=image name=quay.io/cilium/operator-generic
-        tag: v1.20.3@sha256:efdd8d89d6d8f63d21a065fa2f9e17614a2b3ac9371b221af9355f63829e2dbc
+        tag: v1.20.5@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4
         useDigest: false
 
     image:
