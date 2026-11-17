@@ -115,8 +115,8 @@ run "controlplane_from_ova" {
   }
 
   assert {
-    condition     = vsphere_virtual_machine.instances["controlplane"].annotation == "Talos control plane node"
-    error_message = "annotation should carry the instance notes"
+    condition     = vsphere_virtual_machine.instances["controlplane"].annotation == "Talos control plane node\nwindsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "annotation should carry the instance notes and windsor lines"
   }
 
   assert {
@@ -752,5 +752,44 @@ run "name_suffix" {
   assert {
     condition     = vsphere_virtual_machine.instances["cp"].name == "cp-ctx1"
     error_message = "VM name should carry name_suffix"
+  }
+
+  assert {
+    condition     = output.instances[0].hostname == "cp"
+    error_message = "Output hostname should stay unsuffixed"
+  }
+}
+
+# Annotation: VM notes carry the context id and managed-by lines after any instance notes.
+run "annotation_context_id" {
+  command = plan
+
+  variables {
+    instances = [
+      {
+        name   = "cp"
+        role   = "controlplane"
+        count  = 1
+        cpu    = 2
+        memory = 4
+        notes  = "Talos control plane node"
+      },
+      {
+        name   = "vm"
+        count  = 1
+        cpu    = 2
+        memory = 4
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["cp"].annotation == "Talos control plane node\nwindsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "Annotation should append context id and managed-by to instance notes"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["vm"].annotation == "windsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "Annotation without notes should hold only the windsor lines"
   }
 }

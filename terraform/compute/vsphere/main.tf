@@ -272,7 +272,7 @@ resource "vsphere_virtual_machine" "instances" {
 
   num_cpus   = each.value.cpu
   memory     = each.value.memory * 1024
-  annotation = each.value.notes
+  annotation = join("\n", compact([each.value.notes, "windsorcli.dev/context-id: ${local.context_effective}", "windsorcli.dev/managed-by: windsor"]))
 
   network_interface {
     network_id   = data.vsphere_network.this.id
