@@ -150,11 +150,8 @@ resource "null_resource" "node_healthcheck" {
     # delivery) the trigger is constant — the config can't drift here.
     config_hash = try(sha256(talos_machine_configuration_apply.this[0].machine_configuration), "skipped")
 
-    # Re-run when the Talos version changes: it reboots the node, or replaces it
-    # where the version is the node image (compute/docker). The triggers above
-    # miss that (var.node keeps the reused IP, the machineconfig is unchanged),
-    # so a replaced node only surfaced as a downstream failure against an
-    # unreachable API.
+    # Re-run when the Talos version changes, so a replaced node (compute/docker
+    # image) is checked again. In-place upgrades run from cluster/talos.
     talos_version = var.talos_version
 
     # Re-run whenever the underlying compute instance is replaced for any other

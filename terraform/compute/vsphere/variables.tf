@@ -35,7 +35,13 @@ variable "network" {
 }
 
 variable "folder" {
-  description = "VM folder path relative to the datacenter VM folder root. Empty string places VMs at the datacenter root"
+  description = "VM folder path relative to the datacenter VM folder root. The folder must already exist. Empty string creates and uses `windsor-<context_id>`"
+  type        = string
+  default     = ""
+}
+
+variable "name_suffix" {
+  description = "Suffix appended to each VM name. Output hostnames stay unsuffixed."
   type        = string
   default     = ""
 }

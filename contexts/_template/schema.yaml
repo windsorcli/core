@@ -445,8 +445,8 @@ properties:
   # VSPHERE_ALLOW_UNVERIFIED_SSL); this block carries only the vSphere inventory
   # pointers the facet cannot derive — datacenter, cluster, datastore, and port
   # group. All four are required for compute; `folder` and `resource_pool` are
-  # optional and default to the datacenter root VM folder and the cluster's root
-  # pool respectively.
+  # optional and default to a `windsor-<context id>` VM folder and the cluster's
+  # root pool respectively.
   vsphere:
     type: object
     additionalProperties: false
@@ -475,7 +475,8 @@ properties:
         type: string
         description: >
           VM folder path relative to the datacenter VM folder root
-          (e.g. "prod/talos"). Leave unset to place VMs at the datacenter root.
+          (e.g. "prod/talos"). The folder must already exist. Leave unset to
+          create a `windsor-<context id>` folder for this deployment.
       resource_pool:
         type: string
         description: >
@@ -577,21 +578,26 @@ properties:
           type: string
           minLength: 1
         minItems: 1
-        description: Member names of one Incus cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Repeating a name gives that member more VMs. Unset leaves placement to Incus.
+        description: Member names of one Incus cluster. Control plane N and worker N take entry (N - 1) modulo the list length. Repeating a name gives that member more VMs. Unset places the VMs round-robin on every member.
       network:
         type: string
         minLength: 1
+        default: lan
         description: >-
-          Existing network the VMs attach to, defined on every member (e.g. a
-          macvlan or bridge network on the LAN). Incus serves no DHCP on it, so
-          each node MUST declare its address in cluster.controlplanes.nodes or
-          cluster.workers.nodes, reserved on the LAN's DHCP server. Unset creates
-          a NAT bridge from network.cidr_block.
+          Host bridge on every member that the VMs attach to. Incus serves no
+          DHCP on it, so each node MUST declare its address in
+          cluster.controlplanes.nodes or cluster.workers.nodes, reserved on the
+          LAN's DHCP server. nat creates a NAT bridge from network.cidr_block
+          instead.
       storage_pool:
         type: string
         minLength: 1
-        default: default
-        description: Existing storage pool for root and data disks, present on every member. IncusOS names its pool local.
+        default: local
+        description: Storage pool for root and data disks, present on every member. IncusOS creates local.
+      host:
+        type: boolean
+        default: false
+        description: Creates storage_pool on every member from the IncusOS volume <storage_pool>/incus. Set in one context per cluster. Kept on destroy.
     description: Incus infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

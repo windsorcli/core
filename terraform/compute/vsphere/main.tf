@@ -297,7 +297,7 @@ resource "vsphere_virtual_machine" "instances" {
   for_each   = local.instances_by_name
   depends_on = [vsphere_folder.vm]
 
-  name             = each.value.name
+  name             = "${each.value.name}${var.name_suffix}"
   resource_pool_id = local.resource_pool_id
   datastore_id     = data.vsphere_datastore.this.id
   host_system_id   = data.vsphere_host.this.id
@@ -306,7 +306,7 @@ resource "vsphere_virtual_machine" "instances" {
 
   num_cpus   = each.value.cpu
   memory     = each.value.memory * 1024
-  annotation = each.value.notes
+  annotation = join("\n", compact([each.value.notes, "windsorcli.dev/context-id: ${local.context_effective}", "windsorcli.dev/managed-by: windsor"]))
 
   network_interface {
     network_id   = data.vsphere_network.this.id
@@ -356,6 +356,27 @@ resource "vsphere_virtual_machine" "instances" {
   }
 }
 
+# The terraform_data holds the control-plane VM IDs that trigger replacement of the anti-affinity rule.
+resource "terraform_data" "controlplane_ids" {
+  count = length(local.controlplane_nodes) > 1 ? 1 : 0
+
+  input = [for k in sort(keys(local.controlplane_nodes)) : vsphere_virtual_machine.instances[k].id]
+}
+
+# The vsphere_compute_cluster_vm_anti_affinity_rule asks DRS to run each control-plane VM on a separate host.
+resource "vsphere_compute_cluster_vm_anti_affinity_rule" "controlplane" {
+  count = length(local.controlplane_nodes) > 1 ? 1 : 0
+
+  name                = "windsor-${local.context_effective}-controlplane"
+  compute_cluster_id  = data.vsphere_compute_cluster.this.id
+  virtual_machine_ids = terraform_data.controlplane_ids[0].output
+  mandatory           = false
+
+  lifecycle {
+    replace_triggered_by = [terraform_data.controlplane_ids]
+  }
+}
+
 # =============================================================================
 # IP Derivation
 # =============================================================================
@@ -383,7 +404,7 @@ locals {
   instances_output = [
     for k, v in vsphere_virtual_machine.instances : {
       name     = v.name
-      hostname = v.name
+      hostname = k
       ipv4     = local.instance_ips[k]
       ipv6     = local.instance_ipv6s[k]
       status   = v.power_state
@@ -395,7 +416,7 @@ locals {
 
   controlplanes_output = [
     for k, v in vsphere_virtual_machine.instances : {
-      hostname = v.name
+      hostname = k
       endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name
@@ -410,7 +431,7 @@ locals {
 
   workers_output = [
     for k, v in vsphere_virtual_machine.instances : {
-      hostname = v.name
+      hostname = k
       endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name

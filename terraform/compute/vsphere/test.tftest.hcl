@@ -115,8 +115,8 @@ run "controlplane_from_ova" {
   }
 
   assert {
-    condition     = vsphere_virtual_machine.instances["controlplane"].annotation == "Talos control plane node"
-    error_message = "annotation should carry the instance notes"
+    condition     = vsphere_virtual_machine.instances["controlplane"].annotation == "Talos control plane node\nwindsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "annotation should carry the instance notes and windsor lines"
   }
 
   assert {
@@ -273,6 +273,69 @@ run "count_expansion" {
   assert {
     condition     = contains(keys(vsphere_virtual_machine.instances), "worker-1") && contains(keys(vsphere_virtual_machine.instances), "worker-2") && contains(keys(vsphere_virtual_machine.instances), "worker-3")
     error_message = "Pool VMs should be named worker-1, worker-2, worker-3"
+  }
+}
+
+# A single control plane gets no anti-affinity rule.
+run "controlplane_anti_affinity_single" {
+  command = plan
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 2, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane) == 0
+    error_message = "One control plane should produce no anti-affinity rule"
+  }
+}
+
+# Three control planes get one soft rule that lists only the control-plane VMs.
+run "controlplane_anti_affinity_ha" {
+  command = apply
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 3, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 2, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = length(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane) == 1
+    error_message = "Three control planes should produce one anti-affinity rule"
+  }
+
+  assert {
+    condition     = vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].name == "windsor-test-controlplane"
+    error_message = "Rule name should be windsor-<context>-controlplane"
+  }
+
+  assert {
+    condition     = vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].compute_cluster_id == "cluster-01"
+    error_message = "Rule should target the looked-up compute cluster"
+  }
+
+  assert {
+    condition     = !vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].mandatory
+    error_message = "Rule should be soft so co-located VMs can power on"
+  }
+
+  assert {
+    condition = toset(vsphere_compute_cluster_vm_anti_affinity_rule.controlplane[0].virtual_machine_ids) == toset([
+      for k in ["controlplane-1", "controlplane-2", "controlplane-3"] : vsphere_virtual_machine.instances[k].id
+    ])
+    error_message = "Rule should list exactly the three control-plane VM IDs"
+  }
+
+  assert {
+    condition = terraform_data.controlplane_ids[0].output == [
+      for k in ["controlplane-1", "controlplane-2", "controlplane-3"] : vsphere_virtual_machine.instances[k].id
+    ]
+    error_message = "Replacement trigger should hold only the control-plane VM IDs"
   }
 }
 
@@ -714,5 +777,67 @@ run "volumes_and_disks_baked" {
   assert {
     condition     = length([for p in data.talos_machine_configuration.worker["worker"].config_patches : p if try(yamldecode(p).volumeType, "") == "disk"]) == 1
     error_message = "Worker device disk should bake as a raw block volume"
+  }
+}
+
+# name_suffix: the VM name carries the suffix, the instance key does not.
+run "name_suffix" {
+  command = plan
+
+  variables {
+    name_suffix = "-ctx1"
+    instances = [
+      {
+        name   = "cp"
+        role   = "controlplane"
+        count  = 1
+        cpu    = 2
+        memory = 4
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["cp"].name == "cp-ctx1"
+    error_message = "VM name should carry name_suffix"
+  }
+
+  assert {
+    condition     = output.instances[0].hostname == "cp"
+    error_message = "Output hostname should stay unsuffixed"
+  }
+}
+
+# Annotation: VM notes carry the context id and managed-by lines after any instance notes.
+run "annotation_context_id" {
+  command = plan
+
+  variables {
+    instances = [
+      {
+        name   = "cp"
+        role   = "controlplane"
+        count  = 1
+        cpu    = 2
+        memory = 4
+        notes  = "Talos control plane node"
+      },
+      {
+        name   = "vm"
+        count  = 1
+        cpu    = 2
+        memory = 4
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["cp"].annotation == "Talos control plane node\nwindsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "Annotation should append context id and managed-by to instance notes"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["vm"].annotation == "windsorcli.dev/context-id: test\nwindsorcli.dev/managed-by: windsor"
+    error_message = "Annotation without notes should hold only the windsor lines"
   }
 }

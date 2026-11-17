@@ -163,7 +163,7 @@ flux:
     install:
       components:
         - "${database.postgres.enabled == true ? 'cloudnativepg' : ''}"
-        - "${database.postgres.enabled == true ? 'cloudnativepg/prometheus' : ''}"
+        - "${database.postgres.enabled == true && telemetry.metrics.enabled ? 'cloudnativepg/prometheus' : ''}"
         - "${database.postgres.enabled == true && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
       timeout: 15m
       interval: 10m

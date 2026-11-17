@@ -228,15 +228,18 @@ jobs:
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
   # chart and image pulled from a workstation registry.
+  # Each leg is a checked-in context under contexts/<name>/values.yaml:
+  # monk (fresh, identity, lean),
+  # brodie (upgrade), butcher (registry, flannel and envoy).
   integration:
-    name: Integration (${{ matrix.mode }})
+    name: Integration (${{ matrix.name }})
     runs-on: ubuntu-latest
     needs: [grafana-plugins, utils-image]
     timeout-minutes: ${{ matrix.mode == 'registry' && 90 || 45 }}
     strategy:
       fail-fast: false
       matrix:
-        mode: ${{ fromJSON((github.event_name == 'pull_request' && '["fresh","upgrade"]') || (github.event_name != 'push' && '["registry"]') || (startsWith(github.ref, 'refs/tags/v') && '["fresh","registry"]') || '["fresh"]') }}
+        include: ${{ fromJSON((github.event_name == 'pull_request' && '[{"name":"monk","mode":"fresh"},{"name":"brodie","mode":"upgrade"}]') || (github.event_name != 'push' && '[{"name":"butcher","mode":"registry"}]') || (startsWith(github.ref, 'refs/tags/v') && '[{"name":"monk","mode":"fresh"},{"name":"butcher","mode":"registry"}]') || '[{"name":"monk","mode":"fresh"}]') }}
     steps:
 
       # -----------------------------------------------------------------------
@@ -297,7 +300,7 @@ jobs:
         uses: windsorcli/action@main
         with:
           ref: main
-          context: local
+          context: ${{ matrix.name }}
 
       - name: Create docker cache directory
         run: mkdir -p .windsor/cache/docker
@@ -323,13 +326,16 @@ jobs:
           git fetch origin main
           git checkout origin/main
 
-      # CPU/memory are pinned to the runner's capacity.
+      # origin/main has no contexts/${{ matrix.name }}, so the baseline reads HEAD's values.yaml.
       # Falls back without gitops.concurrency if origin/main predates it.
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
-          windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2 \
-            || windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
+          values=contexts/${{ matrix.name }}/values.yaml
+          mkdir -p "$(dirname "$values")"
+          git show ${{ github.sha }}:"$values" > "$values"
+          windsor init ${{ matrix.name }} --reset \
+            || { yq -i 'del(.gitops.concurrency)' "$values"; windsor init ${{ matrix.name }} --reset; }
 
       - name: Baseline — Show blueprint
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
@@ -350,7 +356,7 @@ jobs:
         id: baseline_rev
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true' && steps.infra_diff.outputs.expect_bump == 'true'
         run: |
-          rev=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+          rev=$(windsor exec -- kubectl get gitrepository ${{ matrix.name }} -n system-gitops \
             -o jsonpath='{.status.artifact.revision}')
           if [ -z "$rev" ]; then
             echo "Failed to read GitRepository revision"
@@ -373,11 +379,11 @@ jobs:
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor plan
 
-      # CPU/memory are pinned to the runner's capacity.
+      # CPU and memory in the leg's values.yaml are pinned to the runner's capacity.
       - name: Windsor Init
         if: matrix.mode != 'upgrade'
         run: >-
-          windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
+          windsor init ${{ matrix.name }} --reset
           ${{ matrix.mode == 'registry' && '--set charts.registry=charts.test:5000/windsor' || '' }}
 
       - name: Show blueprint
@@ -389,7 +395,7 @@ jobs:
         id: prepare_registry
         if: matrix.mode == 'registry'
         run: |
-          yq -i '.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/local/values.yaml
+          yq -i '.registries = {"*": {"endpoint": "http://charts.test:5000/windsor"}}' contexts/${{ matrix.name }}/values.yaml
           windsor apply terraform workstation
           echo "ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' charts.test | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
@@ -432,7 +438,7 @@ jobs:
         run: |
           echo "Waiting for GitRepository revision to advance past: $BASELINE_REV"
           for i in $(seq 1 60); do
-            cur=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+            cur=$(windsor exec -- kubectl get gitrepository ${{ matrix.name }} -n system-gitops \
               -o jsonpath='{.status.artifact.revision}' 2>/dev/null || true)
             if [ -n "$cur" ] && [ "$cur" != "$BASELINE_REV" ]; then
               echo "GitRepository advanced to: $cur (poll $i)"
@@ -479,7 +485,7 @@ jobs:
       - name: Collect Windsor State
         if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
-          tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+          tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/${{ matrix.name }} .windsor
 
       - name: Collect Talos Diagnostics
         if: always() && steps.infra_diff.outputs.skip != 'true'
@@ -546,7 +552,7 @@ jobs:
 
       - name: Investigate failure with Claude
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: anthropics/claude-code-action@d5f7970ae232b6039636a16ea7f251e58e814f38 # v1.0.272
+        uses: anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452 # v1.0.278
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
@@ -695,7 +701,7 @@ jobs:
       - name: Windsor Down
         if: always()
         run: |
-          windsor destroy --confirm local || true
+          windsor destroy --confirm ${{ matrix.name }} || true
 
           windsor down
 

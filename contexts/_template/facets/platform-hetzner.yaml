@@ -19,7 +19,7 @@ requires:
       tls_effective.public_acme == true
     paths:
       - email
-    message: Public DNS requires an operator email for TLS certificate registration.
+    message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
   - when: (dns.private_domain ?? '') != '' && dev != true
     message: Hetzner has no private DNS and no internal gateway; unset dns.private_domain and use dns.public_domain.
   - when: >-
@@ -247,10 +247,9 @@ terraform:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))}
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}"
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       # The oidc patch drops its "machine:" header to nest under the control-plane patch's header.
       controlplane_config_patches: >-
