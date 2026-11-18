@@ -65,10 +65,6 @@ flux:
         private_domain: ${dns.private_domain}
         public_domain: "${dns_private_effective.public_zone == true ? dns.public_domain : ''}"
         dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
-      healthCheckExprs:
-        - apiVersion: postgresql.cnpg.io/v1
-          kind: Cluster
-          current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
       timeout: 20m
       interval: 5m
     # One external-dns instance per zone, writing to the server's backend.
@@ -91,8 +87,6 @@ flux:
           external_dns_name: external-dns-public
           external_dns_domain: "${dns.public_domain ?? ''}"
           txt_owner_id: "${id}"
-          pdns_url: "${dns.private.pdns.url ?? ''}"
-          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
       - name: private
@@ -107,10 +101,31 @@ flux:
           external_dns_name: external-dns-private
           external_dns_domain: ${dns.private_domain}
           txt_owner_id: "${id}"
-          pdns_url: "${dns.private.pdns.url ?? ''}"
-          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
         timeout: 5m
         interval: 5m
+
+  # Gates the dns install on the PowerDNS database Cluster.
+  - name: dns
+    when: dns.private.driver == 'pdns'
+    install:
+      healthCheckExprs:
+        - apiVersion: postgresql.cnpg.io/v1
+          kind: Cluster
+          current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+
+  # Server settings for the pdns-remote external-dns provider.
+  - name: dns
+    when: dns.private.driver == 'pdns-remote'
+    resources:
+      - name: public
+        when: dns_private_effective.public_zone == true
+        substitutions:
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
+      - name: private
+        substitutions:
+          pdns_url: "${dns.private.pdns.url ?? ''}"
+          pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
 
   # PowerDNS API key, supplied case.
   - name: dns

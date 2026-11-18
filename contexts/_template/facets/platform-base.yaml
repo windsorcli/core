@@ -563,7 +563,14 @@ flux:
           - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
           - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
           - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
-        substitutions:
+        timeout: 10m
+        interval: 5m
+
+  # Slack alert routing substitutions, present only with the Slack component.
+  - name: telemetry
+    when: (telemetry.metrics.enabled ?? true) && (telemetry.alerts.slack.webhook_url ?? '') != ''
+    resources:
+      - substitutions:
           # Only two severities exist in the enum, so "2 or more selected"
           # and "both" are equivalent -- no join() needed for this bounded case.
           #
@@ -584,8 +591,6 @@ flux:
               ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
                     ? (dns.private_domain ?? '')
                     : dns.public_domain))}
-        timeout: 10m
-        interval: 5m
 
   # Slack alert routing secret. Gated on a configured webhook so the bare
   # sensitive reference (the composer rejects a ?? fallback, the materializer
@@ -617,18 +622,34 @@ flux:
           - "${tls_effective.private_acme == true ? 'private-issuer/acme' : ''}"
           - "${tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != '' ? 'private-issuer/acme/eab' : ''}"
           - "${tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != '' ? 'private-issuer/acme/ca-bundle' : ''}"
-        substitutions:
-          private_acme_server: "${pki.acme.server ?? ''}"
-          private_acme_email: "${email ?? ''}"
-          private_acme_eab_key_id: "${pki.acme.eab.key_id ?? ''}"
-          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
-          private_acme_ca_bundle: >-
-            ${(pki.acme.ca_bundle ?? '') == '' ? '' :
-            (hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
-            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
-            toBase64(pki.acme.ca_bundle))}
         timeout: 5m
         interval: 5m
+
+  # Private ACME issuer settings, present only with the private-issuer/acme component.
+  - name: pki
+    when: tls_effective.private_acme == true
+    resources:
+      - substitutions:
+          private_acme_server: "${pki.acme.server ?? ''}"
+          private_acme_email: "${email ?? ''}"
+
+  # EAB key ID, present only with the private-issuer/acme/eab component.
+  - name: pki
+    when: tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != ''
+    resources:
+      - substitutions:
+          private_acme_eab_key_id: "${pki.acme.eab.key_id}"
+
+  # CA bundle, present only with the private-issuer/acme/ca-bundle component.
+  - name: pki
+    when: tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != ''
+    resources:
+      - substitutions:
+          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
+          private_acme_ca_bundle: >-
+            ${hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
+            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
+            toBase64(pki.acme.ca_bundle)}
 
   # EAB HMAC key for the private-acme ClusterIssuer.
   - name: pki
