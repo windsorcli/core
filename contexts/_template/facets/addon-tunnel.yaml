@@ -26,8 +26,6 @@ requires:
     message: A tunnel connects to the gateway over HTTPS; remove gateway.external.https or set it to true.
   - when: platform in ['aws', 'azure', 'gcp', 'hetzner'] && (dns.public_zone ?? true) == true
     message: A tunnel serves the public domain from its own DNS zone. Set dns.public_zone to false.
-  - when: (dns.public.driver ?? '') == 'cloudflare' && tunnel.driver == 'cloudflare'
-    message: The cloudflare tunnel writes its own DNS record; unset dns.public.driver or choose another tunnel driver.
 
 # =============================================================================
 # Config

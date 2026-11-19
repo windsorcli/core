@@ -339,14 +339,25 @@ cases:
       cluster: *default-cluster
     expectError: true
 
-  - name: tunnel with a cloudflare public dns driver fails composition
+  - name: cloudflare tunnel coexists with the cloudflare dns driver
     values:
       platform: metal
+      email: ops@example.com
       dns:
         public_domain: example.com
         public:
           driver: cloudflare
+          cloudflare:
+            api_token: test-token
       tunnel: *default-tunnel
       network: *default-network
       cluster: *default-cluster
-    expectError: true
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+        - name: tunnel
+          path: tunnel/cloudflare
