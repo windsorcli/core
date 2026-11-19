@@ -1,0 +1,16 @@
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        name: envoy-${gateway_name}
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              type: ClusterIP
