@@ -279,10 +279,14 @@ config:
   - name: dns_zone_effective
     value:
       driver: "${dns.public.driver ?? (platform in ['aws', 'azure', 'gcp', 'hetzner'] ? 'cloud' : 'none')}"
+  # certificate_only: the Cloudflare zone serves DNS-01 for the internal gateway and holds no records.
+  - name: dns_zone_effective
+    value:
+      certificate_only: "${dns_zone_effective.driver == 'cloudflare' && (dns.public_domain ?? '') == ''}"
   - name: dns_zone_effective
     value:
       cloud: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloud'}"
-      cloudflare: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloudflare'}"
+      cloudflare: "${(dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloudflare') || dns_zone_effective.certificate_only == true}"
 
   # ClusterIssuer each gateway certificate uses, inferred unless gateway.<name>.tls.issuer overrides it.
   - name: tls_effective
@@ -305,7 +309,8 @@ config:
         (tls_effective.internal_override == 'ca' ? 'private' :
         (tls_effective.internal_acme == true ? 'private-acme' :
         (tls_effective.private_subdomain == true && dns_zone_effective.cloud == true ? 'public-acme' :
-        (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private'))))}
+        (dns_zone_effective.certificate_only == true ? 'public-acme' :
+        (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private')))))}
   # Which ClusterIssuers some gateway domain needs.
   - name: tls_effective
     value:

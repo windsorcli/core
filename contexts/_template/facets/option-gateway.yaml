@@ -88,10 +88,12 @@ requires:
   - when: >-
       gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
       (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
+      dns_zone_effective.certificate_only != true &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
     message: >-
-      gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
-      dns.public_domain zone on aws, azure, gcp, hetzner, or dns.public.driver cloudflare.
+      gateway.internal.tls.issuer acme needs pki.acme.server, dns.public.driver cloudflare without
+      dns.public_domain, or a dns.private_domain under a dns.public_domain zone on aws, azure, gcp,
+      hetzner, or dns.public.driver cloudflare.
   - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
     message: Hetzner has no internal gateway; remove gateway.internal.enabled.
   - when: >-

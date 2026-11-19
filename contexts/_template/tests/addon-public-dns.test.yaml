@@ -420,3 +420,260 @@ cases:
           install:
             components:
               - cert-manager
+
+  # Certificate-only mode: the cloudflare driver without dns.public_domain.
+  - name: certificate-only mode on metal issues the internal certificate with no external-dns
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+          inputs:
+            domain_name: example.com
+            create_zone: "false"
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+                gateway_domain: home.example.com
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/public-resolvers
+          resources:
+            - components:
+                - public-issuer/acme/cloudflare
+              substitutions:
+                acme_dns_zone: home.example.com
+    exclude:
+      flux:
+        - name: dns
+          resources:
+            - name: cloudflare
+        - name: gateway
+          resources:
+            - name: external
+
+  - name: certificate-only mode on incus issues the internal certificate from public ACME
+    values:
+      platform: incus
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+
+  - name: certificate-only mode on proxmox issues the internal certificate from public ACME
+    values:
+      platform: proxmox
+      proxmox:
+        nodes: [pve]
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+
+  - name: certificate-only mode without zone_name fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public: *default-cloudflare
+    expectError: true
+
+  - name: certificate-only mode without dns.private_domain fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      dns:
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with a private domain outside the zone fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.net
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with the gateway disabled fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        enabled: false
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with an internal selfsigned issuer fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+          tls:
+            issuer: selfsigned
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with http on the internal gateway fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+          https: false
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with pki.acme.server fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      pki:
+        acme:
+          server: https://acme.example.com/directory
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    expectError: true
+
+  - name: certificate-only mode with proxied fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+            proxied: true
+    expectError: true
+
+  - name: the cloud driver without dns.public_domain still fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      email: ops@example.com
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloud
+    expectError: true
