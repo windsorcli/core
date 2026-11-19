@@ -353,6 +353,24 @@ without `devices.enabled`.
 - NVIDIA, AMD, Incus passthrough, and Proxmox passthrough ship without a
   live run. Their schema descriptions MUST say that they are untested.
 
+### 10. Path to DRA
+
+DRA is the target for device allocation. A class moves from its device
+plugin to a DRA driver only when all of these hold:
+
+1. A released DRA driver covers the class and runs on the Talos version that
+   `core` pins.
+2. The driver shares one device between pods in different namespaces, through
+   consumable capacity (KEP-5075) or an equal mechanism.
+3. A pod keeps the resource names from section 2 in `resources.limits`,
+   through extended resources backed by DRA (KEP-5004), or the move ADR gives
+   `home` a migration.
+
+NVIDIA is expected to meet these first, because its GPU allocation is GA.
+Intel follows when its driver drops the beta notice. The serial class waits
+for a DRA driver for host devices. The labels from section 1 stay the same
+after any move.
+
 ## Consequences
 
 - A `home` facet requests a resource and sets a `nodeSelector` default from
