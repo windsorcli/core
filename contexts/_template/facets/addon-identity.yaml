@@ -66,7 +66,7 @@ flux:
       # Postgres, gated on the Cluster's Ready condition.
       - name: database
         dependsOn:
-          - database-install
+          - database-resources-catalog
         components:
           - keycloak/database
           - "${topology == 'ha' ? 'keycloak/database/ha' : ''}"

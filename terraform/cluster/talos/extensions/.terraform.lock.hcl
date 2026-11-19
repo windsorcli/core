@@ -3,7 +3,7 @@
 
 provider "registry.terraform.io/hashicorp/null" {
   version     = "3.3.2"
-  constraints = "~> 3.2"
+  constraints = "3.3.2"
   hashes = [
     "h1:/Wbz7DHFO92KAqyDBMxGA8nwOJYECM8iLGhR7+wVWhQ=",
     "h1:3y/zmxYOtey/14pweSJupXvF1YsKqlc1b0HCO6pTAbY=",

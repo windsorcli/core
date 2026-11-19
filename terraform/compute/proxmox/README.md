@@ -158,7 +158,7 @@ firmware, the `host` CPU type, and a SCSI cloud-init drive. The amd64 defaults a
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | ~> 0.116 |
+| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | 0.116.0 |
 
 ## Providers
 
@@ -174,15 +174,15 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [proxmox_download_file.extra_images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
-| [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
-| [proxmox_virtual_environment_pool.windsor](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_pool) | resource |
-| [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm) | resource |
-| [proxmox_datastores.extra](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
-| [proxmox_datastores.node](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/datastores) | data source |
-| [proxmox_virtual_environment_nodes.cluster](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_nodes) | data source |
-| [proxmox_virtual_environment_pools.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_pools) | data source |
-| [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
+| [proxmox_download_file.extra_images](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/resources/download_file) | resource |
+| [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/resources/download_file) | resource |
+| [proxmox_virtual_environment_pool.windsor](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/resources/virtual_environment_pool) | resource |
+| [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/resources/virtual_environment_vm) | resource |
+| [proxmox_datastores.extra](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/data-sources/datastores) | data source |
+| [proxmox_datastores.node](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/data-sources/datastores) | data source |
+| [proxmox_virtual_environment_nodes.cluster](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/data-sources/virtual_environment_nodes) | data source |
+| [proxmox_virtual_environment_pools.existing](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/data-sources/virtual_environment_pools) | data source |
+| [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/data-sources/virtual_environment_vms) | data source |
 
 ## Inputs
 

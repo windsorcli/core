@@ -54,13 +54,13 @@ not install Proxmox or form a cluster.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | ~> 0.116 |
+| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | 0.116.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_proxmox"></a> [proxmox](#provider\_proxmox) | ~> 0.116 |
+| <a name="provider_proxmox"></a> [proxmox](#provider\_proxmox) | 0.116.0 |
 
 ## Modules
 
@@ -70,7 +70,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [proxmox_storage_directory.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/storage_directory) | resource |
+| [proxmox_storage_directory.images](https://registry.terraform.io/providers/bpg/proxmox/0.116.0/docs/resources/storage_directory) | resource |
 
 ## Inputs
 

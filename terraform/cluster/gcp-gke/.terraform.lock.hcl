@@ -33,7 +33,7 @@ provider "registry.terraform.io/hashicorp/google" {
 
 provider "registry.terraform.io/hashicorp/null" {
   version     = "3.3.2"
-  constraints = "~> 3.2"
+  constraints = "3.3.2"
   hashes = [
     "h1:/Wbz7DHFO92KAqyDBMxGA8nwOJYECM8iLGhR7+wVWhQ=",
     "h1:3y/zmxYOtey/14pweSJupXvF1YsKqlc1b0HCO6pTAbY=",
@@ -65,7 +65,7 @@ provider "registry.terraform.io/hashicorp/null" {
 
 provider "registry.terraform.io/hashicorp/time" {
   version     = "0.14.2"
-  constraints = "~> 0.13"
+  constraints = "0.14.2"
   hashes = [
     "h1:gnP2hptiFIHSHUFBvAFKhE/Yh5u5yVEx+P7XSB58A/E=",
     "zh:0aa1028d91041f4dceba193e3707dac57358d0063d97e20700e554758b67baca",

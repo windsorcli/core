@@ -23,7 +23,7 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.9.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
 
 ## Providers
 
@@ -39,20 +39,20 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/nat_gateway) | resource |
-| [azurerm_nat_gateway_public_ip_association.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/nat_gateway_public_ip_association) | resource |
-| [azurerm_private_dns_zone.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
-| [azurerm_private_dns_zone_virtual_network_link.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) | resource |
-| [azurerm_public_ip.nat](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/public_ip) | resource |
-| [azurerm_resource_group.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azurerm_route_table.private](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route_table) | resource |
-| [azurerm_subnet.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
-| [azurerm_subnet.isolated](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
-| [azurerm_subnet.private](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
-| [azurerm_subnet.public](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
-| [azurerm_subnet_nat_gateway_association.private](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_nat_gateway_association) | resource |
-| [azurerm_subnet_route_table_association.private](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association) | resource |
-| [azurerm_virtual_network.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network) | resource |
+| [azurerm_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/nat_gateway) | resource |
+| [azurerm_nat_gateway_public_ip_association.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/nat_gateway_public_ip_association) | resource |
+| [azurerm_private_dns_zone.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/private_dns_zone) | resource |
+| [azurerm_private_dns_zone_virtual_network_link.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/private_dns_zone_virtual_network_link) | resource |
+| [azurerm_public_ip.nat](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/public_ip) | resource |
+| [azurerm_resource_group.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/resource_group) | resource |
+| [azurerm_route_table.private](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/route_table) | resource |
+| [azurerm_subnet.azuredb](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet) | resource |
+| [azurerm_subnet.isolated](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet) | resource |
+| [azurerm_subnet.private](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet) | resource |
+| [azurerm_subnet.public](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet) | resource |
+| [azurerm_subnet_nat_gateway_association.private](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet_nat_gateway_association) | resource |
+| [azurerm_subnet_route_table_association.private](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/subnet_route_table_association) | resource |
+| [azurerm_virtual_network.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/virtual_network) | resource |
 
 ## Inputs
 

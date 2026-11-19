@@ -86,8 +86,8 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
-| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | 0.14.2 |
 
 ## Providers
 
@@ -116,8 +116,8 @@ No modules.
 | [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/service_account) | resource |
 | [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/service_account_iam_member) | resource |
 | [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/service_account_iam_member) | resource |
-| [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [time_sleep.post_delete_firewall_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+| [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [time_sleep.post_delete_firewall_buffer](https://registry.terraform.io/providers/hashicorp/time/0.14.2/docs/resources/sleep) | resource |
 
 ## Inputs
 

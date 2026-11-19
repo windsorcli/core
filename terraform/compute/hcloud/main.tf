@@ -223,7 +223,9 @@ resource "hcloud_server" "this" {
   # config over the network, so no user_data config is delivered here.
   depends_on = [hcloud_network_subnet.this]
 
+  # The image seeds first boot; Talos upgrades run in place.
   lifecycle {
+    ignore_changes       = [image]
     replace_triggered_by = [terraform_data.node_replacement[each.key]]
   }
 }

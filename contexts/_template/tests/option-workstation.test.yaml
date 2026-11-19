@@ -250,13 +250,12 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      docker:
-        registries:
-          ghcr.io:
-            remote: https://ghcr.io
-            hostname: ghcr.test
-            username: robot
-            password: secret
+      registries:
+        ghcr.io:
+          remote: https://ghcr.io
+          hostname: ghcr.test
+          username: robot
+          password: secret
     terraformOutputs:
       <<: *default-terraform-outputs
       workstation:
@@ -284,17 +283,16 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      docker:
-        registries:
-          '*':
-            endpoint: harbor.example.com
-          ghcr.io:
-            remote: https://ghcr.io
-            hostname: ghcr.test
-            endpoint: http://ghcr.test:5000/filled
-          quay.io:
-            remote: https://quay.io
-            hostname: quay.test
+      registries:
+        '*':
+          endpoint: harbor.example.com
+        ghcr.io:
+          remote: https://ghcr.io
+          hostname: ghcr.test
+          endpoint: http://ghcr.test:5000/filled
+        quay.io:
+          remote: https://quay.io
+          hostname: quay.test
     terraformOutputs:
       <<: *default-terraform-outputs
       workstation:
@@ -342,12 +340,11 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      docker:
-        registries:
-          ghcr.io:
-            endpoint: http://charts.test:5000/windsor/ghcr.io
-          registry.k8s.io:
-            endpoint: http://charts.test:5000/windsor/registry.k8s.io
+      registries:
+        ghcr.io:
+          endpoint: http://charts.test:5000/windsor/ghcr.io
+        registry.k8s.io:
+          endpoint: http://charts.test:5000/windsor/registry.k8s.io
     expect:
       config:
         talos_common:

@@ -8,7 +8,7 @@ variable "flux_operator_version" {
   description = "The version of the flux-operator Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-operator repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.61.0"
+  default = "0.62.1"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
@@ -20,7 +20,7 @@ variable "flux_instance_version" {
   description = "The version of the flux-instance Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-instance repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.61.0"
+  default = "0.62.1"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_instance_version))
@@ -32,7 +32,7 @@ variable "flux_version" {
   description = "The Flux distribution version the operator installs (FluxInstance spec.distribution.version)"
   type        = string
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  default = "2.9.6"
+  default = "2.10.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_version))
@@ -68,7 +68,7 @@ variable "operator_image_tag" {
   description = "Tag of the flux-operator image, with its digest."
   type        = string
   # artifact: type=image name=ghcr.io/controlplaneio-fluxcd/flux-operator
-  default  = "v0.61.0@sha256:71041d9fff7f7b05f1a8123ebe73c73b7b156f4aacfe1e8e19b5aa953a98892c"
+  default  = "v0.62.1@sha256:1d09a3f96524d0895fb11e8072d84a3dd029cecdec0f869efa371be6b001469c"
   nullable = false
 }
 
@@ -89,38 +89,63 @@ variable "controller_image_tags" {
   type        = map(string)
   default = {
     # artifact: type=image name=ghcr.io/fluxcd/source-controller
-    "source-controller" = "v1.9.6@sha256:6a6693172589f8ff26123a231d5fa6ceb194a6efb4dc647cdf057c959f76a2e3"
+    "source-controller" = "v1.10.1@sha256:611b6bca3eae95bcff471414d1fb14a4ab83d7f14e609cccef2bd389c121f37e"
     # artifact: type=image name=ghcr.io/fluxcd/kustomize-controller
-    "kustomize-controller" = "v1.9.6@sha256:2ebeaa341da77d52b6abbbba5efcee0450d47f8b42f0e6f33b08f9020262d606"
+    "kustomize-controller" = "v1.10.1@sha256:37db29b25dae35b881a5e064acedb0cc954442da453a39eaa0eab7a90dbecc4e"
     # artifact: type=image name=ghcr.io/fluxcd/helm-controller
     "helm-controller" = "v1.7.1@sha256:54526cc6ed1202d71d44c310676448065664f3255ad671d9a69ac26f904e617a"
     # artifact: type=image name=ghcr.io/fluxcd/notification-controller
-    "notification-controller" = "v1.9.4@sha256:840f318265ee26f0d2c48a158bf7896b22aa4e998e320a18646309f0e40b15da"
+    "notification-controller" = "v1.10.0@sha256:9f58b9532ec9d3ccf539cd3ccdf283477a5dcb7777b922db5477d8bbd4d3767c"
     # artifact: type=image name=ghcr.io/fluxcd/image-reflector-controller
-    "image-reflector-controller" = "v1.2.5@sha256:c83ce5c06fed9ebb308cd5165bd144ee934c720f6b47e0da2180869092063c82"
+    "image-reflector-controller" = "v1.3.0@sha256:b4d2cbdc1b7a046c53786628fe900b72b31a95c4cec219478777e3f97c453635"
     # artifact: type=image name=ghcr.io/fluxcd/image-automation-controller
-    "image-automation-controller" = "v1.2.5@sha256:e1a2720d3951694609c39635886d5dcb15b7dffe0b8248461c6693539c522a28"
+    "image-automation-controller" = "v1.3.0@sha256:6ec488320def72fecfd01ab1289cc6c881d76b984fbbcf69b174e1e10886029e"
   }
   nullable = false
 }
 
 variable "distribution_artifact" {
-  description = "OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact)."
+  description = "OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact). When empty, the operator uses the manifests in its own image, which MUST include flux_version."
   type        = string
-  default     = "oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest"
+  default     = ""
   nullable    = false
 
   validation {
-    condition     = can(regex("^oci://.+", var.distribution_artifact))
-    error_message = "distribution_artifact must start with 'oci://'."
+    condition     = var.distribution_artifact == "" || can(regex("^oci://.+", var.distribution_artifact))
+    error_message = "distribution_artifact must be empty or start with 'oci://'."
+  }
+}
+
+variable "distribution_variant" {
+  description = "Flux distribution variant the controller images belong to (FluxInstance spec.distribution.variant). It MUST be set when distribution_registry is a mirror. When empty, the FluxInstance omits it."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = contains(["", "upstream-alpine", "enterprise-alpine", "enterprise-distroless", "enterprise-distroless-fips"], var.distribution_variant)
+    error_message = "distribution_variant must be empty, upstream-alpine, enterprise-alpine, enterprise-distroless, or enterprise-distroless-fips."
+  }
+}
+
+variable "image_pull_secret" {
+  description = "Docker config JSON with credentials for the registries that serve the flux-operator and Flux controller images. When empty, the images are pulled anonymously."
+  type        = string
+  default     = ""
+  nullable    = false
+  sensitive   = true
+
+  validation {
+    condition     = var.image_pull_secret == "" || can(jsondecode(var.image_pull_secret).auths)
+    error_message = "image_pull_secret must be empty or a Docker config JSON document with an auths key."
   }
 }
 
 variable "ready_gate_image" {
   description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
   type        = string
-  # artifact: type=image name=docker.io/alpine/k8s
-  default  = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
+  # artifact: type=image name=ghcr.io/windsorcli/utils
+  default  = "ghcr.io/windsorcli/utils:1.37.2-r1@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e"
   nullable = false
 
   validation {

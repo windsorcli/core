@@ -26,6 +26,26 @@ variable "network_description" {
   default     = null
 }
 
+variable "attach_to_bridge" {
+  description = "Attach instance NICs to the existing host bridge named network_name, instead of to a managed Incus network."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.attach_to_bridge || !var.create_network
+    error_message = "attach_to_bridge requires create_network false, since the bridge MUST already exist on the host"
+  }
+}
+
+variable "static_dhcp_leases" {
+  description = "Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs"
+  type        = bool
+  default     = true
+  validation {
+    condition     = var.static_dhcp_leases || alltrue([for instance in var.instances : !instance.wait_for_ipv4])
+    error_message = "With static_dhcp_leases false, every instance MUST set wait_for_ipv4 to false, since Incus reports no guest address"
+  }
+}
+
 variable "network_type" {
   description = "The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created"
   type        = string
@@ -135,6 +155,12 @@ variable "remote" {
   description = "Name of the Incus remote to use. If not set, uses provider default (usually 'local')."
   type        = string
   default     = null
+}
+
+variable "default_storage_pool" {
+  description = "Existing storage pool that root disks and data disks use when they name the pool \"default\". IncusOS names its pool \"local\""
+  type        = string
+  default     = "default"
 }
 
 variable "storage_pools" {

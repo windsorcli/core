@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pdns-zone-init
+  namespace: system-dns
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pdns-zone-init
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zone-init
+          # artifact: type=image name=docker.io/alpine/k8s
+          image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              API=http://pdns-api:8081/api/v1/servers/localhost
+              until curl -fsS -o /dev/null -H "X-API-Key: $PDNS_API_KEY" "$API"; do sleep 3; done
+              for zone in $ZONES; do
+                code=$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $PDNS_API_KEY" "$API/zones/$zone.")
+                if [ "$code" = 404 ]; then
+                  jq -n --arg z "$zone." '{name: $z, kind: "Native", nameservers: ["ns1." + $z]}' |
+                    curl -fsS -o /dev/null -X POST -H "X-API-Key: $PDNS_API_KEY" -H 'Content-Type: application/json' -d @- "$API/zones"
+                elif [ "$code" != 200 ]; then
+                  exit 1
+                fi
+              done
+          env:
+            - name: ZONES
+              value: "${private_domain} ${public_domain}"
+            - name: PDNS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pdns-api
+                  key: api-key
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

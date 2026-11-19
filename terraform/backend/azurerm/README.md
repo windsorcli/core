@@ -25,13 +25,14 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 | Name | Version |
 |------|---------|
 | <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.9.0 |
-| <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
+| <a name="provider_local"></a> [local](#provider\_local) | 2.9.1 |
 
 ## Modules
 
@@ -45,7 +46,7 @@ No modules.
 | [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/storage_account) | resource |
 | [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/storage_container) | resource |
 | [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/user_assigned_identity) | resource |
-| [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
+| [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/2.9.1/docs/resources/file) | resource |
 
 ## Inputs
 

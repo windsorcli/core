@@ -7,7 +7,8 @@ terraform {
       version = "0.11.0"
     }
     local = {
-      source = "hashicorp/local"
+      source  = "hashicorp/local"
+      version = "2.9.1"
     }
   }
 }
@@ -102,13 +103,13 @@ locals {
   controlplane_extra_mounts_patch = length(var.controlplane_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.controlplane_extra_mounts } } }) : ""
   worker_extra_mounts_patch       = length(var.worker_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.worker_extra_mounts } } }) : ""
 
-  # Per-node UserVolumeConfig docs: node.disks if set, else pool-level (controlplane_disks / worker_disks).
+  # Per-node UserVolumeConfig docs from node.disks; nodes without disks get none.
   # Three cases, all resolved at plan time — no post-boot discovery needed:
   #   device set   → raw block volume (volumeType: disk), pinned to dev_path
   #   selector set → filesystem volume (xfs), CEL expression provided by caller (e.g. metal per-node serial)
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
-  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in lookup(cp, "disks", var.controlplane_disks) :
+  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
     try(d.device, "") != "" ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
@@ -119,7 +120,7 @@ locals {
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
   ]]
-  worker_block_docs = [for w in var.workers : [for i, d in lookup(w, "disks", var.worker_disks) :
+  worker_block_docs = [for w in var.workers : [for i, d in w.disks :
     try(d.device, "") != "" ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
@@ -130,6 +131,38 @@ locals {
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
   ]]
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Image Factory Overlays
+#-----------------------------------------------------------------------------------------------------------------------
+# One schematic per distinct board overlay, such as rpi_5 for a Raspberry Pi 5. A node with an overlay installs
+# from that schematic's metal installer unless it sets install_image.
+
+locals {
+  overlays = { for o in [for n in concat(var.controlplanes, var.workers) : n.overlay if n.overlay != null] : o.name => o... }
+}
+
+resource "talos_image_factory_schematic" "overlay" {
+  for_each = local.overlays
+
+  schematic = yamlencode({
+    overlay = {
+      name  = each.value[0].name
+      image = each.value[0].image
+    }
+  })
+}
+
+locals {
+  controlplane_install_images = [for n in var.controlplanes :
+    n.install_image != null ? n.install_image :
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+  ]
+  worker_install_images = [for n in var.workers :
+    n.install_image != null ? n.install_image :
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+  ]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -144,6 +177,7 @@ module "controlplane_bootstrap" {
   disk_selector             = lookup(var.controlplanes[0], "disk_selector", null)
   wipe_disk                 = lookup(var.controlplanes[0], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[0], "extra_kernel_args", [])
+  image                     = local.controlplane_install_images[0]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -175,6 +209,7 @@ module "controlplanes" {
   disk_selector             = lookup(var.controlplanes[count.index + 1], "disk_selector", null)
   wipe_disk                 = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
+  image                     = local.controlplane_install_images[count.index + 1]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -211,6 +246,7 @@ module "workers" {
   disk_selector             = lookup(var.workers[count.index], "disk_selector", null)
   wipe_disk                 = lookup(var.workers[count.index], "wipe_disk", true)
   extra_kernel_args         = lookup(var.workers[count.index], "extra_kernel_args", [])
+  image                     = local.worker_install_images[count.index]
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -229,6 +265,65 @@ module "workers" {
     local.worker_extra_mounts_patch,
     lookup(var.workers[count.index], "config_patches", []),
   ], local.worker_block_docs[count.index])) : p if p != "null"]
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# In-place Talos Upgrade
+#-----------------------------------------------------------------------------------------------------------------------
+# Upgrades a node to its installer image (install_image, board overlay, else the stock installer) unless it already
+# runs var.talos_version.
+# Order: bootstrap control plane, other control planes, workers. The step MUST run with parallelism 1 so nodes in a group upgrade one at a time.
+
+locals {
+  stock_installer             = "ghcr.io/siderolabs/installer:v${var.talos_version}"
+  controlplane_upgrade_images = [for image in local.controlplane_install_images : coalesce(image, local.stock_installer)]
+  upgrade_flags               = "${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}${var.upgrade_offline_timeout != "" ? " --offline-timeout ${var.upgrade_offline_timeout}" : ""}"
+  worker_upgrade_images       = [for image in local.worker_install_images : coalesce(image, local.stock_installer)]
+}
+
+resource "terraform_data" "upgrade_bootstrap" {
+  count      = var.upgrade_nodes && length(var.controlplanes) > 0 ? 1 : 0
+  depends_on = [module.controlplane_bootstrap, module.controlplanes, module.workers]
+
+  triggers_replace = [local.controlplane_upgrade_images[0]]
+
+  provisioner "local-exec" {
+    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_upgrade_images[0]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    environment = {
+      TALOSCONFIG = local.talosconfig_path
+      KUBECONFIG  = local.kubeconfig_path
+    }
+  }
+}
+
+resource "terraform_data" "upgrade_controlplane" {
+  count      = var.upgrade_nodes ? max(length(var.controlplanes) - 1, 0) : 0
+  depends_on = [terraform_data.upgrade_bootstrap]
+
+  triggers_replace = [local.controlplane_upgrade_images[count.index + 1]]
+
+  provisioner "local-exec" {
+    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_upgrade_images[count.index + 1]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    environment = {
+      TALOSCONFIG = local.talosconfig_path
+      KUBECONFIG  = local.kubeconfig_path
+    }
+  }
+}
+
+resource "terraform_data" "upgrade_worker" {
+  count      = var.upgrade_nodes ? length(var.workers) : 0
+  depends_on = [terraform_data.upgrade_bootstrap, terraform_data.upgrade_controlplane]
+
+  triggers_replace = [local.worker_upgrade_images[count.index]]
+
+  provisioner "local-exec" {
+    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_upgrade_images[count.index]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    environment = {
+      TALOSCONFIG = local.talosconfig_path
+      KUBECONFIG  = local.kubeconfig_path
+    }
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

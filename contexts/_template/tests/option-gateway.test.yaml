@@ -263,6 +263,34 @@ cases:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.9.2
 
+  - name: envoy driver omits envoy/prometheus when the metrics pipeline is disabled
+    values:
+      platform: metal
+      dns:
+        private_domain: test
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        enabled: true
+        driver: envoy
+      telemetry:
+        metrics:
+          enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+    exclude:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/prometheus
+
   # Envoy + Docker Desktop: nodeport variant
   - name: envoy on Docker Desktop uses nodeport variant
     values:

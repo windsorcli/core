@@ -14,7 +14,7 @@ worker nodes when the image changes.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
 ## Providers
@@ -32,8 +32,9 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [null_resource.upgrade_controlplane](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [null_resource.upgrade_worker](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [null_resource.upgrade_controlplane](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [null_resource.upgrade_worker](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
+| [talos_image_factory_schematic.overlay](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/image_factory_schematic) | resource |
 | [talos_image_factory_schematic.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/image_factory_schematic) | resource |
 
 ## Inputs
@@ -41,11 +42,11 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig and talosconfig are stored | `string` | `""` | no |
-| <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | List of controlplane nodes to upgrade. Only node and endpoint are required. | <pre>list(object({<br/>    node     = string<br/>    endpoint = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | List of controlplane nodes to upgrade. Only node and endpoint are required. A node's overlay adds its board overlay to the extensions schematic. A node's install\_image replaces the extensions installer and MUST carry the extensions. | <pre>list(object({<br/>    node          = string<br/>    endpoint      = string<br/>    install_image = optional(string)<br/>    overlay = optional(object({<br/>      name  = string<br/>      image = string<br/>    }))<br/>  }))</pre> | `[]` | no |
 | <a name="input_extensions"></a> [extensions](#input\_extensions) | Talos Image Factory extension names to install (e.g. ["siderolabs/iscsi-tools"]). | `list(string)` | `[]` | no |
 | <a name="input_powercycle_reboot"></a> [powercycle\_reboot](#input\_powercycle\_reboot) | Use a full ACPI power-cycle reboot instead of the default kexec. Needed on platforms where kexec doesn't reliably register as an offline transition (e.g. nested virtualization). | `bool` | `false` | no |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. | `string` | n/a | yes |
-| <a name="input_workers"></a> [workers](#input\_workers) | List of worker nodes to upgrade. Only node and endpoint are required. | <pre>list(object({<br/>    node     = string<br/>    endpoint = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_workers"></a> [workers](#input\_workers) | List of worker nodes to upgrade. Only node and endpoint are required. A node's overlay adds its board overlay to the extensions schematic. A node's install\_image replaces the extensions installer and MUST carry the extensions. | <pre>list(object({<br/>    node          = string<br/>    endpoint      = string<br/>    install_image = optional(string)<br/>    overlay = optional(object({<br/>      name  = string<br/>      image = string<br/>    }))<br/>  }))</pre> | `[]` | no |
 
 ## Outputs
 

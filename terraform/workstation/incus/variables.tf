@@ -107,7 +107,7 @@ variable "enable_git" {
 }
 
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL), hostport (unused for Incus; kept for API compatibility), local. Omit remote for local-only registry."
+  description = "Map of registry configs (aligned with windsor registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL), hostport (unused for Incus; kept for API compatibility), local. Omit remote for local-only registry."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)

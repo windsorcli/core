@@ -14,7 +14,7 @@ when: platform == 'metal'
 requires:
   - paths:
       - cluster.controlplanes.nodes
-    message: Metal has no compute layer; declare the controlplane nodes that windsor should talk to.
+    message: Metal provisions no machines; list the existing control planes in cluster.controlplanes.nodes.
 
 # =============================================================================
 # Config
@@ -25,17 +25,69 @@ config:
   # is always derivable (unlike incus/docker).
   - name: cluster_endpoint_fallback
     value:
-      endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
+      endpoint: "${cluster.endpoint ?? ('https://' + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))[0].endpoint, ':')[0] + ':6443')}"
 
-  # Node targets for post-cluster steps (e.g. extensions), from the user-supplied node map.
+  # Talos Image Factory official overlays by board name, with the overlay image that carries each
+  # board's firmware and bootloader. Source: factory.talos.dev/version/<talos version>/overlays/official.
+  # The keys MUST match the talosBoard enum in schema.yaml, which rejects other boards.
+  - name: metal_overlays
+    value:
+      bananapi_m64: siderolabs/sbc-allwinner
+      libretech_all_h3_cc_h5: siderolabs/sbc-allwinner
+      pine64: siderolabs/sbc-allwinner
+      jetson_nano: siderolabs/sbc-jetson
+      revpi_generic: siderolabs/sbc-raspberrypi
+      rpi_generic: siderolabs/sbc-raspberrypi
+      rpi_5: siderolabs/sbc-raspberrypi
+      helios64: siderolabs/sbc-rockchip
+      nanopi-r4s: siderolabs/sbc-rockchip
+      nanopi-r5s: siderolabs/sbc-rockchip
+      odroid-m1: siderolabs/sbc-rockchip
+      orangepi-5: siderolabs/sbc-rockchip
+      orangepi-5-max: siderolabs/sbc-rockchip
+      orangepi-5-plus: siderolabs/sbc-rockchip
+      orangepi-r1-plus-lts: siderolabs/sbc-rockchip
+      radxa-zero-3e: siderolabs/sbc-rockchip
+      rock3b: siderolabs/sbc-rockchip
+      rock4cplus: siderolabs/sbc-rockchip
+      rock4se: siderolabs/sbc-rockchip
+      rock5a: siderolabs/sbc-rockchip
+      rock5b: siderolabs/sbc-rockchip
+      rock5b-plus: siderolabs/sbc-rockchip
+      rock5t: siderolabs/sbc-rockchip
+      rock64: siderolabs/sbc-rockchip
+      rockpi4: siderolabs/sbc-rockchip
+      rockpi4c: siderolabs/sbc-rockchip
+      rockpro64: siderolabs/sbc-rockchip
+      turingrk1: siderolabs/sbc-rockchip
+      friendlyelec-cm3588-nas: siderolabs/sbc-rockchip
+
+  # User-supplied nodes, with the board overlay of the node's board or its pool's board. The cluster and
+  # extensions steps build the installer from the overlay; a node's install_image wins over it.
+  - name: metal_nodes
+    value:
+      controlplanes: >-
+        ${map(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1)),
+          fromPairs(concat(
+            filter(toPairs(#), get(#, 0) != "board"),
+            let board = get(#, 'board') ?? cluster.controlplanes.board ?? '';
+            board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))}
+      workers: >-
+        ${(cluster.workers.count ?? 0) > 0
+          ? map(map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)),
+              fromPairs(concat(
+                filter(toPairs(#), get(#, 0) != "board"),
+                let board = get(#, 'board') ?? cluster.workers.board ?? '';
+                board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [])))
+          : []}
+
+  # Node targets for post-cluster steps (e.g. extensions), from metal_nodes.
   - name: talos_node_targets
     value:
       controlplanes: >-
-        ${map(values(cluster.controlplanes.nodes ?? {}), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+        ${map(metal_nodes.controlplanes, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image", "overlay"])))}
       workers: >-
-        ${(cluster.workers.count ?? 0) > 0
-          ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
-          : []}
+        ${map(metal_nodes.workers, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image", "overlay"])))}
 
 # =============================================================================
 # Terraform — cluster/talos + gitops
@@ -50,13 +102,14 @@ terraform:
     dependsOn:
       - pki
     inputs:
-      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
+      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))[0].endpoint, ":")[0] + ":6443")}
+      # Bare-metal nodes normally lease addresses, so the VIP interface keeps DHCP unless network.dhcp is false.
+      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: network.dhcp != false} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
-      controlplanes: ${values(cluster.controlplanes.nodes)}
-      workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
+      controlplanes: ${metal_nodes.controlplanes}
+      workers: ${metal_nodes.workers}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"

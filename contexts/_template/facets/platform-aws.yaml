@@ -19,7 +19,7 @@ requires:
       tls_effective.public_acme == true
     paths:
       - email
-    message: Public DNS requires an operator email for TLS certificate registration.
+    message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
   - when: cluster.driver == 'talos'
     paths:
       - cluster.controlplanes.instance_type

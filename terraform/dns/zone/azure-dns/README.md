@@ -16,7 +16,7 @@ resources.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.9.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.9.0 |
 
 ## Providers
 
@@ -32,10 +32,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_dns_zone.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/dns_zone) | resource |
-| [azurerm_resource_group.dns](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azurerm_resource_group.dns](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/resource_group) | data source |
-| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscription) | data source |
+| [azurerm_dns_zone.main](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/dns_zone) | resource |
+| [azurerm_resource_group.dns](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/resources/resource_group) | resource |
+| [azurerm_resource_group.dns](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/resource_group) | data source |
+| [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/5.9.0/docs/data-sources/subscription) | data source |
 
 ## Inputs
 

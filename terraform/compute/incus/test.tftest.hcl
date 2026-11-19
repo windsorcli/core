@@ -319,6 +319,122 @@ run "instance_id_flows_to_controlplanes" {
   }
 }
 
+# Without static leases, the guest reports no address and the outputs carry the declared one.
+run "lan_network_without_static_leases" {
+  command = apply
+
+  override_module {
+    target = module.instances["controlplane"]
+    outputs = {
+      name        = "controlplane"
+      mac_address = "02:00:00:00:00:31"
+      type        = "virtual-machine"
+      ipv4        = ""
+      ipv6        = null
+      image       = "ubuntu/22.04"
+      status      = "Running"
+    }
+  }
+
+  variables {
+    context_id         = "test"
+    remote             = "cluster"
+    create_network     = false
+    network_name       = "lan"
+    static_dhcp_leases = false
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        image          = "ubuntu/22.04"
+        type           = "virtual-machine"
+        target         = "member-2"
+        ipv4           = "192.168.3.31"
+        wait_for_ipv4  = false
+        network_config = { hwaddr = "02:00:00:00:00:31" }
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(incus_network.main) == 0
+    error_message = "No network should be created on an existing LAN network"
+  }
+
+  assert {
+    condition     = output.controlplanes[0].endpoint == "192.168.3.31:50000"
+    error_message = "controlplanes[].endpoint should fall back to the declared ipv4"
+  }
+}
+
+# Without static leases, an instance that waits for an IPv4 fails validation.
+run "lan_network_rejects_wait_for_ipv4" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    create_network     = false
+    network_name       = "lan"
+    static_dhcp_leases = false
+    instances = [
+      {
+        name  = "controlplane"
+        image = "ubuntu/22.04"
+        ipv4  = "192.168.3.31"
+      }
+    ]
+  }
+
+  expect_failures = [var.static_dhcp_leases]
+}
+
+# On a cluster, "default" resolves to default_storage_pool and data volumes follow their instance's member.
+run "cluster_pool_alias_and_volume_target" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    remote               = "cluster"
+    default_storage_pool = "local"
+    instances = [
+      {
+        name   = "worker"
+        image  = "ubuntu/22.04"
+        type   = "virtual-machine"
+        target = "member-2"
+        disks = [
+          { name = "data", size = 30 }
+        ]
+      }
+    ]
+  }
+
+  assert {
+    condition     = local.all_instances[0].storage_pool == "local"
+    error_message = "Root disk should use default_storage_pool"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].pool == "local"
+    error_message = "Data volume should use default_storage_pool"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].target == "member-2"
+    error_message = "Data volume should be created on its instance's member"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].remote == "cluster"
+    error_message = "Data volume should be created on the remote"
+  }
+
+  assert {
+    condition     = incus_network.main[0].remote == "cluster"
+    error_message = "Network should be created on the remote"
+  }
+}
+
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 # Also validates that disks can reference pools defined in storage_pools.
@@ -561,5 +677,73 @@ run "hyphenated_context_id" {
   assert {
     condition     = incus_network.main[0].name == "net-my-ctx-1"
     error_message = "Network name should keep the hyphenated context_id"
+  }
+}
+
+run "rejects_attach_to_bridge_with_created_network" {
+  command = plan
+
+  variables {
+    create_network   = true
+    attach_to_bridge = true
+  }
+
+  expect_failures = [var.attach_to_bridge]
+}
+
+# On a cluster, instances without a target go round-robin across the members by name.
+run "places_untargeted_instances_round_robin" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = true
+      members = {
+        nuc3 = { status = "Online" }
+        nuc1 = { status = "Online" }
+      }
+    }
+  }
+
+  variables {
+    context_id = "test"
+    instances = [
+      { name = "controlplane", count = 3, image = "ubuntu/22.04", type = "virtual-machine" },
+      { name = "worker", image = "ubuntu/22.04", type = "virtual-machine", target = "nuc1", disks = [{ name = "data", size = 30 }] },
+    ]
+  }
+
+  assert {
+    condition     = [for i in local.all_instances : i.target] == ["nuc1", "nuc3", "nuc1", "nuc1"]
+    error_message = "untargeted instances must alternate across sorted members, and explicit targets must stay"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].target == "nuc1"
+    error_message = "data volume must follow its instance's member"
+  }
+}
+
+# On a single server, instances without a target get no target.
+run "single_server_leaves_target_unset" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = false
+      members      = {}
+    }
+  }
+
+  variables {
+    context_id = "test"
+    instances  = [{ name = "controlplane", image = "ubuntu/22.04", type = "virtual-machine" }]
+  }
+
+  assert {
+    condition     = local.all_instances[0].target == null
+    error_message = "single-server instances must have no target"
   }
 }

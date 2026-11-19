@@ -10,14 +10,28 @@ metadata:
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
 requires:
+  - when: (workstation.runtime ?? '') == '' && incus.host == true && (incus.storage_pool ?? 'local') == 'local'
+    message: With incus.host set to true, set incus.storage_pool to a pool other than local, such as nvme.
   - when: >-
-      (workstation.runtime ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') != 'nat'
+      && cluster_node_addresses.controlplanes_missing
+    paths:
+      - cluster.controlplanes.nodes.controlplane-N
+    message: On incus.network, give each control plane its reserved LAN address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
+  - when: >-
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') != 'nat'
+      && cluster_node_addresses.workers_missing
+    paths:
+      - cluster.workers.nodes.worker-N
+    message: On incus.network, give each worker its reserved LAN address in cluster.workers.nodes under worker-1 to worker-N.
+  - when: >-
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') == 'nat' && network.dhcp != true
       && cluster_node_addresses.controlplanes_missing
     paths:
       - cluster.controlplanes.nodes.controlplane-N
     message: Set network.dhcp to true, or give each control plane an address in cluster.controlplanes.nodes under controlplane-1 to controlplane-N.
   - when: >-
-      (workstation.runtime ?? '') == '' && network.dhcp != true
+      (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') == 'nat' && network.dhcp != true
       && cluster_node_addresses.workers_missing
     paths:
       - cluster.workers.nodes.worker-N
@@ -27,6 +41,16 @@ requires:
 # Config — Incus-specific Talos values
 # =============================================================================
 config:
+
+  # Remote, cluster members, LAN bridge, and shared pool for the standalone compute step.
+  - name: incus_effective
+    value:
+      remote: ${incus.remote ?? null}
+      targets: ${incus.targets ?? []}
+      network: "${(incus.network ?? 'lan') == 'nat' ? '' : (incus.network ?? 'lan')}"
+      lan: ${(incus.network ?? 'lan') != 'nat'}
+      storage_pool: "${incus.storage_pool ?? 'local'}"
+      host: ${(workstation.runtime ?? '') == '' && incus.host == true}
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -58,13 +82,13 @@ config:
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
-            : values(cluster.controlplanes.nodes ?? {}),
+            : filter(cluster_node_entries.controlplanes, # != null),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+            : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # Incus limits and Talos SKU label per pool.
@@ -93,7 +117,13 @@ config:
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(# - 1) : "controlplane"],
           ["role", "controlplane"],
           ["count", 1],
-          ["ipv4", network.dhcp == true ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["target", (cluster_node_entries.controlplanes[# - 1] ?? {}).placement
+            ?? (len(incus_effective.targets) > 0
+              ? incus_effective.targets[(# - 1) % len(incus_effective.targets)] : null)],
+          ["ipv4", network.dhcp == true && !incus_effective.lan ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
+          ["wait_for_ipv4", !incus_effective.lan],
+          ["network_config", cluster_node_addresses.controlplanes[# - 1].mac_address == null ? {}
+            : {"hwaddr": cluster_node_addresses.controlplanes[# - 1].mac_address}],
           ["image", cluster.controlplanes.image
             ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
           ["type", "virtual-machine"],
@@ -118,7 +148,13 @@ config:
           ["name", int(cluster.workers.count ?? 0) > 1 ? "worker-" + string(# - 1) : "worker"],
           ["role", "worker"],
           ["count", 1],
-          ["ipv4", network.dhcp == true ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["target", (cluster_node_entries.workers[# - 1] ?? {}).placement
+            ?? (len(incus_effective.targets) > 0
+              ? incus_effective.targets[(# - 1) % len(incus_effective.targets)] : null)],
+          ["ipv4", network.dhcp == true && !incus_effective.lan ? null : cluster_node_addresses.workers[# - 1].ipv4],
+          ["wait_for_ipv4", !incus_effective.lan],
+          ["network_config", cluster_node_addresses.workers[# - 1].mac_address == null ? {}
+            : {"hwaddr": cluster_node_addresses.workers[# - 1].mac_address}],
           ["image", cluster.workers.image
             ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
           ["type", "virtual-machine"],
@@ -142,17 +178,31 @@ config:
 # With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
-  # Talos VMs on a fresh Incus network (create_network: true — no workstation
-  # stack to inherit one from). Uses the default incus storage pool.
+  # Storage pool that every context on the cluster shares.
+  - name: host
+    when: incus_effective.host
+    path: host/incus
+    inputs:
+      remote: ${incus_effective.remote}
+      storage_pool_name: "${incus_effective.storage_pool}"
+    destroy: false
+
+  # Talos VMs on the host bridge in incus.network, or a NAT bridge, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
+    dependsOn:
+      - "${incus_effective.host ? 'host' : ''}"
     # Serialized: concurrent instance creation triggers concurrent Talos image
     # fetches, and images.windsorcli.dev rate-limits those (429).
     parallelism: 1
     inputs:
-      network_name: ""
-      create_network: true
+      remote: ${incus_effective.remote}
+      network_name: "${incus_effective.network}"
+      create_network: ${!incus_effective.lan}
+      attach_to_bridge: ${incus_effective.lan}
+      static_dhcp_leases: ${!incus_effective.lan}
+      default_storage_pool: "${incus_effective.storage_pool}"
       network_cidr: ${network.cidr_block}
       storage_pools:
         local:
@@ -173,10 +223,10 @@ terraform:
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
-      controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
-      workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
+      powercycle_reboot: true
+      controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
+      workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"

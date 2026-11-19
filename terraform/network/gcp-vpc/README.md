@@ -28,7 +28,7 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_google"></a> [google](#requirement\_google) | 8.8.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.3.2 |
 
 ## Providers
 
@@ -55,7 +55,7 @@ No modules.
 | [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/compute_subnetwork) | resource |
 | [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/compute_subnetwork) | resource |
 | [google_dns_managed_zone.private](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/resources/dns_managed_zone) | resource |
-| [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/3.3.2/docs/resources/resource) | resource |
 | [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.8.0/docs/data-sources/compute_zones) | data source |
 
 ## Inputs

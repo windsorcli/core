@@ -11,11 +11,11 @@ terraform {
   required_providers {
     incus = {
       source  = "lxc/incus"
-      version = "~> 1.2.0"
+      version = "1.2.1"
     }
     null = {
       source  = "hashicorp/null"
-      version = "~> 3.2"
+      version = "3.3.2"
     }
   }
 }
@@ -40,7 +40,24 @@ provider "incus" {
 # Locals
 # =============================================================================
 
+# The incus_cluster data source lists the members that untargeted instances spread across.
+data "incus_cluster" "main" {
+  remote = var.remote
+}
+
 locals {
+  cluster_members = data.incus_cluster.main.is_clustered ? sort(keys(data.incus_cluster.main.members)) : []
+
+  # Expanded instance names in order, each mapped to its member round-robin.
+  placement_names = flatten([
+    for instance in var.instances : [
+      for i in range(instance.count) : instance.count > 1 ? "${instance.name}-${i}" : instance.name
+    ]
+  ])
+  placement = {
+    for idx, name in local.placement_names : name => length(local.cluster_members) > 0 ? local.cluster_members[idx % length(local.cluster_members)] : null
+  }
+
   # Longest context_id each name allows, after removing the characters its rule rejects.
   context_id_rules = {
     network = { id = var.context_id, max = var.network_type == "bridge" ? 15 - length("net-") : 63 }
@@ -77,6 +94,7 @@ locals {
 resource "incus_network" "main" {
   count = var.create_network ? 1 : 0
 
+  remote      = var.remote
   name        = local.network_name
   description = var.network_description
   type        = var.network_type
@@ -112,6 +130,7 @@ resource "incus_storage_pool" "pools" {
 
   name   = each.key
   driver = each.value.driver
+  remote = var.remote
 
   config = merge(
     each.value.config,
@@ -131,6 +150,7 @@ locals {
     for instance in var.instances : [
       for i in range(lookup(instance, "count", 1)) : {
         instance_name = instance.count > 1 ? "${instance.name}-${i}" : instance.name
+        target        = instance.target != null ? instance.target : local.placement[instance.count > 1 ? "${instance.name}-${i}" : instance.name]
         disks         = lookup(instance, "disks", [])
       }
     ]
@@ -144,8 +164,8 @@ locals {
         disks = [
           for disk in expanded.disks : {
             name      = disk.name
-            pool      = lookup(disk, "type", "default") # Map type to pool for Incus
-            size      = "${disk.size}GB"                # Convert integer GB to string with "GB" suffix
+            pool      = lookup(disk, "type", "default") == "default" ? var.default_storage_pool : disk.type
+            size      = "${disk.size}GB" # Convert integer GB to string with "GB" suffix
             source    = lookup(disk, "source", null)
             path      = lookup(disk, "path", null)
             read_only = lookup(disk, "read_only", false)
@@ -159,6 +179,7 @@ locals {
     for expanded in local.expanded_instances_with_transformed_disks : [
       for disk in expanded.disks : {
         instance_name = expanded.instance_name
+        target        = expanded.target
         disk_name     = disk.name
         pool          = disk.pool
         volume_name   = lookup(disk, "source", null) != null ? disk.source : "${expanded.instance_name}-${disk.name}"
@@ -182,6 +203,9 @@ resource "incus_storage_volume" "disks" {
   name         = each.value.volume_name
   type         = "custom"
   content_type = "block"
+  remote       = var.remote
+  # Created on the member that hosts its instance.
+  target = each.value.target
 
   config = {
     size = each.value.size
@@ -190,6 +214,10 @@ resource "incus_storage_volume" "disks" {
   project = var.project
 
   depends_on = [incus_storage_pool.pools]
+
+  lifecycle {
+    ignore_changes = [target]
+  }
 }
 
 # =============================================================================
@@ -220,7 +248,7 @@ locals {
         type           = instance.type
         description    = instance.count > 1 && instance.description != null ? "${instance.description} (${i + 1}/${instance.count})" : instance.description
         ephemeral      = instance.ephemeral
-        target         = instance.target
+        target         = instance.target != null ? instance.target : local.placement[instance.count > 1 ? "${instance.name}-${i}" : instance.name]
         networks       = instance.networks
         network_config = instance.network_config
         ipv4 = instance.ipv4 != null && instance.count > 1 ? (
@@ -260,7 +288,7 @@ locals {
         secureboot     = instance.secureboot
         qemu_args      = instance.qemu_args
         root_disk_size = instance.root_disk_size
-        storage_pool   = lookup(instance, "storage_pool", "default")
+        storage_pool   = lookup(instance, "storage_pool", "default") == "default" ? var.default_storage_pool : instance.storage_pool
         disks          = instance.disks
         config = instance.count > 1 ? merge(
           instance.config,
@@ -281,8 +309,8 @@ locals {
         disks = [
           for disk in lookup(instance, "disks", []) : {
             name      = disk.name
-            pool      = lookup(disk, "type", "default") # Map type to pool for Incus
-            size      = "${disk.size}GB"                # Convert integer GB to string with "GB" suffix
+            pool      = lookup(disk, "type", "default") == "default" ? var.default_storage_pool : disk.type
+            size      = "${disk.size}GB" # Convert integer GB to string with "GB" suffix
             source    = lookup(disk, "source", null)
             path      = lookup(disk, "path", null)
             read_only = lookup(disk, "read_only", false)
@@ -389,7 +417,7 @@ locals {
   # The "default" pool is always valid (assumed to exist)
   # Only pools with non-null drivers are valid (null driver = conditional skip)
   valid_pool_names = merge(
-    { "default" = true },
+    { "default" = true, (var.default_storage_pool) = true },
     { for name, pool in var.storage_pools : name => true if pool.driver != null }
   )
 
@@ -525,13 +553,14 @@ module "instances" {
   target      = lookup(each.value, "target", null)
   ephemeral   = lookup(each.value, "ephemeral", false)
 
-  network_name   = local.network_name
-  networks       = lookup(each.value, "networks", [])
-  network_config = lookup(each.value, "network_config", {})
-  ipv4           = lookup(each.value, "ipv4", null)
-  ipv6           = lookup(each.value, "ipv6", null)
-  wait_for_ipv4  = lookup(each.value, "wait_for_ipv4", true)
-  wait_for_ipv6  = lookup(each.value, "wait_for_ipv6", null)
+  network_name     = local.network_name
+  attach_to_bridge = var.attach_to_bridge
+  networks         = lookup(each.value, "networks", [])
+  network_config   = lookup(each.value, "network_config", {})
+  ipv4             = var.static_dhcp_leases ? lookup(each.value, "ipv4", null) : null
+  ipv6             = var.static_dhcp_leases ? lookup(each.value, "ipv6", null) : null
+  wait_for_ipv4    = lookup(each.value, "wait_for_ipv4", true)
+  wait_for_ipv6    = lookup(each.value, "wait_for_ipv6", null)
 
   limits        = lookup(each.value, "limits", null)
   profiles      = lookup(each.value, "profiles", [])

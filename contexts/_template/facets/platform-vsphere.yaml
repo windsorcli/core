@@ -76,6 +76,7 @@ config:
       datastore: "${vsphere.datastore}"
       network: "${vsphere.network}"
       folder: "${vsphere.folder ?? ''}"
+      name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       resource_pool: "${vsphere.resource_pool ?? ''}"
       host_system: "${vsphere.host_system ?? ''}"
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
@@ -143,14 +144,14 @@ config:
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
-            : (vsphere_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {})),
+            : (vsphere_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null)),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
             : (vsphere_effective.dhcp ? []
-              : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])),
+              : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # ---------------------------------------------------------------------------
@@ -200,6 +201,7 @@ terraform:
       datastore: "${vsphere_effective.datastore}"
       network: "${vsphere_effective.network}"
       folder: "${vsphere_effective.folder}"
+      name_suffix: "${vsphere_effective.name_suffix}"
       resource_pool: "${vsphere_effective.resource_pool}"
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
@@ -283,20 +285,19 @@ terraform:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
       # node map. Fall through to the node map when compute hasn't run yet or
       # vmtoolsd hasn't reported an IP (e.g. during initial plan).
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? terraform_output("compute", "controlplanes")
-          : (vsphere_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {}))}
+          : (vsphere_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null))}
       workers: >-
         ${len(terraform_output("compute", "workers") ?? []) > 0
           ? terraform_output("compute", "workers")
           : (vsphere_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0
-            ? values(cluster.workers.nodes ?? {}) : []))}
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
+            ? filter(cluster_node_entries.workers, # != null) : []))}
       common_config_patches: ${talos_common.common_config_patches}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}

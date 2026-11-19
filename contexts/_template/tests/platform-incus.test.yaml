@@ -49,6 +49,8 @@ cases:
       platform: incus
       gateway:
         enabled: false
+      incus:
+        network: nat
       network:
         <<: *default-network
         dhcp: true
@@ -486,7 +488,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.14.2"
+            talos_version: "1.14.5"
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and kube-vip lb
@@ -604,3 +606,262 @@ cases:
               - siderolabs/iscsi-tools
               - siderolabs/util-linux-tools
             powercycle_reboot: true
+
+  # incus.targets spreads the VMs round-robin on the default lan bridge and local pool.
+  - name: targets place nodes round-robin on the lan bridge
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        remote: home
+        targets: [nuc-1, nuc-2, nuc-3]
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+          nodes:
+            controlplane-1: {endpoint: "192.168.3.21:50000", node: 192.168.3.21}
+            controlplane-2: {endpoint: "192.168.3.22:50000", node: 192.168.3.22}
+            controlplane-3: {endpoint: "192.168.3.23:50000", node: 192.168.3.23}
+        workers:
+          count: 2
+          nodes:
+            worker-1: {endpoint: "192.168.3.24:50000", node: 192.168.3.24}
+            worker-2: {endpoint: "192.168.3.25:50000", node: 192.168.3.25}
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            remote: home
+            network_name: lan
+            create_network: false
+            attach_to_bridge: true
+            static_dhcp_leases: false
+            default_storage_pool: local
+            instances:
+              - name: controlplane-0
+                target: nuc-1
+                wait_for_ipv4: false
+              - name: controlplane-1
+                target: nuc-2
+              - name: controlplane-2
+                target: nuc-3
+              - name: worker-0
+                target: nuc-1
+              - name: worker-1
+                target: nuc-2
+
+  # incus.network nat creates the NAT bridge.
+  - name: network nat creates the nat bridge
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      incus:
+        network: nat
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            create_network: true
+            attach_to_bridge: false
+            static_dhcp_leases: true
+
+  # A node's placement overrides its round-robin member.
+  - name: placement overrides the round-robin target
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      incus:
+        targets: [nuc-1, nuc-2]
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              <<: *cp1-node
+              placement: nuc-2
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                target: nuc-2
+              - name: worker
+                target: nuc-1
+
+  # Without incus.targets, compute/incus spreads the nodes across the members on the lan bridge.
+  - name: no targets leaves placement to compute on the lan bridge
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            remote: null
+            network_name: lan
+            attach_to_bridge: true
+            instances:
+              - name: controlplane
+                target: null
+              - name: worker
+                target: null
+
+  # incus.network attaches to the LAN network, with declared addresses and MACs for DHCP reservations.
+  - name: lan network uses declared addresses without static leases
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        remote: home
+        network: lan
+        storage_pool: local
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.31:50000
+              node: 192.168.3.31
+              mac_address: "02:00:00:00:00:31"
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 192.168.3.41:50000
+              node: 192.168.3.41
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            network_name: lan
+            create_network: false
+            static_dhcp_leases: false
+            default_storage_pool: local
+            instances:
+              - name: controlplane
+                ipv4: 192.168.3.31
+                wait_for_ipv4: false
+                network_config:
+                  hwaddr: "02:00:00:00:00:31"
+              - name: worker
+                ipv4: 192.168.3.41
+                wait_for_ipv4: false
+                network_config: {}
+
+  # On incus.network, DHCP alone gives no addresses, so each node MUST declare one.
+  - name: lan network without node addresses fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        network: lan
+      cluster:
+        driver: talos
+    expectError: true
+
+  # incus.host creates incus.storage_pool on the cluster's remote, and compute waits on it.
+  - name: incus.host adds the host step before compute
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+        dhcp: true
+      incus:
+        remote: home
+        storage_pool: nvme
+        host: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 192.168.3.21:50000
+              node: 192.168.3.21
+        workers:
+          count: 0
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: host
+          path: host/incus
+          destroy: false
+          inputs:
+            remote: home
+            storage_pool_name: nvme
+        - name: compute
+          dependsOn:
+            - host
+          inputs:
+            default_storage_pool: nvme
+
+  # IncusOS already creates local, so incus.host needs another pool.
+  - name: incus.host with the local pool fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      incus:
+        host: true
+      cluster: *default-cluster
+    expectError: true
+
+  # Without incus.host, the context uses objects that already exist on the cluster.
+  - name: no incus.host leaves out the host step
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      incus:
+        network: nat
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    exclude:
+      terraform:
+        - name: host

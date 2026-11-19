@@ -111,7 +111,7 @@ variable "node_start_offset" {
 }
 
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. At most 55 registries fit the reserved block (hosts 200..254)."
+  description = "Map of registry configs (aligned with windsor registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. At most 55 registries fit the reserved block (hosts 200..254)."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)
