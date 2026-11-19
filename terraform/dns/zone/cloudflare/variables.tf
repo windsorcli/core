@@ -8,6 +8,13 @@ variable "context_id" {
   default     = ""
 }
 
+variable "api_token" {
+  description = "Cloudflare API token. Empty falls back to the CLOUDFLARE_API_TOKEN environment variable."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "domain_name" {
   description = "Name of the Cloudflare zone, for example example.com."
   type        = string

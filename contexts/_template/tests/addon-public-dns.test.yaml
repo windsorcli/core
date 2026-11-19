@@ -49,6 +49,7 @@ cases:
         - name: dns-zone
           path: dns/zone/cloudflare
           inputs:
+            api_token: test-token
             domain_name: apps.example.com
             create_zone: "false"
       flux:
@@ -270,3 +271,115 @@ cases:
             proxied: true
     terraformOutputs: *default-terraform-outputs
     expectError: true
+
+  - name: a local workstation with public ACME uses public resolvers for DNS-01
+    values:
+      platform: docker
+      email: ops@example.com
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/public-resolvers
+            substitutions:
+              dns01_resolvers: 1.1.1.1:53,8.8.8.8:53
+
+  - name: pki.dns01_resolvers replaces the default resolvers
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+      pki:
+        dns01_resolvers:
+          - 10.0.0.2:53
+          - 10.0.0.3:53
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/public-resolvers
+            substitutions:
+              dns01_resolvers: 10.0.0.2:53,10.0.0.3:53
+
+  - name: an empty pki.dns01_resolvers keeps the cluster resolver
+    values:
+      platform: docker
+      email: ops@example.com
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+      pki:
+        dns01_resolvers: []
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+
+  - name: public ACME on metal keeps the cluster resolver
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        public: *default-cloudflare
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager

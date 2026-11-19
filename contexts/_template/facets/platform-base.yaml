@@ -318,7 +318,13 @@ config:
       selfsigned: >-
         ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-selfsigned') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-selfsigned')}
-      public_resolvers: "${(dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme'}"
+
+  # Resolvers for cert-manager DNS-01 propagation checks; empty keeps the cluster resolver.
+  - name: dns01_resolvers_effective
+    value: >-
+      ${pki.dns01_resolvers != null ? join(pki.dns01_resolvers, ',') :
+      (((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme') ||
+      (tls_effective.public_acme == true && workstation.runtime != '') ? '1.1.1.1:53,8.8.8.8:53' : '')}
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -620,7 +626,7 @@ flux:
         - cert-manager
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
         - "${topology == 'ha' ? 'cert-manager/ha' : ''}"
-        - "${tls_effective.public_resolvers == true ? 'cert-manager/public-resolvers' : ''}"
+        - "${dns01_resolvers_effective != '' ? 'cert-manager/public-resolvers' : ''}"
       timeout: 20m
       interval: 5m
     resources:
@@ -632,6 +638,13 @@ flux:
           - "${tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != '' ? 'private-issuer/acme/ca-bundle' : ''}"
         timeout: 5m
         interval: 5m
+
+  # Resolver list, present only with the cert-manager/public-resolvers component.
+  - name: pki
+    when: dns01_resolvers_effective != ''
+    install:
+      substitutions:
+        dns01_resolvers: "${dns01_resolvers_effective}"
 
   # Private ACME issuer settings, present only with the private-issuer/acme component.
   - name: pki

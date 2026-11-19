@@ -212,12 +212,12 @@ to create the zone instead. A created zone stays pending until the
 `name_servers` output is set at the registrar, and `windsor destroy`
 deletes it.
 
-Two API tokens are involved. Terraform reads `CLOUDFLARE_API_TOKEN` from
-the environment and needs `Zone:Read`, or `Zone:Edit` with `create_zone`.
-That token never reaches the cluster. external-dns and cert-manager read
-`dns.public.cloudflare.api_token`, which MUST be scoped to `Zone:Read`
-and `DNS:Edit` on this one zone. The token can change every record in the
-zone and pass DNS-01 for any name in it.
+One API token, `dns.public.cloudflare.api_token`, serves Terraform,
+external-dns, and cert-manager. It MUST be scoped to `Zone:Read` and
+`DNS:Edit` on this one zone. With `create_zone`, it also needs `Zone:Edit`
+on the account, and SHOULD be replaced by a zone-scoped token once the zone
+exists. The token can change every record in the zone and pass DNS-01 for
+any name in it.
 
 On a platform without a public address, DNS-01 still issues a Let's
 Encrypt certificate for the external gateway. external-dns publishes the

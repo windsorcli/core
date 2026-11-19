@@ -1,6 +1,6 @@
 # The dns/zone/cloudflare module looks up a Cloudflare zone, or creates it
 # when create_zone is true. external-dns and cert-manager write records
-# inside the zone. The module reads CLOUDFLARE_API_TOKEN from the environment.
+# inside the zone. The provider takes api_token, else CLOUDFLARE_API_TOKEN.
 
 # =============================================================================
 # Provider Configuration
@@ -16,7 +16,9 @@ terraform {
   }
 }
 
-provider "cloudflare" {}
+provider "cloudflare" {
+  api_token = var.api_token != "" ? var.api_token : null
+}
 
 # =============================================================================
 # Zone
