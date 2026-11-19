@@ -53,7 +53,7 @@ x-defaults:
               mapping: igpu
 
 cases:
-  - name: devices enabled installs nfd and the generic device plugin with the serial radios
+  - name: devices enabled with no serial devices or render GPU installs nfd without the generic device plugin
     values:
       platform: metal
       gateway:
@@ -68,9 +68,6 @@ cases:
           install:
             components:
               - node-feature-discovery
-              - generic-device-plugin
-            substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ConBee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*SkyConnect*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"},{"groups": [{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*Z-Wave*"}]},{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*0658_0200*"}]}],"name": "zwave"}]'
             timeout: 10m
             interval: 5m
           resources:
@@ -125,7 +122,7 @@ cases:
               - node-feature-discovery
               - generic-device-plugin
             substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ConBee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*SkyConnect*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"},{"groups": [{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*Z-Wave*"}]},{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*0658_0200*"}]}],"name": "zwave"},{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
+              generic_device_plugin_devices: '[{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
       terraform:
         - name: cluster-extensions
           path: cluster/talos/extensions
@@ -153,7 +150,7 @@ cases:
         - name: devices
           install:
             substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ConBee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*SkyConnect*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"},{"groups": [{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*Z-Wave*"}]},{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*0658_0200*"}]}],"name": "zwave"},{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
+              generic_device_plugin_devices: '[{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
       terraform:
         - name: cluster-extensions
           inputs:
@@ -177,10 +174,7 @@ cases:
           install:
             components:
               - node-feature-discovery
-              - generic-device-plugin
               - nvidia-device-plugin
-            substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ConBee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*SkyConnect*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"},{"groups": [{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*Z-Wave*"}]},{"paths": [{"mountPath": "/dev/zwave","path": "/dev/serial/by-id/*0658_0200*"}]}],"name": "zwave"}]'
       terraform:
         - name: cluster-extensions
           inputs:
@@ -219,7 +213,6 @@ cases:
           install:
             components:
               - node-feature-discovery
-              - generic-device-plugin
               - nvidia-device-plugin
               - nvidia-device-plugin/chart-registry
 
@@ -254,7 +247,7 @@ cases:
               - siderolabs/nonfree-kmod-nvidia-lts
               - siderolabs/nvidia-container-toolkit-lts
 
-  - name: serial globs add to the default zigbee and zwave globs
+  - name: each devices.serial name becomes a device with its globs
     values:
       platform: metal
       gateway:
@@ -264,13 +257,30 @@ cases:
       devices:
         enabled: true
         serial:
-          zigbee: ["*MyCoordinator*"]
-          zwave: ["*ZST39*"]
+          zigbee: ["*Zigbee*", "*ZBT-1*"]
+          ups: ["*UPS*"]
     expect:
-      config:
-        devices_effective:
-          zigbee_globs: ["*Zigbee*", "*ConBee*", "*SkyConnect*", "*ZBT-1*", "*MyCoordinator*"]
-          zwave_globs: ["*Z-Wave*", "*0658_0200*", "*ZST39*"]
+      flux:
+        - name: devices
+          install:
+            components:
+              - node-feature-discovery
+              - generic-device-plugin
+            substitutions:
+              generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/ups","path": "/dev/serial/by-id/*UPS*"}]}],"name": "ups"},{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"}]'
+
+  - name: devices.serial named dri fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      devices:
+        enabled: true
+        serial:
+          dri: ["*Zigbee*"]
+    expectError: true
 
   - name: gpu drivers without devices.enabled fails composition
     values:

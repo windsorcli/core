@@ -1,9 +1,9 @@
 ---
 title: Devices
-description: Node Feature Discovery labels for USB serial radios and GPUs, and device plugins that expose them as extended resources.
+description: Node Feature Discovery labels for USB serial devices and GPUs, and device plugins that expose them as extended resources.
 ---
 
-Node Feature Discovery labels each node that has a USB serial radio or a GPU, and device plugins advertise those devices as extended resources. A pod requests a resource in `resources.limits` and selects a node by label, with no `hostPath` volume or privileged container.
+Node Feature Discovery labels each node that has a USB serial device or a GPU, and device plugins advertise those devices as extended resources. A pod requests a resource in `resources.limits` and selects a node by label, with no `hostPath` volume or privileged container.
 
 ## Architecture
 
@@ -22,7 +22,7 @@ flowchart LR
 
   node[Node labels<br/>devices.windsorcli.dev/*]
   kubelet[kubelet device plugin API]
-  pod[Workload pod<br/>limits devices.windsorcli.dev/zigbee]
+  pod[Workload pod<br/>limits a devices.windsorcli.dev resource]
 
   flux ==> nfd_hr --> master & worker
   flux ==> gdp_hr --> gdp
@@ -37,7 +37,7 @@ nfd-worker reports each node's PCI devices and loaded kernel modules, and nfd-ma
 
 ## Recipes
 
-### Serial radios only
+### Serial devices only
 
 ```yaml
 flux:
@@ -70,7 +70,7 @@ A pod that requests `nvidia.com/gpu` sets `runtimeClassName: nvidia`.
 
 ## Operations
 
-- If a dongle gets no `zigbee` or `zwave` resource, list `/dev/serial/by-id/` on the node and add a glob for its name to `devices.serial.zigbee` or `devices.serial.zwave`.
+- If a USB serial device gets no resource, list `/dev/serial/by-id/` on the node and check that a glob in its `devices.serial` entry matches the name.
 - If a GPU node has no `gpu-*` label, check that the Talos extension for `devices.gpu.drivers` is installed and its module is loaded.
 - If a non-root pod cannot open its device, check that the node carries the containerd `device_ownership_from_security_context` patch.
 - The `usb-serial` label stays after the dongle is unplugged, until the node reboots.
@@ -85,7 +85,7 @@ A pod that requests `nvidia.com/gpu` sets `runtimeClassName: nvidia`.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `generic_device_plugin_devices` | `generic-device-plugin` is enabled | JSON list of `--device` specs: `zigbee` and `zwave` from the default and `devices.serial.*` globs, plus `dri` when `devices.gpu.drivers` has `intel` or `amd`. |
+| `generic_device_plugin_devices` | `generic-device-plugin` is enabled | JSON list of `--device` specs: one per `devices.serial` name with its globs, plus `dri` when `devices.gpu.drivers` has `intel` or `amd`. |
 
 ## Components
 
@@ -97,9 +97,9 @@ Helm release of Node Feature Discovery with nfd-master, nfd-worker on every node
 
 ### `generic-device-plugin`
 
-_Enabled when `devices.enabled: true`._
+_Enabled when `devices.enabled: true` and `devices.serial` has an entry or `devices.gpu.drivers` has `intel` or `amd`._
 
-Helm release of generic-device-plugin with `--domain devices.windsorcli.dev`. It exposes `zigbee` at `/dev/zigbee`, `zwave` at `/dev/zwave`, and `dri` as render nodes under `/dev/dri/` with 10 shares per node.
+Helm release of generic-device-plugin with `--domain devices.windsorcli.dev`. It exposes each `devices.serial` name at `/dev/<name>`, and `dri` as render nodes under `/dev/dri/` with 10 shares per node.
 
 ### `nvidia-device-plugin`
 

@@ -1,6 +1,6 @@
 ---
 title: "ADR-0032: Node Feature Discovery labels device nodes and device plugins expose the devices"
-description: Add a devices system that runs Node Feature Discovery and device plugins on Talos. It names the node labels and resource names for USB serial radios, transcoding GPUs, and video decoders, adds the Talos GPU extensions, and passes devices through to Incus and Proxmox VMs.
+description: Add a devices system that runs Node Feature Discovery and device plugins on Talos. It names the node labels and resource names for USB serial devices, transcoding GPUs, and video decoders, adds the Talos GPU extensions, and passes devices through to Incus and Proxmox VMs.
 ---
 
 # ADR-0032: Node Feature Discovery labels device nodes and device plugins expose the devices
@@ -122,7 +122,8 @@ The `usb-serial` rule reads loaded modules, because NFD does not read the USB
 product string and the common bridge chips (`10c4:ea60`, `1a86:55d4`) carry
 both Zigbee and Z-Wave radios. Talos udev loads the driver when the dongle is
 plugged in. The label stays after an unplug until the node reboots. The
-radio type is in the resource name (section 2), not in the label. The
+device type is in the resource name the user picks (section 2), not in the
+label. The
 implementation MUST confirm on Talos 1.14 that plugging a dongle loads its
 driver with no `machine.kernel.modules` entry. If it does not, the rule MUST
 match a `usb.device` vendor and device list instead, and this ADR is amended.
@@ -136,21 +137,20 @@ Pod Security level.
 
 | Resource | Device class | Host match | Container path | Shares |
 |---|---|---|---|---|
-| `devices.windsorcli.dev/zigbee` | Zigbee radio | `/dev/serial/by-id/` globs | `/dev/zigbee` | 1 |
-| `devices.windsorcli.dev/zwave` | Z-Wave radio | `/dev/serial/by-id/` globs | `/dev/zwave` | 1 |
+| `devices.windsorcli.dev/<name>` | USB serial device, one per `devices.serial` key | `/dev/serial/by-id/` globs | `/dev/<name>` | 1 |
 | `devices.windsorcli.dev/dri` | Intel or AMD GPU | `/dev/dri/renderD*` | `/dev/dri/<name>` | 10 |
 | `nvidia.com/gpu` | NVIDIA GPU | NVIDIA device plugin | Set by the NVIDIA runtime | 10 (time-slicing) |
 
 A pod that requests `nvidia.com/gpu` MUST set `runtimeClassName: nvidia`.
 
-The default globs are `*Zigbee*`, `*ConBee*`, `*SkyConnect*`, and `*ZBT-1*`
-for `zigbee`, and `*Z-Wave*` and `*0658_0200*` for `zwave`. The
-implementation MUST check each glob against the by-id name of a real dongle,
-and drop a glob that it cannot check. A dongle whose by-id name names only
-its bridge chip (for example
-`usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_<serial>`) matches
-no default glob. The user adds a glob for it (section 5). The implementation
-MUST also confirm that the plugin mounts a by-id symlink as a device node.
+`core` ships no default globs and no default serial names. A by-id name
+carries a product string that `core` cannot check for every dongle, one
+product can run more than one protocol depending on its firmware, and a
+dongle can name only its bridge chip (for example
+`usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_<serial>`). The user
+reads `/dev/serial/by-id/` on the node and writes the globs (section 5). The
+implementation MUST confirm that the plugin mounts a by-id symlink as a
+device node.
 
 `dri` exposes render nodes only. VA-API and Quick Sync in Jellyfin and Frigate
 need only `/dev/dri/renderD128`. A firmware framebuffer driver can add a
@@ -177,9 +177,9 @@ for them.
   topology updater stays off. The `NodeFeatureRule` CRD follows the `crds:`
   layer rule for charts that ship CRDs.
 - `generic-device-plugin` (chart `0.2.0`) with `--domain
-  devices.windsorcli.dev` and the `zigbee`, `zwave`, and `dri` devices.
-  The `dri` device is in the config only when `intel` or `amd` is in
-  `devices.gpu.drivers`.
+  devices.windsorcli.dev`, one device per `devices.serial` key, and the
+  `dri` device when `intel` or `amd` is in `devices.gpu.drivers`. The
+  plugin installs only when it has at least one device.
 - `nvidia-device-plugin` (chart `0.20.2`) with `runtimeClassName: nvidia`
   and a time-slicing config of 10 replicas, only when `nvidia` is in
   `devices.gpu.drivers`. A `RuntimeClass` named `nvidia` with the handler
@@ -234,12 +234,11 @@ to ADR-0026.
 
 ```yaml
 devices:
-  enabled: true          # NFD, generic-device-plugin, serial radios
+  enabled: true          # NFD and the CRI patch
   gpu:
     drivers: [intel]     # intel | amd | nvidia
   serial:
-    zigbee: ["*MyCoordinator*"]   # added to the default zigbee globs
-    zwave: []
+    zigbee: ["*Sonoff_Zigbee*"]   # resource devices.windsorcli.dev/zigbee
 ```
 
 - `devices.enabled` defaults to `false`. It installs the `devices` system and
@@ -248,8 +247,10 @@ devices:
   its machine config, and its device plugin. A non-empty list with
   `devices.enabled: false` MUST fail composition with the message
   "devices.gpu.drivers needs devices.enabled: true".
-- `devices.serial.zigbee` and `devices.serial.zwave` default to `[]`. Each
-  entry is a glob under `/dev/serial/by-id/` that adds to the defaults.
+- `devices.serial` defaults to `{}`. Each key is a DNS label that names the
+  resource and the container path, and its value is a non-empty list of
+  globs under `/dev/serial/by-id/`. The key `dri` MUST fail composition,
+  because the GPU render device uses it.
 - Each node entry in `cluster.controlplanes.nodes`, `cluster.workers.nodes`,
   and a pool's `nodes` gets `passthrough` (section 7).
 
@@ -347,7 +348,8 @@ without `devices.enabled`.
   with `longhorn`, every `requires:` message, and the `passthrough` mapping
   on `incus` and `proxmox`.
 - The implementation MUST record, in its PR, a live run on one Talos node
-  with an Intel integrated GPU and one USB Zigbee dongle. The run shows the
+  with an Intel integrated GPU and one USB Zigbee dongle, configured as
+  `devices.serial.zigbee`. The run shows the
   `usb-serial`, `gpu-intel`, `video-encode`, and `video-decode` labels, the
   `devices.windsorcli.dev/zigbee` and `devices.windsorcli.dev/dri`
   resources, a non-root pod that opens `/dev/zigbee`, and two pods in
@@ -407,6 +409,10 @@ after any move.
   render node, which `generic-device-plugin` already exposes.
 - Akri for the serial class. It needs a controller, an agent, CRDs, and a
   broker per device, for the same result.
+- Default serial names and product globs in `core`, such as `zigbee` and
+  `zwave`. The globs cannot be checked for every product, a radio's protocol
+  can depend on its firmware, and each new device class would need a schema
+  change.
 - Radio labels from a USB vendor and device list. Zigbee and Z-Wave sticks
   share bridge chips, so the list cannot tell them apart.
 - One label with the GPU vendor as its value. A node with an integrated GPU

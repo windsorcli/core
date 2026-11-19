@@ -1979,9 +1979,9 @@ properties:
         type: boolean
         default: false
         description: >-
-          Install Node Feature Discovery and the device plugins that expose USB Zigbee and Z-Wave radios and GPUs,
-          and set the containerd device-ownership option on every node. Talos on metal, incus, proxmox, hyperv,
-          vsphere, and hetzner only.
+          Install Node Feature Discovery and the device plugins that expose USB serial devices and GPUs, and set
+          the containerd device-ownership option on every node. Talos on metal, incus, proxmox, hyperv, vsphere,
+          and hetzner only.
       gpu:
         type: object
         properties:
@@ -2002,22 +2002,20 @@ properties:
         additionalProperties: false
       serial:
         type: object
-        properties:
-          zigbee:
-            type: array
-            items:
-              type: string
-              minLength: 1
-            default: []
-            description: Extra globs under /dev/serial/by-id/ that match Zigbee radios, added to the defaults *Zigbee*, *ConBee*, *SkyConnect*, and *ZBT-1*.
-          zwave:
-            type: array
-            items:
-              type: string
-              minLength: 1
-            default: []
-            description: Extra globs under /dev/serial/by-id/ that match Z-Wave radios, added to the defaults *Z-Wave* and *0658_0200*.
-        additionalProperties: false
+        propertyNames:
+          type: string
+          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+          maxLength: 63
+        additionalProperties:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+        default: {}
+        description: >-
+          USB serial devices to expose, keyed by resource name. Each entry lists globs under /dev/serial/by-id/
+          and becomes the resource devices.windsorcli.dev/<name>, mounted at /dev/<name>.
     additionalProperties: false
 
   object_store:
