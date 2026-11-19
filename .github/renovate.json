@@ -144,6 +144,21 @@
       "automerge": false
     },
     {
+      "description": "Update the Prometheus version and image tag in one PR",
+      "matchDepNames": ["prometheus/prometheus", "quay.io/prometheus/prometheus"],
+      "groupName": "prometheus"
+    },
+    {
+      "description": "Update the Alertmanager version and image tag in one PR",
+      "matchDepNames": ["prometheus/alertmanager", "quay.io/prometheus/alertmanager"],
+      "groupName": "alertmanager"
+    },
+    {
+      "description": "Update the node exporter version and image tag in one PR",
+      "matchDepNames": ["prometheus/node_exporter", "quay.io/prometheus/node-exporter"],
+      "groupName": "node-exporter"
+    },
+    {
       "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
       "matchPackageNames": ["ghcr.io/distribution/distribution"],
       "enabled": false
@@ -382,7 +397,8 @@
       "depNameTemplate": "{{depName}}"
     }
   ],
-  "prConcurrentLimit": 20,
+  "prConcurrentLimit": 50,
+  "prHourlyLimit": 10,
   "platformAutomerge": true,
   "rebaseWhen": "conflicted",
   "addLabels": [
