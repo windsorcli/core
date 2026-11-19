@@ -182,7 +182,7 @@ Grafana does not download plugins and does not call grafana.com. It uses only th
 
 _Enabled when `telemetry.logs.driver == 'fluentd'`._
 
-Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`. Includes a Kyverno policy that restarts the fluentd StatefulSet when a ClusterFilter, ClusterInput, ClusterOutput, or ClusterFluentdConfig changes, since fluent-operator regenerates fluentd's config Secret but never rolls the pod.
+Fluentd aggregator (`Fluentd` custom resource, one replica), reconciled by the fluent-operator that `telemetry` installs. Includes a Kyverno policy that restarts the fluentd StatefulSet when a ClusterFilter, ClusterInput, ClusterOutput, or ClusterFluentdConfig changes, since fluent-operator regenerates fluentd's config Secret but never rolls the pod.
 
 ### `fluentd/filters/otel`
 

@@ -19,6 +19,22 @@ variable "extensions" {
   default     = []
 }
 
+variable "base_extensions" {
+  description = "Talos Image Factory extension names the schematic always holds. They do not trigger an upgrade on their own."
+  type        = list(string)
+  default     = []
+}
+
+variable "installer" {
+  description = "Talos Image Factory installer image name for nodes without an overlay or install_image."
+  type        = string
+  default     = "installer"
+  validation {
+    condition     = contains(["installer", "nocloud-installer"], var.installer)
+    error_message = "The installer must be installer or nocloud-installer."
+  }
+}
+
 variable "controlplanes" {
   description = "List of controlplane nodes to upgrade. Only node and endpoint are required. A node's overlay adds its board overlay to the extensions schematic. A node's install_image replaces the extensions installer and MUST carry the extensions."
   type = list(object({

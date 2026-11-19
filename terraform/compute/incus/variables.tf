@@ -62,6 +62,32 @@ variable "network_cidr" {
   default     = null
 }
 
+variable "cloud_init_network" {
+  description = "Give each virtual machine with an ipv4 a cloud-init network-config for eth0 with that address, network_gateway, and network_nameservers, on a cloud-init config drive."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.cloud_init_network || var.network_gateway != null
+    error_message = "cloud_init_network requires network_gateway."
+  }
+  validation {
+    condition     = !var.cloud_init_network || var.network_cidr != null || alltrue([for instance in var.instances : instance.ipv4 == null || strcontains(instance.ipv4, "/")])
+    error_message = "cloud_init_network requires network_cidr, or a prefix length on every instance ipv4."
+  }
+}
+
+variable "network_gateway" {
+  description = "IPv4 default gateway written to cloud-init network-config."
+  type        = string
+  default     = null
+}
+
+variable "network_nameservers" {
+  description = "DNS resolvers written to cloud-init network-config."
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_dhcp" {
   description = "Enable DHCP for automatic IP assignment. Static IPs on device ipv4.address act as static DHCP leases when enabled"
   type        = bool

@@ -680,6 +680,11 @@ run "cidata_iso_built_from_machineconfigs" {
     condition     = length([for entry in hyperv_vm.instances["controlplane"].boot_order : entry if entry.controller_location == 2]) == 0
     error_message = "CIDATA slot must not appear in boot_order"
   }
+
+  assert {
+    condition     = startswith(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "version: 2\nethernets:\n  eth0:\n    addresses:\n      - 10.5.0.10/16\n")
+    error_message = "Static CIDATA network-config should key the address on link eth0"
+  }
 }
 
 # CIDATA without OS ISO: confirms the CIDATA ISO still lands at slot 2 when
@@ -745,6 +750,11 @@ run "dhcp_with_endpoint_bakes_dhcp4" {
   assert {
     condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
     error_message = "DHCP CIDATA network-config should set dhcp4: true"
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "ethernets:\n  eth0:\n    dhcp4: true")
+    error_message = "DHCP CIDATA network-config should key dhcp4 on link eth0"
   }
 
   assert {
@@ -869,6 +879,18 @@ run "controlplane_vip_rejects_node_ip" {
 # extra_port_forwards (gateway.publish_ports) on top; without this gate, an
 # operator picking an in-use bench port would silently override the baseline
 # (e.g. clobber the worker-1 Talos API forward).
+# A glob link name is rejected because Talos does not expand it.
+run "network_interface_rejects_glob" {
+  command = plan
+
+  variables {
+    context_id        = "test"
+    network_interface = "e*"
+  }
+
+  expect_failures = [var.network_interface]
+}
+
 run "extra_port_forwards_collision_rejected" {
   command = plan
 
@@ -941,5 +963,109 @@ run "common_config_patches_accepts_several_documents" {
       },
     ]
     common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
+  }
+}
+
+# Role config patches bake last into each role's machineconfig, so they win over the common and network patches
+run "role_config_patches_bake_last" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    cluster_name                = "talos"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    talos_version               = "1.12.6"
+    destination_dir             = "C:/hyperv/images"
+    network_gateway             = "10.5.0.1"
+    network_cidr                = "10.5.0.0/16"
+    common_config_patches       = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
+    controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
+    worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = data.talos_machine_configuration.controlplane["controlplane"].config_patches[0] == var.common_config_patches && data.talos_machine_configuration.controlplane["controlplane"].config_patches[length(data.talos_machine_configuration.controlplane["controlplane"].config_patches) - 1] == var.controlplane_config_patches
+    error_message = "The control-plane role patches should bake last"
+  }
+  assert {
+    condition     = data.talos_machine_configuration.worker["worker"].config_patches[0] == var.common_config_patches && data.talos_machine_configuration.worker["worker"].config_patches[length(data.talos_machine_configuration.worker["worker"].config_patches) - 1] == var.worker_config_patches
+    error_message = "The worker role patches should bake last"
+  }
+}
+
+# A malformed role patch fails the plan at compute, where it bakes
+run "role_config_patches_reject_malformed_document" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    cluster_name                = "talos"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    talos_version               = "1.12.6"
+    destination_dir             = "C:/hyperv/images"
+    network_gateway             = "10.5.0.1"
+    network_cidr                = "10.5.0.0/16"
+    controlplane_config_patches = "machine: {}\n---\nmachine: [unclosed"
+    worker_config_patches       = "machine: [unclosed"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  expect_failures = [
+    var.controlplane_config_patches,
+    var.worker_config_patches,
+  ]
+}
+
+# Verifies that volumes and disks bake as kubelet extraMounts and UserVolumeConfig documents per role
+run "volumes_and_disks_baked" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    cluster_name         = "talos"
+    cluster_endpoint     = "https://10.5.0.10:6443"
+    talos_version        = "1.12.6"
+    destination_dir      = "C:/hyperv/images"
+    network_gateway      = "10.5.0.1"
+    network_cidr         = "10.5.0.0/16"
+    controlplane_volumes = ["/var/mnt/cp"]
+    worker_volumes       = ["/data:/var/local"]
+    controlplane_disks   = [{ name = "cp-data", size = 20 }]
+    worker_disks         = [{ name = "raw", device = "/dev/sdb" }, { selector = "disk.serial == 'abc'" }]
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.controlplane["controlplane"].config_patches, yamlencode({ machine = { kubelet = { extraMounts = [{ source = "/var/mnt/cp", destination = "/var/mnt/cp", type = "bind", options = ["rbind", "rw"] }] } } }))
+    error_message = "Control-plane volumes should bake as kubelet extraMounts"
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.worker["worker"].config_patches, yamlencode({ machine = { kubelet = { extraMounts = [{ source = "/var/local", destination = "/var/local", type = "bind", options = ["rbind", "rw"] }] } } }))
+    error_message = "Worker volumes should bake as kubelet extraMounts on the destination path"
+  }
+
+  assert {
+    condition     = length([for p in data.talos_machine_configuration.controlplane["controlplane"].config_patches : p if try(yamldecode(p).kind, "") == "UserVolumeConfig" && try(yamldecode(p).provisioning.diskSelector.match, "") == "!system_disk && disk.size == 20u * GB"]) == 1
+    error_message = "Control-plane size-only disk should bake as a size-matched UserVolumeConfig"
+  }
+
+  assert {
+    condition     = [for p in data.talos_machine_configuration.worker["worker"].config_patches : yamldecode(p).name if try(yamldecode(p).kind, "") == "UserVolumeConfig"] == ["raw", "disk-1"]
+    error_message = "Worker disks should bake one UserVolumeConfig each"
+  }
+
+  assert {
+    condition     = length([for p in data.talos_machine_configuration.worker["worker"].config_patches : p if try(yamldecode(p).volumeType, "") == "disk"]) == 1
+    error_message = "Worker device disk should bake as a raw block volume"
   }
 }

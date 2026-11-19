@@ -246,9 +246,9 @@ Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding
 
 ### `cert-manager/public-resolvers`
 
-_Enabled when the internal gateway uses the `public-acme` issuer._
+_Enabled when `pki.dns01_resolvers` is a non-empty list. Unset, it is enabled on a local workstation with a public ACME issuer, and when the internal gateway uses the `public-acme` issuer with a private domain._
 
-Patches the cert-manager HelmRelease so DNS-01 propagation checks query only public resolvers. The in-cluster resolver answers for the private subdomain and never sees the challenge record in the public zone.
+Patches the cert-manager HelmRelease so DNS-01 propagation checks query only the configured resolvers, `1.1.1.1:53` and `8.8.8.8:53` by default. An empty `pki.dns01_resolvers` list keeps the cluster resolver.
 
 ### `cert-manager/prometheus`
 
@@ -306,6 +306,12 @@ ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth
 _Enabled when platform is GCP AND a gateway uses the `public-acme` issuer._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
+
+### `public-issuer/acme/cloudflare`
+
+_Enabled when `dns.public.driver` is `cloudflare` AND a gateway uses the `public-acme` issuer._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloudflare. Auth is the API token in the `cloudflare-dns` Secret in `system-pki`.
 
 ## Dependencies
 

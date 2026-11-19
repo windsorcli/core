@@ -69,6 +69,60 @@ cases:
             - cluster
           destroy: false
 
+  # Pool config_patches bake into compute and reach the cluster step.
+  - name: pool config_patches bake into compute and reach cluster
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          count: 1
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+        workers:
+          count: 0
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "10"
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+              ---
+              machine:
+                sysctls:
+                  vm.swappiness: "10"
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+
   - name: cluster.vip bakes the VIP into the control planes
     values:
       platform: hyperv
@@ -516,7 +570,7 @@ cases:
             destination_dir: "C:/hyperv/images"
             images:
               talos:
-                destination_path: "C:/hyperv/images/talos-1.14.5-metal-amd64-ctx1.iso"
+                destination_path: "C:/hyperv/images/talos-1.14.6-metal-amd64-ctx1.iso"
             instances:
               - name: controlplane
 
@@ -1316,7 +1370,7 @@ cases:
           inputs:
             images:
               talos:
-                destination_path: "C:/hyperv/images/talos-1.14.5-metal-amd64.iso"
+                destination_path: "C:/hyperv/images/talos-1.14.6-metal-amd64.iso"
             instances:
               - name: controlplane
 
@@ -1365,7 +1419,7 @@ cases:
           common_patch:
             machine:
               install:
-                image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.5"
+                image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.6"
 
   # Cilium reaches the API through KubePrism, so DHCP guests need no fixed endpoint.
   - name: dhcp with cilium and no endpoint composes
@@ -1398,3 +1452,93 @@ cases:
             substitutions:
               k8s_service_host: localhost
               k8s_service_port: "7445"
+
+  # Compute bakes the machineconfig, so it receives every patch input the
+  # cluster step would otherwise apply.
+  - name: compute receives role patches volumes and disks for the baked machineconfig
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://10.20.0.10:6443
+        storage:
+          driver: mayastor
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+        controlplanes:
+          count: 1
+          volumes:
+            - /var/mnt/cp
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+              hostname: controlplane-1
+        workers:
+          count: 1
+          disks:
+            - name: data
+              device: /dev/sdb
+          nodes:
+            worker-1:
+              endpoint: 10.20.0.20:50000
+              node: 10.20.0.20
+              hostname: worker-1
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+            worker_config_patches: |-
+              machine:
+                kernel:
+                  modules:
+                  - name: nvme_tcp
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+                nodeLabels:
+                  openebs.io/engine: mayastor
+                sysctls:
+                  vm.nr_hugepages: "1024"
+            controlplane_volumes:
+              - /var/mnt/cp
+            worker_volumes:
+              - /var/local
+            controlplane_disks: []
+            worker_disks:
+              - name: data
+                device: /dev/sdb
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+            worker_config_patches: |-
+              machine:
+                kernel:
+                  modules:
+                  - name: nvme_tcp
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+                nodeLabels:
+                  openebs.io/engine: mayastor
+                sysctls:
+                  vm.nr_hugepages: "1024"

@@ -206,9 +206,12 @@ config:
       enabled: false
 
   # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
+  # A tunnel makes the external gateway ClusterIP.
   - name: gateway_exposure
     value:
-      external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      external: >-
+        ${(tunnel.driver ?? '') != '' ? 'ClusterIP' :
+        (gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer'))}
       internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
       external_node_port: ${gateway.external.node_port ?? 30444}
       internal_node_port: ${gateway.internal.node_port ?? 30443}
@@ -275,11 +278,19 @@ config:
   - name: dns_zone_effective
     value:
       enabled: "${(dns.public_domain ?? '') != '' && (dns.public_zone ?? true) == true}"
+  # driver: the server that holds the public zone. cloud is the platform's own zone service.
+  - name: dns_zone_effective
+    value:
+      driver: "${dns.public.driver ?? (platform in ['aws', 'azure', 'gcp', 'hetzner'] ? 'cloud' : 'none')}"
+  - name: dns_zone_effective
+    value:
+      cloud: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloud'}"
+      cloudflare: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloudflare'}"
 
   # ClusterIssuer each gateway certificate uses, inferred unless gateway.<name>.tls.issuer overrides it.
   - name: tls_effective
     value:
-      public_zone_writable: "${dns_zone_effective.enabled == true && platform in ['aws', 'azure', 'gcp', 'hetzner']}"
+      public_zone_writable: "${dns_zone_effective.cloud == true || dns_zone_effective.cloudflare == true}"
       private_subdomain: "${(dns.public_domain ?? '') != '' && hasSuffix(dns.private_domain ?? '', '.' + dns.public_domain)}"
       internal_acme: "${(pki.acme.server ?? '') != ''}"
       external_override: "${gateway.external.tls.issuer ?? ((pki.public_issuer ?? '') == 'selfsigned' ? 'selfsigned' : '')}"
@@ -291,12 +302,13 @@ config:
         (tls_effective.external_override == 'ca' ? 'private' :
         (tls_effective.public_zone_writable == true ? 'public-acme' :
         (tls_effective.internal_acme == true ? 'private-acme' :
-        (tls_effective.external_override == 'acme' ? 'public-acme' : 'public-selfsigned'))))}
+        (tls_effective.external_override == 'acme' ? 'public-acme' :
+        ((tunnel.driver ?? '') != '' ? 'private' : 'public-selfsigned')))))}
       internal_issuer: >-
         ${tls_effective.internal_override == 'selfsigned' ? 'public-selfsigned' :
         (tls_effective.internal_override == 'ca' ? 'private' :
         (tls_effective.internal_acme == true ? 'private-acme' :
-        (tls_effective.private_subdomain == true && tls_effective.public_zone_writable == true ? 'public-acme' :
+        (tls_effective.private_subdomain == true && dns_zone_effective.cloud == true ? 'public-acme' :
         (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private'))))}
   # Which ClusterIssuers some gateway domain needs.
   - name: tls_effective
@@ -310,7 +322,13 @@ config:
       selfsigned: >-
         ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-selfsigned') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-selfsigned')}
-      public_resolvers: "${(dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme'}"
+
+  # Resolvers for cert-manager DNS-01 propagation checks; empty keeps the cluster resolver.
+  - name: dns01_resolvers_effective
+    value: >-
+      ${pki.dns01_resolvers != null ? join(pki.dns01_resolvers, ',') :
+      (((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme') ||
+      (tls_effective.public_acme == true && workstation.runtime != '') ? '1.1.1.1:53,8.8.8.8:53' : '')}
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -392,11 +410,15 @@ config:
 
   # charts.registry as an oci:// URL with no trailing slash, empty when unset.
   - name: chart_registry
-    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(charts.registry, 'oci://'), '/') : ''}"
+    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(trimPrefix(charts.registry, 'oci://'), 'http://'), '/') : ''}"
 
-  # chart_registry for the Terraform-installed charts, empty for a workstation registry.
+  # True when the chart registry serves plain HTTP: an http:// scheme or a workstation registry.
+  - name: chart_registry_insecure
+    value: "${(charts.registry ?? '') startsWith 'http://' || (workstation_chart_registry.key ?? '') != ''}"
+
+  # chart_registry for the Terraform-installed charts, empty for a plain-HTTP registry.
   - name: terraform_chart_registry
-    value: "${(workstation_chart_registry.key ?? '') != '' ? '' : chart_registry}"
+    value: "${chart_registry_insecure ? '' : chart_registry}"
 
 # =============================================================================
 # Global substitutions
@@ -413,6 +435,9 @@ substitutions:
 
   # Empty without charts.registry, so each chart source keeps its vendor URL.
   chart_registry: "${chart_registry}"
+
+  # Chart sources skip TLS when the chart registry serves plain HTTP.
+  chart_registry_insecure: "${chart_registry_insecure}"
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -563,7 +588,14 @@ flux:
           - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
           - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
           - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
-        substitutions:
+        timeout: 10m
+        interval: 5m
+
+  # Slack alert routing substitutions, present only with the Slack component.
+  - name: telemetry
+    when: (telemetry.metrics.enabled ?? true) && (telemetry.alerts.slack.webhook_url ?? '') != ''
+    resources:
+      - substitutions:
           # Only two severities exist in the enum, so "2 or more selected"
           # and "both" are equivalent -- no join() needed for this bounded case.
           #
@@ -584,8 +616,6 @@ flux:
               ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
                     ? (dns.private_domain ?? '')
                     : dns.public_domain))}
-        timeout: 10m
-        interval: 5m
 
   # Slack alert routing secret. Gated on a configured webhook so the bare
   # sensitive reference (the composer rejects a ?? fallback, the materializer
@@ -607,7 +637,7 @@ flux:
         - cert-manager
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
         - "${topology == 'ha' ? 'cert-manager/ha' : ''}"
-        - "${tls_effective.public_resolvers == true ? 'cert-manager/public-resolvers' : ''}"
+        - "${dns01_resolvers_effective != '' ? 'cert-manager/public-resolvers' : ''}"
       timeout: 20m
       interval: 5m
     resources:
@@ -617,18 +647,41 @@ flux:
           - "${tls_effective.private_acme == true ? 'private-issuer/acme' : ''}"
           - "${tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != '' ? 'private-issuer/acme/eab' : ''}"
           - "${tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != '' ? 'private-issuer/acme/ca-bundle' : ''}"
-        substitutions:
-          private_acme_server: "${pki.acme.server ?? ''}"
-          private_acme_email: "${email ?? ''}"
-          private_acme_eab_key_id: "${pki.acme.eab.key_id ?? ''}"
-          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
-          private_acme_ca_bundle: >-
-            ${(pki.acme.ca_bundle ?? '') == '' ? '' :
-            (hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
-            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
-            toBase64(pki.acme.ca_bundle))}
         timeout: 5m
         interval: 5m
+
+  # Resolver list, present only with the cert-manager/public-resolvers component.
+  - name: pki
+    when: dns01_resolvers_effective != ''
+    install:
+      substitutions:
+        dns01_resolvers: "${dns01_resolvers_effective}"
+
+  # Private ACME issuer settings, present only with the private-issuer/acme component.
+  - name: pki
+    when: tls_effective.private_acme == true
+    resources:
+      - substitutions:
+          private_acme_server: "${pki.acme.server ?? ''}"
+          private_acme_email: "${email ?? ''}"
+
+  # EAB key ID, present only with the private-issuer/acme/eab component.
+  - name: pki
+    when: tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != ''
+    resources:
+      - substitutions:
+          private_acme_eab_key_id: "${pki.acme.eab.key_id}"
+
+  # CA bundle, present only with the private-issuer/acme/ca-bundle component.
+  - name: pki
+    when: tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != ''
+    resources:
+      - substitutions:
+          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
+          private_acme_ca_bundle: >-
+            ${hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
+            '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
+            toBase64(pki.acme.ca_bundle)}
 
   # EAB HMAC key for the private-acme ClusterIssuer.
   - name: pki

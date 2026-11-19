@@ -110,27 +110,40 @@ locals {
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
   controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    (d.device != null && d.device != "") ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
   ]]
   worker_block_docs = [for w in var.workers : [for i, d in w.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    (d.device != null && d.device != "") ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
   ]]
+
+  # Each node's config patches, in apply order: the common patches, the module's own patches, then the caller's role
+  # and node patches, which win wherever they set the same key.
+  controlplane_config_patches = [for i, cp in var.controlplanes : [for p in compact(concat(
+    [var.common_config_patches, local.vip_patch, local.controlplane_extra_mounts_patch],
+    local.controlplane_block_docs[i],
+    [var.controlplane_config_patches, cp.config_patches],
+  )) : p if p != "null"]]
+  worker_config_patches = [for i, w in var.workers : [for p in compact(concat(
+    [var.common_config_patches, local.worker_extra_mounts_patch],
+    local.worker_block_docs[i],
+    [var.worker_config_patches, w.config_patches],
+  )) : p if p != "null"]]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -190,13 +203,7 @@ module "controlplane_bootstrap" {
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[0].instance_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.controlplane_config_patches,
-    local.vip_patch,
-    local.controlplane_extra_mounts_patch,
-    lookup(var.controlplanes[0], "config_patches", []),
-  ], local.controlplane_block_docs[0])) : p if p != "null"]
+  config_patches            = local.controlplane_config_patches[0]
 }
 
 module "controlplanes" {
@@ -223,13 +230,7 @@ module "controlplanes" {
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.controlplanes[count.index + 1].instance_id
   apply_after               = module.controlplane_bootstrap.health_check_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.controlplane_config_patches,
-    local.vip_patch,
-    local.controlplane_extra_mounts_patch,
-    lookup(var.controlplanes[count.index + 1], "config_patches", []),
-  ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]
+  config_patches            = local.controlplane_config_patches[count.index + 1]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -259,12 +260,7 @@ module "workers" {
   skip_machine_config_apply = local.skip_machine_config_apply
   instance_id               = var.workers[count.index].instance_id
   apply_after               = module.controlplane_bootstrap.health_check_id
-  config_patches = [for p in compact(concat([
-    var.common_config_patches,
-    var.worker_config_patches,
-    local.worker_extra_mounts_patch,
-    lookup(var.workers[count.index], "config_patches", []),
-  ], local.worker_block_docs[count.index])) : p if p != "null"]
+  config_patches            = local.worker_config_patches[count.index]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

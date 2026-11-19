@@ -1348,7 +1348,37 @@ cases:
           inputs:
             chart_repository: oci://registry.example.com:5000/windsor
 
-  # charts.registry accepts only an OCI registry.
+  # An http:// scheme names a plain-HTTP registry, so chart sources skip TLS.
+  - name: chart registry accepts a plain-HTTP registry
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: http://registry.example.com:5000/windsor
+    expect:
+      config:
+        chart_registry: oci://registry.example.com:5000/windsor
+        chart_registry_insecure: true
+        terraform_chart_registry: ""
+
+  # A TLS registry keeps chart sources on TLS.
+  - name: chart registry keeps TLS by default
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      charts:
+        registry: registry.example.com/windsor
+    expect:
+      config:
+        chart_registry_insecure: false
+
+  # charts.registry accepts only an OCI or plain-HTTP registry.
   - name: chart registry rejects an https scheme
     values:
       platform: metal

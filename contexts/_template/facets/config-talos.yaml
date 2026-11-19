@@ -196,6 +196,11 @@ config:
       # and the kubeReserved block below each merge a sibling key into this.
       worker_patch: {}
 
+      # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
+      # pool's own patches, so the user's settings win where both set the same key.
+      controlplane_config_patches: "${join(concat(filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
+      worker_config_patches: "${join(concat(talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : [], map(cluster.workers.config_patches ?? [], string(#))), '\\n---\\n')}"
+
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
     when: cluster.cni.driver == 'cilium'
@@ -324,11 +329,6 @@ config:
             modules:
               - name: nvme_tcp
 
-  - name: talos_common
-    when: talos_common.worker_patch_emit
-    value:
-      worker_config_patches: "${string(talos_common.worker_patch)}"
-
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
   - name: talos_common
@@ -408,7 +408,7 @@ config:
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-      talos_version: "1.14.5"
+      talos_version: "1.14.6"
 
   - name: talos
     when: platform == 'docker' && workstation.runtime == 'colima'
@@ -448,13 +448,13 @@ config:
         kube-network-policies: "registry.k8s.io/networking/kube-network-policies:v1.1.0"
         # artifact: type=image name=registry.k8s.io/pause
         pause: "registry.k8s.io/pause:3.10.1"
-      "1.14.5":
+      "1.14.6":
         # artifact: type=image name=registry.k8s.io/coredns/coredns
         coredns: "registry.k8s.io/coredns/coredns:v1.14.7"
         # artifact: type=image name=registry.k8s.io/etcd
         etcd: "registry.k8s.io/etcd:v3.7.3"
         # artifact: type=image name=ghcr.io/siderolabs/flannel
-        flannel: "ghcr.io/siderolabs/flannel:0.28.9"
+        flannel: "ghcr.io/siderolabs/flannel:v0.28.10"
         # artifact: type=image name=registry.k8s.io/networking/kube-network-policies
         kube-network-policies: "registry.k8s.io/networking/kube-network-policies:v1.1.2"
         # artifact: type=image name=registry.k8s.io/pause

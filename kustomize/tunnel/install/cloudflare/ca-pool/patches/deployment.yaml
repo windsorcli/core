@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: system-tunnel
+spec:
+  template:
+    spec:
+      containers:
+        - name: cloudflared
+          volumeMounts:
+            - name: cluster-ca
+              mountPath: /etc/tunnel/ca
+              readOnly: true
+      volumes:
+        - name: cluster-ca
+          configMap:
+            name: cluster-ca

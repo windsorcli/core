@@ -76,22 +76,22 @@ requires:
     message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
   - when: >-
       gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
-      (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
+      (tunnel.driver ?? '') == '' && (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
       tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
     message: >-
       The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
-      (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
+      (aws, azure, gcp, or hetzner), set dns.public.driver to cloudflare, set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
   - when: >-
       gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
-    message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
+    message: gateway.external.tls.issuer acme needs pki.acme.server, dns.public.driver cloudflare, or a dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: >-
       gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
       (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
     message: >-
       gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
-      dns.public_domain zone on aws, azure, gcp, or hetzner.
+      dns.public_domain zone on aws, azure, gcp, hetzner, or dns.public.driver cloudflare.
   - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
     message: Hetzner has no internal gateway; remove gateway.internal.enabled.
   - when: >-
@@ -124,7 +124,9 @@ config:
       internal_ip: "${gateway.internal.ip ?? ''}"
       external_ip: "${gateway.external.ip ?? ''}"
       internal_mode: "${gateway_exposure.internal == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
-      external_mode: "${gateway_exposure.external == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
+      external_mode: >-
+        ${gateway_exposure.external == 'NodePort' ? 'nodeport' :
+        (gateway_exposure.external == 'ClusterIP' ? 'clusterip' : 'loadbalancer')}
       # Hetzner is public only and gets no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
       # A gateway exists with its domain, or without one when gateway.<name>.enabled is true.
@@ -224,8 +226,8 @@ flux:
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
           - "${gateway.driver != 'cilium' && gateway_effective.external_https == true ? 'envoy/default-404' : ''}"
           - >-
-            ${gateway.driver != 'cilium' && gateway_effective.external_https == true && (dns.public_domain ?? '') != '' ?
-            'envoy/default-404/external-dns' : ''}
+            ${gateway.driver != 'cilium' && gateway_effective.external_https == true && (dns.public_domain ?? '') != '' &&
+            (tunnel.driver ?? '') == '' ? 'envoy/default-404/external-dns' : ''}
           - >-
             ${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
             'lb-address' : ''}
