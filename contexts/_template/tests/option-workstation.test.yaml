@@ -60,6 +60,17 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: true
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               controllerManager:
                 extraArgs:
                   leader-elect: "false"
@@ -69,18 +80,9 @@ cases:
                   auto-compaction-retention: "1000"
                   max-snapshots: "3"
                   max-wals: "3"
-              network:
-                cni:
-                  name: none
-              proxy:
-                disabled: true
               scheduler:
                 extraArgs:
                   leader-elect: "false"
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -767,6 +769,33 @@ cases:
                     systemReserved:
                       cpu: 1500m
                       memory: 9Gi
+              ---
+              cluster:
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
 
   # compute.host_cpu exceeds the quota but host_memory matches it: only the
   # cpu key reserves a gap, memory is omitted (regression for a bug where
@@ -811,6 +840,33 @@ cases:
                     systemReserved:
                       cpu: 1500m
                       memory: 0Gi
+              ---
+              cluster:
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
 
   # compute.host_memory exceeds the quota but host_cpu matches it: only the
   # memory key reserves a gap. Regression for the mirror-image bug where a
@@ -855,6 +911,33 @@ cases:
                     systemReserved:
                       cpu: 0m
                       memory: 3Gi
+              ---
+              cluster:
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
 
   # Controlplanes and workers commonly run different quotas against the same
   # shared host; each role reserves its own gap independently, not the
@@ -911,6 +994,33 @@ cases:
                     systemReserved:
                       cpu: 5500m
                       memory: 13Gi
+              ---
+              cluster:
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 125m
+                      memory: 128Mi
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
             worker_config_patches: |-
               machine:
                 kubelet:

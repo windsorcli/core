@@ -196,9 +196,12 @@ config:
       # and the kubeReserved block below each merge a sibling key into this.
       worker_patch: {}
 
+      # Control-plane-only machine config patch.
+      controlplane_patch: {}
+
       # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
       # pool's own patches, so the user's settings win where both set the same key.
-      controlplane_config_patches: "${join(concat(filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
+      controlplane_config_patches: "${join(concat(len(talos_common.controlplane_patch) > 0 ? [string(talos_common.controlplane_patch)] : [], filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
       worker_config_patches: "${join(concat(talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : [], map(cluster.workers.config_patches ?? [], string(#))), '\\n---\\n')}"
 
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
@@ -234,7 +237,7 @@ config:
   - name: talos_common
     when: cluster_nodes_effective.controlplanes == 1
     value:
-      common_patch:
+      controlplane_patch:
         cluster:
           controllerManager:
             extraArgs:
@@ -277,6 +280,7 @@ config:
               kubeReserved:
                 cpu: ${talos_common.cp_reserve.kubelet_cpu}
                 memory: ${talos_common.cp_reserve.kubelet_memory}
+      controlplane_patch:
         cluster:
           apiServer:
             resources:
@@ -336,7 +340,7 @@ config:
     value:
       oidc_issuer_url: "${cluster.oidc.issuer_url ?? (identity.enabled == true ? identity_effective.issuer : '')}"
       oidc_client_id: "${cluster.oidc.client_id ?? ((identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak') ? 'kubernetes' : '')}"
-      common_patch:
+      controlplane_patch:
         cluster:
           apiServer:
             extraArgs:
@@ -372,7 +376,7 @@ config:
   - name: talos_common
     when: cluster.oidc.enabled == true && talos_oidc.public_ca != true
     value:
-      common_patch:
+      controlplane_patch:
         cluster:
           apiServer:
             extraArgs:

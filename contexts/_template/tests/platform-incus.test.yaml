@@ -459,6 +459,20 @@ cases:
           path: cluster/talos
           inputs:
             controlplane_config_patches: |-
+              cluster:
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              ---
               machine:
                 sysctls:
                   vm.swappiness: "1"
@@ -500,6 +514,20 @@ cases:
           path: cluster/talos
           inputs:
             controlplane_config_patches: |-
+              cluster:
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              ---
               machine:
                 sysctls:
                   vm.swappiness: "1"
