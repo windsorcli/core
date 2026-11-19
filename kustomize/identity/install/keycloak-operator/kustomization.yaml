@@ -39,7 +39,7 @@ patches:
                 env:
                   - name: RELATED_IMAGE_KEYCLOAK
                     # artifact: type=image name=quay.io/keycloak/keycloak
-                    value: quay.io/keycloak/keycloak:26.8.0@sha256:27b3230fbabb8c9ff3c66c864cf09dcd8a41aca82e5100679d109ef0eeb05741
+                    value: quay.io/keycloak/keycloak:26.8.2@sha256:c68e286cacd87b942ac1939a0a1481461109d6acd3a57dc496969a319a76bbf0
   # Pull policy and startup probe budget for the operator container.
   - patch: |
       apiVersion: apps/v1
