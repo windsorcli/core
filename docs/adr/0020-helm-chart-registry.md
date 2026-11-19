@@ -117,7 +117,7 @@ set.
 ### 1. One setting: `charts.registry`
 
 `values.yaml` gains a top-level `charts` object with one field, `registry`:
-an OCI registry host with an optional `oci://` scheme, port, and path.
+an OCI registry host with an optional `oci://` or `http://` scheme, port, and path. The `http://` scheme names a registry that serves plain HTTP.
 
 ```yaml
 charts:
@@ -309,10 +309,9 @@ keep their defaults. The stacks themselves do not change, and
 `task charts:check` reads their chart versions from the stacks' variable
 defaults.
 
-A workstation chart registry serves plain HTTP, and the Terraform Helm
-provider cannot pull over plain HTTP. When `charts.registry` names a
-workstation registry, the facets pass `null`, so Terraform pulls these charts
-from the vendor. The Flux HelmRelease that adopts Cilium still pulls from the
+A plain-HTTP chart registry cannot serve the Terraform Helm provider. When
+`charts.registry` names a workstation registry or uses the `http://` scheme,
+the facets pass `null`, so Terraform pulls these charts from the vendor. The Flux HelmRelease that adopts Cilium still pulls from the
 registry.
 
 ### 7. The site fills the registry with Flux Mirror
@@ -351,12 +350,15 @@ reference it through `secretRef`. Core does not create or copy the secret.
 `flux mirror secret` can write it from the same `hosts` credentials the sync
 uses.
 
-A workstation context can host the chart registry for local tests. When
-`charts.registry` names `<name>.<dns domain>`, the `workstation` facet adds a
-local registry called `<name>` and sets the `chart_registry_insecure`
-substitution, so every OCIRepository pulls over plain HTTP. Helm falls back to
-plain HTTP by itself, so the Terraform-installed charts need no setting. Every
-other context keeps TLS.
+A workstation context hosts a local registry called `registry` (`registry.test`)
+by default, for local tests. When `charts.registry` names another
+`<name>.<dns domain>`, the `workstation` facet adds a local registry called
+`<name>`. Set `charts.registry` to `registry.test:5000/windsor` to use the
+default one.
+
+The `chart_registry_insecure` substitution is true when `charts.registry` names
+a workstation registry or uses the `http://` scheme, so every OCIRepository
+pulls over plain HTTP. Every other context keeps TLS.
 
 ### 9. OCI charts pin a digest and verify the vendor's signature
 
