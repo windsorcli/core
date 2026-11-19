@@ -193,6 +193,12 @@ variable "config" {
   default     = {}
 }
 
+variable "cloud_init_network_config" {
+  description = "Cloud-init network-config served to the instance on a cloud-init config drive. Null attaches no drive."
+  type        = string
+  default     = null
+}
+
 variable "ipv4_filtering_enabled" {
   description = "Enable IPv4 filtering on the network interface (prevents ARP spoofing). When true, only allows traffic from the VM's assigned IP. Set to false for LoadBalancer services (kube-vip, MetalLB) that need to respond to ARP for VIPs. Default: false (allows LoadBalancer functionality)."
   type        = bool
