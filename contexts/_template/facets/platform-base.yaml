@@ -400,11 +400,15 @@ config:
 
   # charts.registry as an oci:// URL with no trailing slash, empty when unset.
   - name: chart_registry
-    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(charts.registry, 'oci://'), '/') : ''}"
+    value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(trimPrefix(charts.registry, 'oci://'), 'http://'), '/') : ''}"
 
-  # chart_registry for the Terraform-installed charts, empty for a workstation registry.
+  # True when the chart registry serves plain HTTP: an http:// scheme or a workstation registry.
+  - name: chart_registry_insecure
+    value: "${(charts.registry ?? '') startsWith 'http://' || (workstation_chart_registry.key ?? '') != ''}"
+
+  # chart_registry for the Terraform-installed charts, empty for a plain-HTTP registry.
   - name: terraform_chart_registry
-    value: "${(workstation_chart_registry.key ?? '') != '' ? '' : chart_registry}"
+    value: "${chart_registry_insecure ? '' : chart_registry}"
 
 # =============================================================================
 # Global substitutions
@@ -421,6 +425,9 @@ substitutions:
 
   # Empty without charts.registry, so each chart source keeps its vendor URL.
   chart_registry: "${chart_registry}"
+
+  # Chart sources skip TLS when the chart registry serves plain HTTP.
+  chart_registry_insecure: "${chart_registry_insecure}"
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller

@@ -1519,8 +1519,8 @@ properties:
     properties:
       registry:
         type: string
-        pattern: '^$|^(oci://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
-        description: OCI registry, with optional oci:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). Unset or empty pulls each chart from its vendor.
+        pattern: '^$|^((oci|http)://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
+        description: OCI registry, with optional oci:// or http:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). The http:// scheme names a plain-HTTP registry. Unset or empty pulls each chart from its vendor.
     additionalProperties: false
 
   # Gateway configuration
