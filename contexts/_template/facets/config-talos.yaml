@@ -196,7 +196,7 @@ config:
       # and the kubeReserved block below each merge a sibling key into this.
       worker_patch: {}
 
-      # Control-plane-only keys (cluster.etcd, apiServer, controllerManager, scheduler); Talos rejects them on workers.
+      # Control-plane-only machine config patch.
       controlplane_patch: {}
 
       # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
