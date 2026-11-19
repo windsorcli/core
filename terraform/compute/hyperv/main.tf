@@ -381,16 +381,15 @@ data "hyperv_iso_volume" "cidata" {
       "local-hostname" = each.key
     })
 
-    # version: 2 must lead the file — cloud-init v2 parser activates on the
-    # first line. match.name glob (default e*) covers both eth0 and enX0.
+    # Talos uses the ethernets key as the link name.
     "network-config" = var.network_dhcp ? format(
-      "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    dhcp4: true\n%s",
+      "version: 2\nethernets:\n  %s:\n    dhcp4: true\n%s",
       var.network_interface,
       length(var.network_nameservers) > 0
       ? "    nameservers:\n      addresses:\n${join("\n", [for ns in var.network_nameservers : "        - ${ns}"])}\n"
       : ""
       ) : format(
-      "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
+      "version: 2\nethernets:\n  %s:\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
       var.network_interface,
       "${each.value.ipv4}/${local.network_prefix_length}",
       var.network_gateway,

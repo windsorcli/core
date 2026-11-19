@@ -279,9 +279,14 @@ variable "network_nameservers" {
 }
 
 variable "network_interface" {
-  description = "NIC name glob for the CIDATA network-config match.name field (cloud-init v2). Default e* matches both eth0 and enX0 — covers Hyper-V synthetic NICs across kernel versions."
+  description = "Link name the CIDATA network-config configures. Talos keeps the kernel name eth0 for a Hyper-V synthetic NIC."
   type        = string
-  default     = "e*"
+  default     = "eth0"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+$", var.network_interface))
+    error_message = "network_interface must be a literal link name such as eth0. Talos does not expand globs."
+  }
 }
 
 variable "cluster_name" {
