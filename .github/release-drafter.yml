@@ -1,17 +1,18 @@
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 categories:
+  - title: 'Breaking Changes'
+    labels:
+      - 'breaking'
   - title: 'Features'
     labels:
       - 'feature'
       - 'enhancement'
   - title: 'Bug Fixes'
     labels:
-      - 'fix'
-      - 'bugfix'
       - 'bug'
   - title: 'Maintenance'
-    labels: 
+    labels:
       - 'chore'
       - 'documentation'
   - title: 'Dependencies'
@@ -23,20 +24,17 @@ change-title-escapes: '\<*_&'
 version-resolver:
   major:
     labels:
-      - 'major'
+      - 'breaking'
   minor:
     labels:
       - 'feature'
-      - 'breaking'
   patch:
     labels:
-      - 'fix'
-      - 'bugfix'
       - 'bug'
       - 'chore'
-      - 'dependencies'
-      - 'enhancement'
       - 'documentation'
+      - 'enhancement'
+      - 'dependencies'
   default: patch
 template: |
   ## Changes

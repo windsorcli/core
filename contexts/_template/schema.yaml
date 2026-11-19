@@ -1335,7 +1335,8 @@ properties:
         description: >
           Publicly-routable DNS zone for the deployment. Provisions a
           public DNS zone on the active platform (Route53, Azure DNS,
-          Cloud DNS, or Hetzner DNS), the cert-manager identity binding
+          Cloud DNS, or Hetzner DNS) or in Cloudflare (dns.public.driver),
+          the cert-manager identity binding
           for DNS-01 challenges, and an ACME ClusterIssuer that issues
           real Let's Encrypt certificates for the gateway. The operator
           must delegate this domain at their registrar to the name
@@ -1346,6 +1347,39 @@ properties:
         type: boolean
         default: true
         description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
+      public:
+        type: object
+        properties:
+          driver:
+            type: string
+            enum:
+              - cloud
+              - cloudflare
+            description: Server for the public zone. cloud is the zone service of the platform and works on aws, azure, gcp, and hetzner; cloudflare works on every platform. Unset uses cloud on aws, azure, gcp, and hetzner, and no public zone elsewhere.
+          cloudflare:
+            type: object
+            description: Settings for the cloudflare driver.
+            properties:
+              zone_name:
+                $ref: '#/$defs/dnsHostname'
+                description: Cloudflare zone that holds dns.public_domain. Defaults to dns.public_domain, which suits a domain that is itself a zone.
+              create_zone:
+                type: boolean
+                default: false
+                description: Create the zone instead of looking it up. A created zone is deleted by windsor destroy and stays pending until its name servers are set at the registrar.
+              account_id:
+                type: string
+                description: Cloudflare account that owns the zone. Required with create_zone.
+              api_token:
+                type: string
+                sensitive: true
+                description: Cloudflare API token for Terraform, external-dns and cert-manager, as a secret reference. Scope it to Zone:Read and DNS:Edit on the one zone. create_zone also needs Zone:Edit on the account.
+              proxied:
+                type: boolean
+                default: false
+                description: Route the records external-dns writes through the Cloudflare proxy. Needs a public gateway address, dns.public_domain equal to the zone, and the zone SSL mode set to Full (strict). Only HTTP(S) ports are proxied.
+            additionalProperties: false
+        additionalProperties: false
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone, served by the dns.private.driver. Must differ from dns.public_domain. Lowercase DNS labels separated by dots.
@@ -1436,6 +1470,11 @@ properties:
             sensitive: true
             description: PEM-encoded CA private key. Requires cert. Unset generates one via Terraform.
         additionalProperties: false
+      dns01_resolvers:
+        type: array
+        items:
+          type: string
+        description: Resolvers cert-manager queries for DNS-01 propagation checks, as host:port or DoH URLs. Unset uses public resolvers on a local workstation or with a private domain. An empty list uses the cluster resolver.
       trusted_cas:
         type: array
         items:
@@ -1503,8 +1542,8 @@ properties:
     properties:
       registry:
         type: string
-        pattern: '^$|^(oci://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
-        description: OCI registry, with optional oci:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). Unset or empty pulls each chart from its vendor.
+        pattern: '^$|^((oci|http)://)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*/?$'
+        description: OCI registry, with optional oci:// or http:// scheme, port, and path, that all Helm charts pull from (e.g. registry.example.com/windsor serves oci://registry.example.com/windsor/kyverno). The http:// scheme names a plain-HTTP registry. Unset or empty pulls each chart from its vendor.
     additionalProperties: false
 
   # Gateway configuration
