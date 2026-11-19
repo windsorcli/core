@@ -62,28 +62,32 @@ config:
       turingrk1: siderolabs/sbc-rockchip
       friendlyelec-cm3588-nas: siderolabs/sbc-rockchip
 
-  # User-supplied nodes, with the board overlay of the node's board or its pool's board and the node's
-  # config_patches as YAML documents. A node's install_image wins over the overlay.
+  # User-supplied nodes with the node's or pool's board overlay and disks, and config_patches as YAML
+  # documents. A node's install_image wins over the overlay.
   - name: metal_nodes
     value:
       controlplanes: >-
         ${map(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1)),
           fromPairs(concat(
-            filter(toPairs(#), get(#, 0) not in ["board", "config_patches"]),
+            filter(toPairs(#), get(#, 0) not in ["board", "disks", "config_patches"]),
             let board = get(#, 'board') ?? cluster.controlplanes.board ?? '';
+            let disks = get(#, 'disks') ?? cluster.controlplanes.disks ?? [];
             let patches = get(#, 'config_patches') ?? [];
             concat(
               board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [],
+              len(disks) > 0 ? [["disks", disks]] : [],
               len(patches) > 0 ? [["config_patches", join(map(patches, string(#)), '\n---\n')]] : []))))}
       workers: >-
         ${(cluster.workers.count ?? 0) > 0
           ? map(map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)),
               fromPairs(concat(
-                filter(toPairs(#), get(#, 0) not in ["board", "config_patches"]),
+                filter(toPairs(#), get(#, 0) not in ["board", "disks", "config_patches"]),
                 let board = get(#, 'board') ?? cluster.workers.board ?? '';
+                let disks = get(#, 'disks') ?? cluster.workers.disks ?? [];
                 let patches = get(#, 'config_patches') ?? [];
                 concat(
                   board != '' ? [["overlay", {name: board, image: metal_overlays[board]}]] : [],
+                  len(disks) > 0 ? [["disks", disks]] : [],
                   len(patches) > 0 ? [["config_patches", join(map(patches, string(#)), '\n---\n')]] : []))))
           : []}
 

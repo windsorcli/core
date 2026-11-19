@@ -151,7 +151,7 @@ $defs:
         disks:
           type: array
           items: *diskItem
-          description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
+          description: Data disks for this node. Replaces the pool's disks for this node, with no merge.
         config_patches:
           type: array
           items:
@@ -213,7 +213,7 @@ $defs:
     disks:
       type: array
       items: *diskItem
-      description: Additional data disks (pool-level). Platform attach and/or block storage.
+      description: Data disks for every node in the pool. A node's own disks replace this list for that node.
     hostports:
       type: array
       items:
