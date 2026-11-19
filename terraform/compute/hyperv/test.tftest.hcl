@@ -965,3 +965,51 @@ run "common_config_patches_accepts_several_documents" {
     common_config_patches = "machine: {}\n---\napiVersion: v1alpha1\nkind: RegistryAuthConfig\nname: registry.example.com\nusername: robot\npassword: secret\n"
   }
 }
+
+# Verifies that volumes and disks bake as kubelet extraMounts and UserVolumeConfig documents per role
+run "volumes_and_disks_baked" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    cluster_name         = "talos"
+    cluster_endpoint     = "https://10.5.0.10:6443"
+    talos_version        = "1.12.6"
+    destination_dir      = "C:/hyperv/images"
+    network_gateway      = "10.5.0.1"
+    network_cidr         = "10.5.0.0/16"
+    controlplane_volumes = ["/var/mnt/cp"]
+    worker_volumes       = ["/data:/var/local"]
+    controlplane_disks   = [{ name = "cp-data", size = 20 }]
+    worker_disks         = [{ name = "raw", device = "/dev/sdb" }, { selector = "disk.serial == 'abc'" }]
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.controlplane["controlplane"].config_patches, yamlencode({ machine = { kubelet = { extraMounts = [{ source = "/var/mnt/cp", destination = "/var/mnt/cp", type = "bind", options = ["rbind", "rw"] }] } } }))
+    error_message = "Control-plane volumes should bake as kubelet extraMounts"
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.worker["worker"].config_patches, yamlencode({ machine = { kubelet = { extraMounts = [{ source = "/var/local", destination = "/var/local", type = "bind", options = ["rbind", "rw"] }] } } }))
+    error_message = "Worker volumes should bake as kubelet extraMounts on the destination path"
+  }
+
+  assert {
+    condition     = length([for p in data.talos_machine_configuration.controlplane["controlplane"].config_patches : p if try(yamldecode(p).kind, "") == "UserVolumeConfig" && try(yamldecode(p).provisioning.diskSelector.match, "") == "!system_disk && disk.size == 20u * GB"]) == 1
+    error_message = "Control-plane size-only disk should bake as a size-matched UserVolumeConfig"
+  }
+
+  assert {
+    condition     = [for p in data.talos_machine_configuration.worker["worker"].config_patches : yamldecode(p).name if try(yamldecode(p).kind, "") == "UserVolumeConfig"] == ["raw", "disk-1"]
+    error_message = "Worker disks should bake one UserVolumeConfig each"
+  }
+
+  assert {
+    condition     = length([for p in data.talos_machine_configuration.worker["worker"].config_patches : p if try(yamldecode(p).volumeType, "") == "disk"]) == 1
+    error_message = "Worker device disk should bake as a raw block volume"
+  }
+}
