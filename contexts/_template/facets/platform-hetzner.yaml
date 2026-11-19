@@ -250,11 +250,7 @@ terraform:
       controlplanes: ${terraform_output("compute", "controlplanes") ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))}
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}"
       common_config_patches: ${talos_common.common_config_patches}
-      # Single-node's LB-label patch precedes the shared role patches as its own document, so the pool's patches win.
-      controlplane_config_patches: >-
-        ${join(concat(
-          (talos_common.controlplane_patch ?? nil) != nil ? [string(talos_common.controlplane_patch)] : [],
-          filter([talos_common.controlplane_config_patches], # != '')), '\n---\n')}
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
       worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

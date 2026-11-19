@@ -111,6 +111,12 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               apiServer:
                 extraArgs:
                   oidc-ca-file: /etc/kubernetes/oidc-ca.crt
@@ -122,10 +128,6 @@ cases:
                 - hostPath: /var/kubernetes/oidc-ca.crt
                   mountPath: /etc/kubernetes/oidc-ca.crt
                   readonly: true
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -153,6 +155,12 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               apiServer:
                 extraArgs:
                   oidc-ca-file: /etc/kubernetes/oidc-ca.crt
@@ -164,10 +172,6 @@ cases:
                 - hostPath: /var/kubernetes/oidc-ca.crt
                   mountPath: /etc/kubernetes/oidc-ca.crt
                   readonly: true
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -215,6 +219,12 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               apiServer:
                 extraArgs:
                   oidc-ca-file: /etc/kubernetes/oidc-ca.crt
@@ -226,10 +236,6 @@ cases:
                 - hostPath: /var/kubernetes/oidc-ca.crt
                   mountPath: /etc/kubernetes/oidc-ca.crt
                   readonly: true
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -258,6 +264,12 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               apiServer:
                 extraArgs:
                   oidc-ca-file: /etc/kubernetes/oidc-ca.crt
@@ -269,15 +281,11 @@ cases:
                 - hostPath: /var/kubernetes/oidc-ca.crt
                   mountPath: /etc/kubernetes/oidc-ca.crt
                   readonly: true
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+            controlplane_config_patches: "cluster:\n  apiServer:\n    extraArgs:\n      oidc-ca-file: /etc/kubernetes/oidc-ca.crt\n      oidc-client-id: kubernetes\n      oidc-groups-claim: groups\n      oidc-issuer-url: https://keycloak.example.com/realms/windsor\n      oidc-username-claim: sub\n    extraVolumes:\n    - hostPath: /var/kubernetes/oidc-ca.crt\n      mountPath: /etc/kubernetes/oidc-ca.crt\n      readonly: true\n  controllerManager:\n    extraArgs:\n      leader-elect: \"false\"\n  etcd:\n    extraArgs:\n      auto-compaction-mode: revision\n      auto-compaction-retention: \"1000\"\n      max-snapshots: \"3\"\n      max-wals: \"3\"\n  scheduler:\n    extraArgs:\n      leader-elect: \"false\"\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   - name: small dedicated control plane gets the larger reservation tier
     values:
@@ -301,6 +309,16 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
+          controlplane_patch:
+            cluster:
               apiServer:
                 resources:
                   requests:
@@ -316,14 +334,6 @@ cases:
                   requests:
                     cpu: 100m
                     memory: 128Mi
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
-                extraConfig:
-                  kubeReserved:
-                    cpu: 500m
-                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
@@ -350,6 +360,16 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
+          controlplane_patch:
+            cluster:
               apiServer:
                 resources:
                   requests:
@@ -365,14 +385,6 @@ cases:
                   requests:
                     cpu: 100m
                     memory: 128Mi
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
-                extraConfig:
-                  kubeReserved:
-                    cpu: 500m
-                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
@@ -399,6 +411,16 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 250m
+                    memory: 256Mi
+          controlplane_patch:
+            cluster:
               apiServer:
                 resources:
                   requests:
@@ -414,14 +436,6 @@ cases:
                   requests:
                     cpu: 50m
                     memory: 64Mi
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
-                extraConfig:
-                  kubeReserved:
-                    cpu: 250m
-                    memory: 256Mi
       terraform:
         - name: cluster
           path: cluster/talos
@@ -480,6 +494,16 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
+          controlplane_patch:
+            cluster:
               apiServer:
                 resources:
                   requests:
@@ -495,14 +519,6 @@ cases:
                   requests:
                     cpu: 100m
                     memory: 128Mi
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
-                extraConfig:
-                  kubeReserved:
-                    cpu: 500m
-                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
@@ -646,6 +662,16 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 100m
+                    memory: 256Mi
+          controlplane_patch:
+            cluster:
               apiServer:
                 resources:
                   requests:
@@ -661,14 +687,6 @@ cases:
                   requests:
                     cpu: 50m
                     memory: 64Mi
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
-                extraConfig:
-                  kubeReserved:
-                    cpu: 100m
-                    memory: 256Mi
       terraform:
         - name: cluster
           path: cluster/talos
@@ -709,6 +727,8 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+          controlplane_patch:
+            cluster:
               controllerManager:
                 extraArgs:
                   leader-elect: "false"
@@ -721,6 +741,14 @@ cases:
                   auto-compaction-retention: "1000"
                   max-snapshots: "3"
                   max-wals: "3"
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              controllerManager: {}
+              scheduler: {}
+              etcd: {}
 
   # Three control planes: leader election and the etcd defaults stay upstream.
   - name: three control planes keep leader election and etcd defaults
@@ -771,6 +799,45 @@ cases:
                 extraArgs: {}
               etcd: {}
 
+  - name: oidc with workers keeps apiServer args out of the common patch
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+    expect:
+      config:
+        talos_common:
+          controlplane_patch:
+            cluster:
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+    exclude:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              apiServer: {}
+
   - name: oidc username_claim and groups_claim overrides pass through
     values:
       platform: metal
@@ -791,6 +858,12 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               apiServer:
                 extraArgs:
                   oidc-ca-file: /etc/kubernetes/oidc-ca.crt
@@ -802,10 +875,6 @@ cases:
                 - hostPath: /var/kubernetes/oidc-ca.crt
                   mountPath: /etc/kubernetes/oidc-ca.crt
                   readonly: true
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -1233,7 +1302,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n      \n        -----BEGIN CERTIFICATE-----\n        ROOTA\n        -----END CERTIFICATE-----"
+            controlplane_config_patches: "cluster:\n  apiServer:\n    extraArgs:\n      oidc-ca-file: /etc/kubernetes/oidc-ca.crt\n      oidc-client-id: kubernetes\n      oidc-groups-claim: groups\n      oidc-issuer-url: https://keycloak.example.com/realms/windsor\n      oidc-username-claim: sub\n    extraVolumes:\n    - hostPath: /var/kubernetes/oidc-ca.crt\n      mountPath: /etc/kubernetes/oidc-ca.crt\n      readonly: true\n  controllerManager:\n    extraArgs:\n      leader-elect: \"false\"\n  etcd:\n    extraArgs:\n      auto-compaction-mode: revision\n      auto-compaction-retention: \"1000\"\n      max-snapshots: \"3\"\n      max-wals: \"3\"\n  scheduler:\n    extraArgs:\n      leader-elect: \"false\"\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n      \n        -----BEGIN CERTIFICATE-----\n        ROOTA\n        -----END CERTIFICATE-----"
 
   # A Keycloak gateway on public ACME gets no oidc-ca-file.
   - name: oidc with keycloak behind a public acme gateway omits oidc-ca-file
@@ -1265,7 +1334,7 @@ cases:
         talos_oidc:
           public_ca: true
         talos_common:
-          common_patch:
+          controlplane_patch:
             cluster:
               apiServer:
                 extraArgs:
@@ -1276,7 +1345,7 @@ cases:
     exclude:
       config:
         talos_common:
-          common_patch:
+          controlplane_patch:
             cluster:
               apiServer:
                 extraArgs:
