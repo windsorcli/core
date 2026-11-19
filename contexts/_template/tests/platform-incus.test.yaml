@@ -167,7 +167,7 @@ cases:
             vip_interface:
               deviceSelector:
                 physical: true
-              dhcp: true
+              dhcp: false
         - name: cni
           path: cni/cilium
           dependsOn:
@@ -754,6 +754,12 @@ cases:
             create_network: true
             attach_to_bridge: false
             static_dhcp_leases: true
+            cloud_init_network: false
+            network_gateway: null
+            network_nameservers: []
+            instances:
+              - name: controlplane
+                image: windsor:talos/v1.14.5/amd64
 
   # A node's placement overrides its round-robin member.
   - name: placement overrides the round-robin target
@@ -810,7 +816,7 @@ cases:
               - name: worker
                 target: null
 
-  # incus.network attaches to the LAN network, with declared addresses and MACs for DHCP reservations.
+  # incus.network attaches to the LAN network and gives each node its declared address through cloud-init.
   - name: lan network uses declared addresses without static leases
     values:
       platform: incus
@@ -818,6 +824,8 @@ cases:
         enabled: false
       network:
         cidr_block: 192.168.0.0/22
+        gateway: 192.168.3.1
+        nameservers: [192.168.3.1]
         dhcp: true
       incus:
         remote: home
@@ -848,16 +856,39 @@ cases:
             create_network: false
             static_dhcp_leases: false
             default_storage_pool: local
+            network_cidr: 192.168.0.0/22
+            cloud_init_network: true
+            network_gateway: 192.168.3.1
+            network_nameservers: [192.168.3.1]
             instances:
               - name: controlplane
                 ipv4: 192.168.3.31
                 wait_for_ipv4: false
+                image: windsor:talos/v1.14.5/amd64/nocloud
                 network_config:
                   hwaddr: "02:00:00:00:00:31"
               - name: worker
                 ipv4: 192.168.3.41
                 wait_for_ipv4: false
+                image: windsor:talos/v1.14.5/amd64/nocloud
                 network_config: {}
+
+  # On the LAN, the gateway defaults to the first host of network.cidr_block and DNS to public resolvers.
+  - name: lan network defaults the cloud-init gateway and nameservers
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            cloud_init_network: true
+            network_gateway: 10.5.0.1
+            network_nameservers: ["1.1.1.1", "8.8.8.8"]
 
   # On incus.network, DHCP alone gives no addresses, so each node MUST declare one.
   - name: lan network without node addresses fails composition

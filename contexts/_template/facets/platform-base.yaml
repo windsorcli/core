@@ -206,9 +206,12 @@ config:
       enabled: false
 
   # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
+  # A tunnel makes the external gateway ClusterIP.
   - name: gateway_exposure
     value:
-      external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      external: >-
+        ${(tunnel.driver ?? '') != '' ? 'ClusterIP' :
+        (gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer'))}
       internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
       external_node_port: ${gateway.external.node_port ?? 30444}
       internal_node_port: ${gateway.internal.node_port ?? 30443}
@@ -299,7 +302,8 @@ config:
         (tls_effective.external_override == 'ca' ? 'private' :
         (tls_effective.public_zone_writable == true ? 'public-acme' :
         (tls_effective.internal_acme == true ? 'private-acme' :
-        (tls_effective.external_override == 'acme' ? 'public-acme' : 'public-selfsigned'))))}
+        (tls_effective.external_override == 'acme' ? 'public-acme' :
+        ((tunnel.driver ?? '') != '' ? 'private' : 'public-selfsigned')))))}
       internal_issuer: >-
         ${tls_effective.internal_override == 'selfsigned' ? 'public-selfsigned' :
         (tls_effective.internal_override == 'ca' ? 'private' :

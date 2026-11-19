@@ -174,3 +174,27 @@ variable "instances" {
     error_message = "instances: ipv4 starting octet plus (count - 1) must not exceed 255"
   }
 }
+
+variable "controlplane_volumes" {
+  description = "Raw volume strings (path or host:dest) baked as control-plane kubelet extraMounts on the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "worker_volumes" {
+  description = "Raw volume strings (path or host:dest) baked as worker kubelet extraMounts on the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "controlplane_disks" {
+  description = "Pool-level control-plane disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name."
+  type        = list(any)
+  default     = []
+}
+
+variable "worker_disks" {
+  description = "Pool-level worker disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name."
+  type        = list(any)
+  default     = []
+}

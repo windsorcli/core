@@ -122,6 +122,14 @@ locals {
         )
       }
     } : {},
+    var.cloud_init_network_config != null ? {
+      "cloud-init" = {
+        type = "disk"
+        properties = {
+          source = "cloud-init:config"
+        }
+      }
+    } : {},
     # Add proxy devices for port forwarding (if configured)
     length(var.proxy_devices) > 0 ? {
       for proxy_name, proxy_config in var.proxy_devices : proxy_name => {
@@ -195,6 +203,9 @@ resource "incus_instance" "this" {
         "raw.qemu" = var.qemu_args
       } : {}
     ) : {},
+    var.cloud_init_network_config != null ? {
+      "cloud-init.network-config" = var.cloud_init_network_config
+    } : {},
     # User config merged last (can override defaults)
     var.config
   )

@@ -62,6 +62,8 @@ layer. Links from there land here.
 | [provisioning/crossplane-identity/aws](provisioning/crossplane-identity/aws/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
 | [provisioning/crossplane-identity/azure](provisioning/crossplane-identity/azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
 | [provisioning/crossplane-identity/gcp](provisioning/crossplane-identity/gcp/) | Workload Identity Federation for Crossplane's GCP provider pods. |
+| [tunnel](tunnel/) | Tunnel credentials and routes that connect the external gateway to the internet. |
+| [tunnel/cloudflare](tunnel/cloudflare/) | Cloudflare Tunnel, remote configuration, and wildcard DNS record for the external gateway. |
 | [workstation](workstation/) | Local-host networking, registry, and DNS for developer clusters. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
 | [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |

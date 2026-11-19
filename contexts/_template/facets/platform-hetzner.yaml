@@ -296,7 +296,7 @@ flux:
   # by hcloud-ccm. Ordering the controller to tear down after the Service
   # avoids stuck finalizers on destroy.
   - name: gateway
-    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && gateway_exposure.external == 'LoadBalancer' && (dns.public_domain ?? '') != ''"
     resources:
       - name: external
         dependsOn:

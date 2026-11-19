@@ -33,7 +33,15 @@ With `attach_to_bridge = true`, each NIC is a bridged NIC on the host bridge tha
 
 Incus serves DHCP only on a bridge it manages. On a macvlan network, or a bridge to the LAN, the LAN's DHCP server assigns addresses and Incus can't report them for a Talos guest. Set `static_dhcp_leases = false` and `wait_for_ipv4 = false` on each instance there. The module then leaves `ipv4` and `ipv6` off the NIC and reports them only in the outputs. Reserve each address on the LAN's DHCP server against the MAC set in `network_config.hwaddr`.
 
-The facet does this when `incus.network` is set. Each node then declares its reserved address, and optionally its `mac_address`, in `cluster.controlplanes.nodes` or `cluster.workers.nodes`.
+The facet does this when `incus.network` is set. Each node then declares its address, and optionally its `mac_address`, in `cluster.controlplanes.nodes` or `cluster.workers.nodes`.
+
+## Static addresses through cloud-init
+
+With `cloud_init_network = true`, each virtual machine with an `ipv4` gets a cloud-init network-config (version 2) in `cloud-init.network-config`. It gives `eth0` that address, `network_gateway`, and `network_nameservers`. The prefix length comes from `ipv4`, or from `network_cidr` when `ipv4` has none. Incus serves the network-config on a `cloud-init:config` disk with the volume label `cidata`, so the guest needs no agent and no DHCP reservation.
+
+The guest MUST read nocloud data from that disk. Talos does so only on its nocloud image, such as `windsor:talos/v1.14.6/amd64/nocloud`, which names its first NIC `eth0`. The Talos metal image ignores it.
+
+The facet sets `cloud_init_network` and boots the nocloud image when `incus.network` is set. The gateway comes from `network.gateway`, else the first host of `network.cidr_block`. The resolvers come from `network.nameservers`.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -73,6 +81,7 @@ The facet does this when `incus.network` is set. Each node then declares its res
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_attach_to_bridge"></a> [attach\_to\_bridge](#input\_attach\_to\_bridge) | Attach instance NICs to the existing host bridge named network\_name, instead of to a managed Incus network. | `bool` | `false` | no |
+| <a name="input_cloud_init_network"></a> [cloud\_init\_network](#input\_cloud\_init\_network) | Give each virtual machine with an ipv4 a cloud-init network-config for eth0 with that address, network\_gateway, and network\_nameservers, on a cloud-init config drive. | `bool` | `false` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create the network. If false, network\_name must reference an existing network | `bool` | `true` | no |
 | <a name="input_default_storage_pool"></a> [default\_storage\_pool](#input\_default\_storage\_pool) | Existing storage pool that root disks and data disks use when they name the pool "default". IncusOS names its pool "local" | `string` | `"default"` | no |
@@ -82,7 +91,9 @@ The facet does this when `incus.network` is set. Each node then declares its res
 | <a name="input_network_cidr"></a> [network\_cidr](#input\_network\_cidr) | CIDR block for the network (e.g., '10.5.0.0/24'). Used to set the network gateway address | `string` | `null` | no |
 | <a name="input_network_config"></a> [network\_config](#input\_network\_config) | Map of key/value pairs of network config settings. See Incus networking configuration reference for all network details. DHCP and NAT can be controlled via enable\_dhcp and enable\_nat variables | `map(string)` | `null` | no |
 | <a name="input_network_description"></a> [network\_description](#input\_network\_description) | Description of the network | `string` | `null` | no |
+| <a name="input_network_gateway"></a> [network\_gateway](#input\_network\_gateway) | IPv4 default gateway written to cloud-init network-config. | `string` | `null` | no |
 | <a name="input_network_name"></a> [network\_name](#input\_network\_name) | Name of the network to use. If empty, a default name will be generated. This is usually the device the network will appear as to instances | `string` | `""` | no |
+| <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to cloud-init network-config. | `list(string)` | `[]` | no |
 | <a name="input_network_target"></a> [network\_target](#input\_network\_target) | Specify a target node in a cluster for the network | `string` | `null` | no |
 | <a name="input_network_type"></a> [network\_type](#input\_network\_type) | The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created | `string` | `"bridge"` | no |
 | <a name="input_project"></a> [project](#input\_project) | Name of the project where resources will be created | `string` | `null` | no |

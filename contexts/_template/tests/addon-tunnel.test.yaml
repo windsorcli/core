@@ -1,0 +1,363 @@
+# addon-tunnel.yaml facet tests
+# Tunnel framework and the cloudflare driver: connector, credential Secret,
+# ClusterIP external gateway, certificate rule, and rejected combinations.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.20"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+  tunnel: &default-tunnel
+    driver: cloudflare
+    cloudflare:
+      account_id: acct123
+
+cases:
+  - name: cloudflare tunnel on metal installs the connector with the cluster CA pool
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        driver: envoy
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      tunnel:
+        tunnel_id: tun-1
+        tunnel_token: token-1
+    expect:
+      terraform:
+        - name: tunnel
+          path: tunnel/cloudflare
+          inputs:
+            account_id: acct123
+            public_domain: example.com
+            origin_service: https://envoy-external.system-gateway.svc.cluster.local:443
+            origin_ca_pool: /etc/tunnel/ca/ca.crt
+      flux:
+        - name: tunnel
+          dependsOn:
+            - pki-resources
+            - gateway-resources-external
+          install:
+            components:
+              - cloudflare
+              - cloudflare/ca-pool
+        - name: tunnel
+          secrets:
+            tunnel-credentials:
+              namespaces: [system-tunnel]
+              data:
+                token: "${terraform_output('tunnel', 'tunnel_token')}"
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - certificate
+                - envoy/base
+                - envoy/clusterip
+                - envoy/parameters
+                - envoy/default-404
+              substitutions:
+                gateway_cert_issuer: private
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer
+                - envoy/default-404/external-dns
+
+  - name: tunnel on docker desktop makes the external gateway ClusterIP
+    values:
+      platform: docker
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      dns:
+        public_domain: example.com
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+      tunnel:
+        tunnel_id: tun-1
+        tunnel_token: token-1
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/clusterip
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/nodeport
+
+  - name: tunnel with a parent zone passes zone_name to the module
+    values:
+      platform: metal
+      dns:
+        public_domain: apps.example.com
+      tunnel:
+        driver: cloudflare
+        cloudflare:
+          account_id: acct123
+          zone_name: example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: tunnel
+          inputs:
+            zone_name: example.com
+
+  - name: tunnel with the cilium gateway targets the cilium service name
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        driver: cilium
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: tunnel
+          inputs:
+            origin_service: https://cilium-gateway-external.system-gateway.svc.cluster.local:443
+
+  - name: tunnel with a supplied certificate uses the system roots
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          tls:
+            cert: test-cert
+            key: test-key
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: tunnel
+          inputs:
+            origin_ca_pool: null
+      flux:
+        - name: tunnel
+          install:
+            components:
+              - cloudflare
+    exclude:
+      flux:
+        - name: tunnel
+          install:
+            components:
+              - cloudflare/ca-pool
+
+  - name: tunnel with pki.acme.server keeps the private-acme certificate
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      pki:
+        acme:
+          server: https://acme.example.com/directory
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: private-acme
+    exclude:
+      flux:
+        - name: tunnel
+          install:
+            components:
+              - cloudflare/ca-pool
+
+  - name: tunnel on aws with public_zone false skips the NLB annotations
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        public_domain: example.com
+        public_zone: false
+      tunnel: *default-tunnel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/clusterip
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/aws-nlb
+
+  - name: no tunnel driver renders no tunnel
+    values:
+      platform: metal
+      dev: true
+      dns:
+        public_domain: example.com
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: tunnel
+      terraform:
+        - name: tunnel
+
+  - name: tunnel without a public domain fails composition
+    values:
+      platform: metal
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: cloudflare tunnel without an account id fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      tunnel:
+        driver: cloudflare
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: tunnel with public_zone true on aws fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dns:
+        public_domain: example.com
+        public_zone: true
+      tunnel: *default-tunnel
+    expectError: true
+
+  - name: tunnel with a NodePort external gateway fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          service_type: NodePort
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: tunnel with an external gateway address fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          ip: "10.5.1.11"
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: tunnel with external node_ports fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          node_ports:
+            "3010": 30310
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: tunnel with the external https listener off fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          https: false
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: cloudflare tunnel coexists with the cloudflare dns driver
+    values:
+      platform: metal
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+      tunnel: *default-tunnel
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/cloudflare
+        - name: tunnel
+          path: tunnel/cloudflare
