@@ -708,6 +708,57 @@ cases:
               - endpoint: 10.5.0.20:50000
                 node: 10.5.0.20
 
+  - name: nodes are ordered by the number in their key
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-10:
+              endpoint: 10.5.0.19:50000
+              node: 10.5.0.19
+            controlplane-2:
+              endpoint: 10.5.0.11:50000
+              node: 10.5.0.11
+            controlplane-1: *cp1-node
+        workers:
+          count: 3
+          nodes:
+            worker-10:
+              endpoint: 10.5.0.29:50000
+              node: 10.5.0.29
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+              - endpoint: 10.5.0.11:50000
+                node: 10.5.0.11
+              - endpoint: 10.5.0.19:50000
+                node: 10.5.0.19
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
+              - endpoint: 10.5.0.21:50000
+                node: 10.5.0.21
+              - endpoint: 10.5.0.29:50000
+                node: 10.5.0.29
+
   # Edge case: openebs (default) does not need Talos extensions, so cluster-extensions
   # must NOT appear in the rendered blueprint and gitops must not depend on it.
   # Guards against regressions in the option-storage `when:` filter.

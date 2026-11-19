@@ -281,7 +281,7 @@ terraform:
             memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
-            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
+            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
             environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
@@ -298,7 +298,7 @@ terraform:
             memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
           disks: ${talos_common.worker_disks}
           config:
-            user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1))[0].hostname ?? 'worker-1') : 'worker-1'}"
+            user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.workers.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].hostname ?? 'worker-1') : 'worker-1'}"
             environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
@@ -368,11 +368,11 @@ terraform:
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? terraform_output("compute", "controlplanes")
-          : map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))}
+          : map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))}
       workers: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? (terraform_output("compute", "workers") ?? [])
-          : ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}
+          : ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1)) : [])}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: ${talos_common.controlplane_config_patches}
       worker_config_patches: ${talos_common.worker_config_patches}

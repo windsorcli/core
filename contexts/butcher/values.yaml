@@ -13,3 +13,6 @@ gitops:
   concurrency: 2
 observability:
   enabled: false
+database:
+  postgres:
+    enabled: false
