@@ -325,12 +325,12 @@ run "install_image_propagates" {
   command = plan
 
   variables {
-    talos_version = "1.14.5"
+    talos_version = "1.14.6"
     controlplanes = [
       {
         endpoint      = "10.0.0.10:50000"
         node          = "10.0.0.10"
-        install_image = "factory.talos.dev/metal-installer/abc123:v1.14.5"
+        install_image = "factory.talos.dev/metal-installer/abc123:v1.14.6"
       },
       {
         endpoint = "10.0.0.11:50000"
@@ -341,21 +341,21 @@ run "install_image_propagates" {
       {
         endpoint      = "10.0.0.20:50000"
         node          = "10.0.0.20"
-        install_image = "factory.talos.dev/metal-installer/def456:v1.14.5"
+        install_image = "factory.talos.dev/metal-installer/def456:v1.14.6"
       }
     ]
   }
 
   assert {
-    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/abc123:v1.14.5"
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/abc123:v1.14.6"
     error_message = "controlplane_bootstrap should receive the controlplane's install_image"
   }
   assert {
-    condition     = module.controlplanes[0].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    condition     = module.controlplanes[0].install_image == "ghcr.io/siderolabs/installer:v1.14.6"
     error_message = "A controlplane without install_image should use the installer at talos_version"
   }
   assert {
-    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.5"
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.6"
     error_message = "worker module should receive the worker's install_image"
   }
 }
@@ -381,7 +381,7 @@ run "overlay_selects_metal_installer" {
   }
 
   variables {
-    talos_version = "1.14.5"
+    talos_version = "1.14.6"
     controlplanes = [
       {
         endpoint = "10.0.0.10:50000"
@@ -392,7 +392,7 @@ run "overlay_selects_metal_installer" {
         endpoint      = "10.0.0.11:50000"
         node          = "10.0.0.11"
         overlay       = { name = "rpi_5", image = "siderolabs/sbc-raspberrypi" }
-        install_image = "factory.talos.dev/metal-installer/custom:v1.14.5"
+        install_image = "factory.talos.dev/metal-installer/custom:v1.14.6"
       }
     ]
     workers = [
@@ -417,19 +417,19 @@ run "overlay_selects_metal_installer" {
     error_message = "The schematic should hold the node's overlay"
   }
   assert {
-    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/rpi5abc:v1.14.5"
+    condition     = module.controlplane_bootstrap.install_image == "factory.talos.dev/metal-installer/rpi5abc:v1.14.6"
     error_message = "A node with an overlay should use the metal installer of its schematic"
   }
   assert {
-    condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/custom:v1.14.5"
+    condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/custom:v1.14.6"
     error_message = "install_image should win over the overlay"
   }
   assert {
-    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/rpigen:v1.14.5"
+    condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/rpigen:v1.14.6"
     error_message = "Each overlay should use its own schematic"
   }
   assert {
-    condition     = module.workers[1].install_image == "ghcr.io/siderolabs/installer:v1.14.5"
+    condition     = module.workers[1].install_image == "ghcr.io/siderolabs/installer:v1.14.6"
     error_message = "A node without an overlay or install_image should use the installer at talos_version"
   }
 }
@@ -689,7 +689,7 @@ run "upgrade_resources_per_node" {
   variables {
     context_path     = "test"
     cluster_endpoint = "https://test.example.com:6443"
-    talos_version    = "1.14.5"
+    talos_version    = "1.14.6"
     controlplanes = [
       { endpoint = "cp1:50000", node = "192.168.1.10" },
       { endpoint = "cp2:50000", node = "192.168.1.11" },
@@ -712,7 +712,7 @@ run "upgrade_resources_per_node" {
     error_message = "One worker upgrade expected"
   }
   assert {
-    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.6"
     error_message = "Upgrade must trigger on the installer image for talos_version"
   }
 }
@@ -746,21 +746,21 @@ run "upgrade_uses_node_install_image" {
   variables {
     context_path     = "test"
     cluster_endpoint = "https://test.example.com:6443"
-    talos_version    = "1.14.5"
+    talos_version    = "1.14.6"
     controlplanes = [
       { endpoint = "cp1:50000", node = "192.168.1.10" },
     ]
     workers = [
-      { endpoint = "w1:50000", node = "192.168.1.20", install_image = "registry.example.com/installer:v1.14.5" },
+      { endpoint = "w1:50000", node = "192.168.1.20", install_image = "registry.example.com/installer:v1.14.6" },
     ]
   }
 
   assert {
-    condition     = terraform_data.upgrade_worker[0].triggers_replace[0] == "registry.example.com/installer:v1.14.5"
+    condition     = terraform_data.upgrade_worker[0].triggers_replace[0] == "registry.example.com/installer:v1.14.6"
     error_message = "Worker upgrade must use the node install_image"
   }
   assert {
-    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.5"
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.6"
     error_message = "A node without an install image upgrades to the stock installer"
   }
 }

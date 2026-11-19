@@ -320,7 +320,7 @@ cases:
           nodes:
             controlplane-1:
               <<: *cp1-node
-              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
         workers:
           count: 1
           volumes:
@@ -337,14 +337,14 @@ cases:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
                 hostname: controlplane-1
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
         - name: cluster-extensions
           path: cluster/talos/extensions
           inputs:
             controlplanes:
               - node: 10.5.0.10
                 endpoint: 10.5.0.10:50000
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
 
   # A pool's board gives its nodes the board's Image Factory overlay, for the cluster and extensions steps.
   - name: pool board sets the overlay on the pool's nodes
@@ -429,7 +429,7 @@ cases:
             worker-2:
               endpoint: 10.5.0.21:50000
               node: 10.5.0.21
-              install_image: ghcr.io/siderolabs/installer:v1.14.5
+              install_image: ghcr.io/siderolabs/installer:v1.14.6
           volumes:
             - /var/mnt/local
     expect:
@@ -449,7 +449,7 @@ cases:
                   image: siderolabs/sbc-raspberrypi
               - endpoint: 10.5.0.21:50000
                 node: 10.5.0.21
-                install_image: ghcr.io/siderolabs/installer:v1.14.5
+                install_image: ghcr.io/siderolabs/installer:v1.14.6
                 overlay:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi

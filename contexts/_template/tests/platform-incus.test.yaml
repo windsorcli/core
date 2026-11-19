@@ -564,7 +564,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.14.5"
+            talos_version: "1.14.6"
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and kube-vip lb
@@ -759,7 +759,7 @@ cases:
             network_nameservers: []
             instances:
               - name: controlplane
-                image: windsor:talos/v1.14.5/amd64
+                image: windsor:talos/v1.14.6/amd64
 
   # A node's placement overrides its round-robin member.
   - name: placement overrides the round-robin target
@@ -864,13 +864,13 @@ cases:
               - name: controlplane
                 ipv4: 192.168.3.31
                 wait_for_ipv4: false
-                image: windsor:talos/v1.14.5/amd64/nocloud
+                image: windsor:talos/v1.14.6/amd64/nocloud
                 network_config:
                   hwaddr: "02:00:00:00:00:31"
               - name: worker
                 ipv4: 192.168.3.41
                 wait_for_ipv4: false
-                image: windsor:talos/v1.14.5/amd64/nocloud
+                image: windsor:talos/v1.14.6/amd64/nocloud
                 network_config: {}
 
   # On the LAN, the gateway defaults to the first host of network.cidr_block and DNS to public resolvers.
