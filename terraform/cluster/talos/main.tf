@@ -110,26 +110,26 @@ locals {
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
   controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    coalesce(d.device, "-") != "-" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
   worker_block_docs = [for w in var.workers : [for i, d in w.disks :
-    try(d.device, "") != "" ? yamlencode({
-      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+    coalesce(d.device, "-") != "-" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
-      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
   ]]
 }
 
