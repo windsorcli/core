@@ -87,6 +87,9 @@ config:
   # Installs and upgrades use the nocloud installer for the qemu-guest-agent schematic.
   - name: talos_common
     value:
+      base_extensions:
+        - siderolabs/qemu-guest-agent
+      installer: nocloud-installer
       common_patch:
         machine:
           install:
