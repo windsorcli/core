@@ -37,7 +37,7 @@ spec:
       image:
         repository: quay.io/metallb/controller
         # artifact: type=image name=quay.io/metallb/controller
-        tag: v0.16.1@sha256:f51ab515de9ccd20dc3dccb093e48df8adddac019326c456f449e55ba91b6420
+        tag: v0.16.2@sha256:34a6f107f29c4fc6e9d084a7f3bdb781aae7b5ee2b534195a2775ab68c09c503
     speaker:
       priorityClassName: windsorcli-platform-critical
       # DaemonSet: only the taint toleration applies, so it can still land on
