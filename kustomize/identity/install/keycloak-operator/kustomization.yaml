@@ -24,7 +24,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         # artifact: type=image name=quay.io/keycloak/keycloak-operator
-        value: quay.io/keycloak/keycloak-operator:26.8.1@sha256:4c88e4e9a9d488efd6487ab602974d3cb762ff2ee6f173b2716df418bfe33e53
+        value: quay.io/keycloak/keycloak-operator:26.8.2@sha256:df890db951b595fe46f3f985301a38b76fcfcc264f06201c54dfaf28adeba19e
   # Keyed by env name (not index) so it survives upstream env reordering on a bump.
   - patch: |
       apiVersion: apps/v1
