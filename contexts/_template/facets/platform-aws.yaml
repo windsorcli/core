@@ -95,6 +95,11 @@ config:
         ${map(terraform_output("compute", "workers") ?? [],
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
+  - name: lb_effective
+    when: cluster.driver == 'talos'
+    value:
+      driver: "${network.loadbalancer_driver ?? 'none'}"
+
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================

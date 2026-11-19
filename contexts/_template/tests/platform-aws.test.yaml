@@ -1024,6 +1024,45 @@ cases:
       crds:
         - aws-load-balancer-controller-3.6.0
 
+  - name: talos on aws installs cilium through the talos path
+    values:
+      platform: aws
+      aws: *talos-aws
+      gateway:
+        enabled: false
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+    terraformOutputs: *talos-terraform-outputs
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            k8s_service_host: localhost
+            k8s_service_port: 7445
+            privileged: false
+            cgroup_auto_mount: false
+        - name: gitops
+          dependsOn:
+            - cni
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/hubble
+    exclude:
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium/l2
+
   - name: talos on aws launches declared node addresses with a local backend
     values:
       platform: aws
