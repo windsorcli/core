@@ -282,7 +282,7 @@ config:
   - name: dns_zone_effective
     value:
       driver: "${dns.public.driver ?? (platform in ['aws', 'azure', 'gcp', 'hetzner'] ? 'cloud' : 'none')}"
-  # certificate_only: the Cloudflare zone serves DNS-01 for the internal gateway and holds no records.
+  # certificate_only: the cloudflare driver without dns.public_domain.
   - name: dns_zone_effective
     value:
       certificate_only: "${dns_zone_effective.driver == 'cloudflare' && (dns.public_domain ?? '') == ''}"

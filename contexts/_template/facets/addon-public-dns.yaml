@@ -10,29 +10,28 @@ requires:
   - when: dns.public.driver == 'cloud'
     paths:
       - dns.public_domain
-    message: The cloud public DNS driver serves and publishes records into this zone.
+    message: The cloud public DNS driver needs dns.public_domain.
   - when: dns_zone_effective.certificate_only == true
     paths:
       - dns.public.cloudflare.zone_name
-    message: Without dns.public_domain, the Cloudflare zone serves only certificate DNS-01 challenges for dns.private_domain.
+    message: Set dns.public.cloudflare.zone_name to the zone that holds dns.private_domain.
   - when: >-
       dns_zone_effective.certificate_only == true &&
       !hasSuffix(dns.private_domain ?? '', '.' + (dns.public.cloudflare.zone_name ?? ''))
-    message: dns.private_domain must be set and sit under dns.public.cloudflare.zone_name.
+    message: Set dns.private_domain to a name under dns.public.cloudflare.zone_name.
   - when: dns_zone_effective.certificate_only == true && (gateway.enabled != true || gateway_effective.internal != true)
-    message: Without dns.public_domain, dns.public.driver issues the internal gateway certificate; set gateway.enabled to true on a platform with an internal gateway.
+    message: Set gateway.enabled to true on a platform with an internal gateway, or set dns.public_domain.
   - when: >-
       dns_zone_effective.certificate_only == true &&
       ((gateway.internal.tls.cert ?? '') != '' || (gateway.internal.tls.issuer ?? '') in ['ca', 'selfsigned'] ||
       (gateway.internal.https ?? true) == false)
     message: >-
-      Without dns.public_domain, dns.public.driver issues the internal gateway certificate; remove
-      gateway.internal.tls.cert, gateway.internal.tls.issuer ca or selfsigned, and gateway.internal.https false,
-      or set dns.public_domain to keep the zone for the external gateway.
+      Remove gateway.internal.tls.cert, gateway.internal.tls.issuer ca or selfsigned, and
+      gateway.internal.https false, or set dns.public_domain.
   - when: dns_zone_effective.certificate_only == true && (pki.acme.server ?? '') != ''
-    message: pki.acme.server conflicts with dns.public.driver without dns.public_domain; remove one.
+    message: Remove pki.acme.server, or set dns.public_domain.
   - when: dns_zone_effective.certificate_only == true && (dns.public.cloudflare.proxied ?? false) == true
-    message: dns.public.cloudflare.proxied needs dns.public_domain; the zone holds no records without it.
+    message: Remove dns.public.cloudflare.proxied, or set dns.public_domain.
   - when: (dns.public_zone ?? true) == false
     message: dns.public.driver manages the public zone; remove dns.public_zone or set it to true.
   - when: dns.public.driver == 'cloud' && !(platform in ['aws', 'azure', 'gcp', 'hetzner'])
