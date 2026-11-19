@@ -33,7 +33,7 @@ packages:
   - name: evilmartians/lefthook@v2.2.2
   - name: mikefarah/yq@v4.54.3
   - name: chainguard-dev/apko@v1.4.18
-  - name: bridgecrewio/checkov@3.3.30
+  - name: bridgecrewio/checkov@3.4.5
   - name: kubernetes-sigs/krew@v0.5.0
   - name: Azure/kubelogin@v0.2.22
   - name: twistedpair/google-cloud-sdk@562.0.0
