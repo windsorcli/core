@@ -535,6 +535,14 @@ run "disks_mixed_across_nodes" {
     condition     = yamldecode(local.worker_block_docs[0][2]).provisioning.diskSelector.match == "!system_disk && disk.size == 100u * GB"
     error_message = "A size-only disk should use the size-based selector"
   }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][0]).provisioning.maxSize == "100%" && yamldecode(local.worker_block_docs[0][2]).provisioning.maxSize == "100%"
+    error_message = "Selector and size-only disks should be partitions sized to fill the disk"
+  }
+  assert {
+    condition     = !can(yamldecode(local.worker_block_docs[0][1]).provisioning.maxSize)
+    error_message = "A device disk should carry no size, which Talos rejects for whole-disk volumes"
+  }
 }
 
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
@@ -642,6 +650,10 @@ run "block_docs_follow_node_disks" {
   assert {
     condition     = yamldecode(local.controlplane_block_docs[0][0]).provisioning.diskSelector.match == "disk.serial == 'abc'"
     error_message = "A disk with a selector should use that selector"
+  }
+  assert {
+    condition     = yamldecode(local.controlplane_block_docs[0][0]).provisioning.maxSize == "100%"
+    error_message = "A control plane selector disk should be a partition sized to fill the disk"
   }
   assert {
     condition     = length(local.worker_block_docs[0]) == 1
