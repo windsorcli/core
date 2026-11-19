@@ -1,5 +1,5 @@
 # addon-devices.yaml facet tests
-# Covers the devices Flux system, the Talos device extensions and patches, the requires rules, and passthrough.
+# Covers the devices Flux system, the Talos device extensions and patch, the requires rules, and passthrough.
 
 x-defaults:
   network: &default-network
@@ -53,7 +53,7 @@ x-defaults:
               mapping: igpu
 
 cases:
-  - name: devices enabled with no serial devices or render GPU installs nfd without the generic device plugin
+  - name: devices enabled with no serial devices or GPU installs only nfd
     values:
       platform: metal
       gateway:
@@ -103,7 +103,7 @@ cases:
       terraform:
         - name: cluster-extensions
 
-  - name: intel driver adds the i915 and xe extensions and the dri device
+  - name: intel driver adds the i915 and xe extensions and the Intel GPU plugin
     values:
       platform: metal
       gateway:
@@ -120,9 +120,7 @@ cases:
           install:
             components:
               - node-feature-discovery
-              - generic-device-plugin
-            substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
+              - intel-gpu-plugin
       terraform:
         - name: cluster-extensions
           path: cluster/talos/extensions
@@ -134,89 +132,7 @@ cases:
           dependsOn:
             - cluster-extensions
 
-  - name: amd driver adds the amdgpu extension and the dri device
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      devices:
-        enabled: true
-        gpu:
-          drivers: [amd]
-    expect:
-      flux:
-        - name: devices
-          install:
-            substitutions:
-              generic_device_plugin_devices: '[{"groups": [{"count": 10,"paths": [{"mountPath": "/dev/dri/","path": "/dev/dri/renderD*"}]}],"name": "dri"}]'
-      terraform:
-        - name: cluster-extensions
-          inputs:
-            extensions:
-              - siderolabs/amdgpu
-
-  - name: nvidia driver adds its extensions, plugin, kernel modules, and sysctl without the dri device
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      devices:
-        enabled: true
-        gpu:
-          drivers: [nvidia]
-    expect:
-      flux:
-        - name: devices
-          install:
-            components:
-              - node-feature-discovery
-              - nvidia-device-plugin
-      terraform:
-        - name: cluster-extensions
-          inputs:
-            extensions:
-              - siderolabs/nonfree-kmod-nvidia-lts
-              - siderolabs/nvidia-container-toolkit-lts
-      config:
-        talos_common:
-          common_patch:
-            machine:
-              kernel:
-                modules:
-                  - name: nvidia
-                  - name: nvidia_uvm
-                  - name: nvidia_drm
-                  - name: nvidia_modeset
-              sysctls:
-                net.core.bpf_jit_harden: "1"
-
-  - name: nvidia driver with charts.registry pulls its chart from the registry
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      charts:
-        registry: registry.example.com/windsor
-      devices:
-        enabled: true
-        gpu:
-          drivers: [nvidia]
-    expect:
-      flux:
-        - name: devices
-          install:
-            components:
-              - node-feature-discovery
-              - nvidia-device-plugin
-              - nvidia-device-plugin/chart-registry
-
-  - name: every driver with longhorn unions the storage and device extensions
+  - name: intel driver with longhorn unions the storage and device extensions
     values:
       platform: metal
       gateway:
@@ -233,7 +149,7 @@ cases:
       devices:
         enabled: true
         gpu:
-          drivers: [intel, amd, nvidia]
+          drivers: [intel]
     expect:
       terraform:
         - name: cluster-extensions
@@ -243,9 +159,6 @@ cases:
               - siderolabs/util-linux-tools
               - siderolabs/i915
               - siderolabs/xe
-              - siderolabs/amdgpu
-              - siderolabs/nonfree-kmod-nvidia-lts
-              - siderolabs/nvidia-container-toolkit-lts
 
   - name: each devices.serial name becomes a device with its globs
     values:
@@ -268,19 +181,6 @@ cases:
               - generic-device-plugin
             substitutions:
               generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/ups","path": "/dev/serial/by-id/*UPS*"}]}],"name": "ups"},{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"}]'
-
-  - name: devices.serial named dri fails composition
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      devices:
-        enabled: true
-        serial:
-          dri: ["*Zigbee*"]
-    expectError: true
 
   - name: gpu drivers without devices.enabled fails composition
     values:

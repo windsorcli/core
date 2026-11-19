@@ -1979,7 +1979,7 @@ properties:
         type: boolean
         default: false
         description: >-
-          Install Node Feature Discovery and the device plugins that expose USB serial devices and GPUs, and set
+          Install Node Feature Discovery and the device plugins that expose USB serial devices and Intel GPUs, and set
           the containerd device-ownership option on every node. Talos on metal, incus, proxmox, hyperv, vsphere,
           and hetzner only.
       gpu:
@@ -1992,13 +1992,10 @@ properties:
               type: string
               enum:
                 - intel
-                - amd
-                - nvidia
             default: []
             description: >-
               GPU drivers to install as Talos extensions on every node, each with its device plugin. Needs
-              devices.enabled. amd is untested. nvidia is untested, and it loads the NVIDIA kernel modules and
-              sets net.core.bpf_jit_harden to 1 on every node, control planes included.
+              devices.enabled.
         additionalProperties: false
       serial:
         type: object

@@ -2,7 +2,7 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: devices
-  description: Node Feature Discovery labels and device plugins for USB serial radios and GPUs
+  description: Node Feature Discovery labels and device plugins for USB serial devices and Intel GPUs
 
 requires:
   - when: len(devices.gpu.drivers ?? []) > 0 && devices.enabled != true
@@ -19,8 +19,6 @@ requires:
     message: On platform proxmox, set mapping on each passthrough entry instead of id.
   - when: platform == 'incus' && any(devices_effective.passthrough ?? [], (#.id ?? '') == '')
     message: On platform incus, set id on each passthrough entry instead of mapping.
-  - when: "'dri' in keys(devices.serial ?? {})"
-    message: devices.serial cannot use the name dri, which the GPU render device uses.
 
 config:
   - name: devices_effective
@@ -29,15 +27,10 @@ config:
       passthrough: >-
         ${flatten(map(concat(values(cluster.controlplanes.nodes ?? {}), values(cluster.workers.nodes ?? {})),
           #.passthrough ?? []))}
-      # generic-device-plugin --device specs: one per devices.serial name, plus dri for intel and amd.
+      # generic-device-plugin --device specs, one per devices.serial name.
       plugin_device_list: >-
-        ${concat(
-          map(sort(keys(devices.serial ?? {})), let name = #; ({"name": name, "groups": map((devices.serial ?? {})[name],
-            ({"paths": [{"path": "/dev/serial/by-id/" + #, "mountPath": "/dev/" + name}]}))})),
-          any(devices.enabled == true ? (devices.gpu.drivers ?? []) : [], # in ['intel', 'amd'])
-            ? [{"name": "dri", "groups": [{"count": 10, "paths": [{"path": "/dev/dri/renderD*", "mountPath": "/dev/dri/"}]}]}]
-            : []
-        )}
+        ${map(sort(keys(devices.serial ?? {})), let name = #; ({"name": name, "groups": map((devices.serial ?? {})[name],
+          ({"paths": [{"path": "/dev/serial/by-id/" + #, "mountPath": "/dev/" + name}]}))}))}
 
   # The same specs as one-line JSON for the HelmRelease values.
   - name: devices_effective
@@ -55,8 +48,7 @@ flux:
       components:
         - node-feature-discovery
         - "${len(devices_effective.plugin_device_list) > 0 ? 'generic-device-plugin' : ''}"
-        - "${'nvidia' in devices_effective.gpu_drivers ? 'nvidia-device-plugin' : ''}"
-        - "${'nvidia' in devices_effective.gpu_drivers && chart_registry != '' ? 'nvidia-device-plugin/chart-registry' : ''}"
+        - "${'intel' in devices_effective.gpu_drivers ? 'intel-gpu-plugin' : ''}"
       substitutions:
         generic_device_plugin_devices: ${devices_effective.plugin_devices}
       timeout: 10m

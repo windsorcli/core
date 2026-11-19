@@ -103,3 +103,9 @@ manifests:
           # artifact: type=image name=ghcr.io/postfinance/kubelet-csr-approver
           tag: v1.2.15@sha256:6469ef517d2b6d3cb108fce8a913483533a48b1cd78b5d4af307fa09e04a7818
     dest: contexts/_template/manifests/kubelet-csr-approver.yaml
+
+  - name: intel-gpu-plugin
+    # renovate: datasource=github-releases depName=intel/intel-device-plugins-for-kubernetes package=intel/intel-device-plugins-for-kubernetes
+    version: 0.37.1
+    url: https://raw.githubusercontent.com/intel/intel-device-plugins-for-kubernetes/v${version}/deployments/gpu_plugin/base/intel-gpu-plugin.yaml
+    dest: kustomize/devices/install/intel-gpu-plugin/daemonset.yaml

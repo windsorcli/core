@@ -16,7 +16,9 @@ spec:
     - name: gpu-intel
       labels:
         feature.node.kubernetes.io/gpu-intel: "true"
-      matchFeatures: &intel
+        feature.node.kubernetes.io/video-encode: "true"
+        feature.node.kubernetes.io/video-decode: "true"
+      matchFeatures:
         - feature: pci.device
           matchExpressions:
             vendor: {op: In, value: ["8086"]}
@@ -25,35 +27,3 @@ spec:
           matchName:
             op: In
             value: ["i915", "xe"]
-    - name: gpu-amd
-      labels:
-        feature.node.kubernetes.io/gpu-amd: "true"
-      matchFeatures: &amd
-        - feature: pci.device
-          matchExpressions:
-            vendor: {op: In, value: ["1002"]}
-            class: {op: In, value: ["0300", "0380"]}
-        - feature: kernel.loadedmodule
-          matchName:
-            op: In
-            value: ["amdgpu"]
-    - name: gpu-nvidia
-      labels:
-        feature.node.kubernetes.io/gpu-nvidia: "true"
-      matchFeatures: &nvidia
-        - feature: pci.device
-          matchExpressions:
-            vendor: {op: In, value: ["10de"]}
-            class: {op: In, value: ["0300", "0302"]}
-        - feature: kernel.loadedmodule
-          matchName:
-            op: In
-            value: ["nvidia"]
-    - name: video
-      labels:
-        feature.node.kubernetes.io/video-encode: "true"
-        feature.node.kubernetes.io/video-decode: "true"
-      matchAny:
-        - matchFeatures: *intel
-        - matchFeatures: *amd
-        - matchFeatures: *nvidia

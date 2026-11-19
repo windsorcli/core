@@ -143,11 +143,6 @@ config:
         intel:
           - siderolabs/i915
           - siderolabs/xe
-        amd:
-          - siderolabs/amdgpu
-        nvidia:
-          - siderolabs/nonfree-kmod-nvidia-lts
-          - siderolabs/nvidia-container-toolkit-lts
 
       extensions: >-
         ${uniq(concat(get(talos_common.csi_extensions, talos_common.storage_driver) ?? [],
@@ -355,21 +350,6 @@ config:
               content: |
                 [plugins."io.containerd.cri.v1.runtime"]
                   device_ownership_from_security_context = true
-
-  # NVIDIA kernel modules and the sysctl the NVIDIA container toolkit extension requires.
-  - name: talos_common
-    when: devices.enabled == true && 'nvidia' in (devices.gpu.drivers ?? [])
-    value:
-      common_patch:
-        machine:
-          kernel:
-            modules:
-              - name: nvidia
-              - name: nvidia_uvm
-              - name: nvidia_drm
-              - name: nvidia_modeset
-          sysctls:
-            net.core.bpf_jit_harden: "1"
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
