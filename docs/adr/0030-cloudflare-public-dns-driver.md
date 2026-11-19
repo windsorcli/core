@@ -122,8 +122,10 @@ Always Use HTTPS, because a looked-up zone belongs to the user. The
 provider is `cloudflare/cloudflare` with an exact version pin, the same
 version as the tunnel module.
 
-The stack is named `dns-zone`, as on the other platforms, and it reads
-its credential from `CLOUDFLARE_API_TOKEN` in the environment.
+The stack is named `dns-zone`, as on the other platforms, and it takes
+its credential as the `api_token` input, which the facet fills from
+`dns.public.cloudflare.api_token`. With the input empty, the provider reads
+`CLOUDFLARE_API_TOKEN` from the environment.
 
 ### 3. Records and external-dns
 
@@ -181,14 +183,20 @@ Cloudflare does not proxy.
 
 ### 5. Credentials
 
-Two Cloudflare API tokens exist, and only one reaches the cluster.
+One Cloudflare API token, `dns.public.cloudflare.api_token`, serves every
+consumer.
 
-| Token | Used by | Permissions | Lives in | Reaches the cluster |
-| --- | --- | --- | --- | --- |
-| Provisioning token | Terraform at apply time | `Zone:Read`, plus `Zone:Edit` with `create_zone`, plus the tunnel permissions of ADR-0029 when a tunnel is set | `CLOUDFLARE_API_TOKEN` in the environment of the operator or CI | Never |
-| DNS token | external-dns and cert-manager | `Zone:Read` and `DNS:Edit`, scoped to the one zone | `dns.public.cloudflare.api_token` | Yes, as the Secret `cloudflare-dns` in `system-dns` and in `system-pki` |
+| Used by | Permissions | Reaches the cluster |
+| --- | --- | --- |
+| Terraform at apply time | `Zone:Read` | No, the stack receives it as an input |
+| external-dns and cert-manager | `Zone:Read` and `DNS:Edit`, scoped to the one zone | Yes, as the Secret `cloudflare-dns` in `system-dns` and in `system-pki` |
 
-The DNS token reaches the cluster with the shipped `secrets:` mechanism of
+`create_zone` adds `Zone:Edit` on the account. A token with that reach
+SHOULD be replaced by a zone-scoped one after the zone exists. A second,
+narrower key can be added later as an optional override without breaking
+existing contexts.
+
+The token reaches the cluster with the shipped `secrets:` mechanism of
 ADR-0002, as `hetzner-dns` does. The value is a bare reference, and a
 `when:`-guarded flux entry makes the Secret exist only with a real value.
 When `secrets_store.enabled` is true and ADR-0005 ships, an
@@ -198,12 +206,13 @@ same, the migration ADR-0029 section 7 describes.
 A context MUST set `dns.public.cloudflare.api_token` with the `cloudflare`
 driver. The `requires:` message names that key only.
 
-**If the DNS token leaks,** the holder can change any record in the zone,
+**If the token leaks,** the holder can change any record in the zone,
 so the holder can point any hostname at another server. The holder can
 also pass DNS-01 for any name in the zone and obtain a valid certificate
 for it. The scope to one zone limits this to that zone. The response is to
 roll the token in Cloudflare and apply again. The guide MUST say that the
-token is scoped to the zone, and MUST NOT suggest an account-wide token.
+token is scoped to the zone, and MUST NOT suggest an account-wide token
+except for the one apply that creates the zone.
 
 ### 6. Proxy mode
 
@@ -372,8 +381,8 @@ it in this ADR. A later ADR MAY add one when users ask.
 
 1. **Zone default.** Lookup is the default and creation is opt-in, unlike
    Route53.
-2. **Tokens.** Two tokens: the provisioning token stays out of the
-   cluster, and the DNS token is scoped to one zone.
+2. **Token.** One token, scoped to the one zone, serves Terraform,
+   external-dns and cert-manager.
 3. **The apex under a tunnel.** The tunnel module serves the apex as well
    as the wildcard (section 7).
 4. **external-dns under a tunnel.** The facet omits the `public`

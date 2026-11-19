@@ -1340,7 +1340,7 @@ properties:
             description: Server for the public zone. cloud is the zone service of the platform and works on aws, azure, gcp, and hetzner; cloudflare works on every platform. Unset uses cloud on aws, azure, gcp, and hetzner, and no public zone elsewhere.
           cloudflare:
             type: object
-            description: Settings for the cloudflare driver. The Terraform API token comes from CLOUDFLARE_API_TOKEN in the environment.
+            description: Settings for the cloudflare driver.
             properties:
               zone_name:
                 $ref: '#/$defs/dnsHostname'
@@ -1355,7 +1355,7 @@ properties:
               api_token:
                 type: string
                 sensitive: true
-                description: Cloudflare API token for external-dns and cert-manager, as a secret reference. Scope it to Zone:Read and DNS:Edit on the one zone.
+                description: Cloudflare API token for Terraform, external-dns and cert-manager, as a secret reference. Scope it to Zone:Read and DNS:Edit on the one zone. create_zone also needs Zone:Edit on the account.
               proxied:
                 type: boolean
                 default: false
@@ -1452,6 +1452,11 @@ properties:
             sensitive: true
             description: PEM-encoded CA private key. Requires cert. Unset generates one via Terraform.
         additionalProperties: false
+      dns01_resolvers:
+        type: array
+        items:
+          type: string
+        description: Resolvers cert-manager queries for DNS-01 propagation checks, as host:port or DoH URLs. Unset uses public resolvers on a local workstation or with a private domain. An empty list uses the cluster resolver.
       trusted_cas:
         type: array
         items:

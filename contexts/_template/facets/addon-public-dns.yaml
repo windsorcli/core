@@ -39,6 +39,7 @@ terraform:
     path: dns/zone/cloudflare
     when: dns_zone_effective.cloudflare == true
     inputs:
+      api_token: ${dns.public.cloudflare.api_token}
       domain_name: ${dns.public.cloudflare.zone_name ?? dns.public_domain}
       create_zone: ${dns.public.cloudflare.create_zone ?? false}
       account_id: "${dns.public.cloudflare.account_id ?? ''}"

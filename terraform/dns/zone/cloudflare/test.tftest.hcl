@@ -75,3 +75,17 @@ run "invalid_domain" {
     var.domain_name,
   ]
 }
+
+run "api_token_input" {
+  command = plan
+
+  variables {
+    domain_name = "example.com"
+    api_token   = "test-token"
+  }
+
+  assert {
+    condition     = length(data.cloudflare_zone.this) == 1
+    error_message = "The zone should still be looked up when the token is passed as an input."
+  }
+}
