@@ -108,7 +108,12 @@ variable "controlplanes" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -143,7 +148,12 @@ variable "workers" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
