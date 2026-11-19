@@ -332,6 +332,43 @@ cases:
             substitutions:
               dns01_resolvers: 10.0.0.2:53,10.0.0.3:53
 
+  - name: pki.dns01_resolvers coexists with private ACME settings
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+        external:
+          ip: "10.5.1.10"
+      dns:
+        public_domain: apps.example.com
+        private_domain: apps.internal
+        public: *default-cloudflare
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+        dns01_resolvers:
+          - 10.0.0.2:53
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/public-resolvers
+            substitutions:
+              dns01_resolvers: 10.0.0.2:53
+          resources:
+            - components:
+                - private-issuer/acme
+              substitutions:
+                private_acme_server: https://acme.corp.example/directory
+                private_acme_email: ops@example.com
+
   - name: an empty pki.dns01_resolvers keeps the cluster resolver
     values:
       platform: docker
