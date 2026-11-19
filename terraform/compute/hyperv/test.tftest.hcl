@@ -680,6 +680,11 @@ run "cidata_iso_built_from_machineconfigs" {
     condition     = length([for entry in hyperv_vm.instances["controlplane"].boot_order : entry if entry.controller_location == 2]) == 0
     error_message = "CIDATA slot must not appear in boot_order"
   }
+
+  assert {
+    condition     = startswith(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "version: 2\nethernets:\n  eth0:\n    addresses:\n      - 10.5.0.10/16\n")
+    error_message = "Static CIDATA network-config should key the address on link eth0"
+  }
 }
 
 # CIDATA without OS ISO: confirms the CIDATA ISO still lands at slot 2 when
@@ -745,6 +750,11 @@ run "dhcp_with_endpoint_bakes_dhcp4" {
   assert {
     condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
     error_message = "DHCP CIDATA network-config should set dhcp4: true"
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "ethernets:\n  eth0:\n    dhcp4: true")
+    error_message = "DHCP CIDATA network-config should key dhcp4 on link eth0"
   }
 
   assert {
@@ -869,6 +879,18 @@ run "controlplane_vip_rejects_node_ip" {
 # extra_port_forwards (gateway.publish_ports) on top; without this gate, an
 # operator picking an in-use bench port would silently override the baseline
 # (e.g. clobber the worker-1 Talos API forward).
+# A glob link name is rejected because Talos does not expand it.
+run "network_interface_rejects_glob" {
+  command = plan
+
+  variables {
+    context_id        = "test"
+    network_interface = "e*"
+  }
+
+  expect_failures = [var.network_interface]
+}
+
 run "extra_port_forwards_collision_rejected" {
   command = plan
 
