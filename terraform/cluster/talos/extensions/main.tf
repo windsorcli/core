@@ -21,14 +21,15 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  talosconfig_path = "${var.context_path}/.talos/config"
-  kubeconfig_path  = "${var.context_path}/.kube/config"
+  talosconfig_path     = "${var.context_path}/.talos/config"
+  kubeconfig_path      = "${var.context_path}/.kube/config"
+  schematic_extensions = distinct(concat(var.base_extensions, var.extensions))
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Image Factory Schematic
 #-----------------------------------------------------------------------------------------------------------------------
-# Resolves the installer image URL for the requested extensions via the Talos Image Factory.
+# Resolves the installer image URL for the base and requested extensions via the Talos Image Factory.
 # The same schematic ID is stable across re-plans: factory.talos.dev deduplicates by content.
 
 resource "talos_image_factory_schematic" "this" {
@@ -37,7 +38,7 @@ resource "talos_image_factory_schematic" "this" {
   schematic = yamlencode({
     customization = {
       systemExtensions = {
-        officialExtensions = var.extensions
+        officialExtensions = local.schematic_extensions
       }
     }
   })
@@ -59,14 +60,14 @@ resource "talos_image_factory_schematic" "overlay" {
     }
     customization = {
       systemExtensions = {
-        officialExtensions = var.extensions
+        officialExtensions = local.schematic_extensions
       }
     }
   })
 }
 
 locals {
-  upgrade_image = length(var.extensions) > 0 ? "factory.talos.dev/installer/${talos_image_factory_schematic.this[0].id}:v${var.talos_version}" : ""
+  upgrade_image = length(var.extensions) > 0 ? "factory.talos.dev/${var.installer}/${talos_image_factory_schematic.this[0].id}:v${var.talos_version}" : ""
 
   node_upgrade_images = local.upgrade_image == "" ? {} : { for n in concat(var.controlplanes, var.workers) : n.node => (
     n.install_image != null ? n.install_image :

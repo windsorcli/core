@@ -201,7 +201,7 @@ flux:
     when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     resources:
       - name: external
-        when: (dns.public_domain ?? '') != ''
+        when: (dns.public_domain ?? '') != '' && gateway_exposure.external == 'LoadBalancer'
         dependsOn:
           - lb-install
         components:

@@ -147,11 +147,19 @@ $defs:
         install_image:
           type: string
           minLength: 1
-          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.5. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.6. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
-          description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
+          description: Data disks for this node. Replaces the pool's disks for this node, with no merge.
+        config_patches:
+          type: array
+          items:
+            type: object
+            minProperties: 1
+          description: >-
+            Talos config patches for this node on platform metal, in the form talosctl --config-patch takes.
+            Applied last, after Windsor's patches and its pool's config_patches, so it wins where they set the same key.
         volumes:
           type: array
           items:
@@ -177,6 +185,16 @@ $defs:
         install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
         and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
         uses ghcr.io/siderolabs/installer.
+    config_patches:
+      type: array
+      items:
+        type: object
+        minProperties: 1
+      description: >-
+        Talos config patches for every node in the pool, in the form talosctl --config-patch takes: a
+        strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig. Applied
+        after Windsor's own patches, so it wins where both set the same key. A node's config_patches
+        apply after it.
     instance_type:
       type: string
       description: Cloud provider instance type
@@ -195,7 +213,7 @@ $defs:
     disks:
       type: array
       items: *diskItem
-      description: Additional data disks (pool-level). Platform attach and/or block storage.
+      description: Data disks for every node in the pool. A node's own disks replace this list for that node.
     hostports:
       type: array
       items:
@@ -1562,7 +1580,8 @@ properties:
             enum:
               - LoadBalancer
               - NodePort
-            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+              - ClusterIP
+            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop. A tunnel sets ClusterIP.
           ip:
             $ref: '#/$defs/ipv4'
             description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
@@ -1669,6 +1688,28 @@ properties:
           minimum: 1
           maximum: 65535
         description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080). Keys and values are both bounded to the 1-65535 TCP port range.
+    additionalProperties: false
+
+  tunnel:
+    type: object
+    description: Connects the external gateway to the internet through an outbound tunnel, for clusters with no public address.
+    properties:
+      driver:
+        type: string
+        enum:
+          - cloudflare
+        description: Tunnel driver. Unset means no tunnel. Needs dns.public_domain, and the tunnel serves every hostname under it.
+      cloudflare:
+        type: object
+        description: Settings for the cloudflare driver. The API token comes from CLOUDFLARE_API_TOKEN in the environment.
+        properties:
+          account_id:
+            type: string
+            description: Cloudflare account that owns the tunnel.
+          zone_name:
+            type: string
+            description: Cloudflare zone that holds dns.public_domain. Defaults to dns.public_domain, which suits a domain that is itself a zone.
+        additionalProperties: false
     additionalProperties: false
 
   # Ingress configuration

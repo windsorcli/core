@@ -279,9 +279,14 @@ variable "network_nameservers" {
 }
 
 variable "network_interface" {
-  description = "NIC name glob for the CIDATA network-config match.name field (cloud-init v2). Default e* matches both eth0 and enX0 — covers Hyper-V synthetic NICs across kernel versions."
+  description = "Link name the CIDATA network-config configures. Talos keeps the kernel name eth0 for a Hyper-V synthetic NIC."
   type        = string
-  default     = "e*"
+  default     = "eth0"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+$", var.network_interface))
+    error_message = "network_interface must be a literal link name such as eth0. Talos does not expand globs."
+  }
 }
 
 variable "cluster_name" {
@@ -334,13 +339,47 @@ variable "common_config_patches" {
 }
 
 variable "controlplane_config_patches" {
-  description = "Controlplane-only Talos machine config patch (YAML string)."
+  description = "Controlplane-only Talos config patches, baked after common_config_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
+
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.controlplane_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "controlplane_config_patches must be an empty string or valid YAML documents."
+  }
 }
 
 variable "worker_config_patches" {
-  description = "Worker-only Talos machine config patch (YAML string)."
+  description = "Worker-only Talos config patches, baked after common_config_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
+
+  validation {
+    condition     = alltrue([for doc in split("\n---\n", var.worker_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "worker_config_patches must be an empty string or valid YAML documents."
+  }
+}
+
+variable "controlplane_volumes" {
+  description = "Raw volume strings (path or host:dest) baked as control-plane kubelet extraMounts on the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "worker_volumes" {
+  description = "Raw volume strings (path or host:dest) baked as worker kubelet extraMounts on the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "controlplane_disks" {
+  description = "Pool-level control-plane disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name."
+  type        = list(any)
+  default     = []
+}
+
+variable "worker_disks" {
+  description = "Pool-level worker disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name."
+  type        = list(any)
+  default     = []
 }

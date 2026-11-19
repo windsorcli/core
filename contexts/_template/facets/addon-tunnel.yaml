@@ -1,0 +1,80 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: tunnel
+  description: Outbound tunnel from the external gateway to the internet
+
+when: (tunnel.driver ?? '') != ''
+
+requires:
+  - paths:
+      - dns.public_domain
+    message: The tunnel serves every hostname under dns.public_domain.
+  - when: tunnel.driver == 'cloudflare'
+    paths:
+      - tunnel.cloudflare.account_id
+    message: The Cloudflare tunnel is created in this account.
+  - when: gateway.enabled == false
+    message: A tunnel connects to the external gateway; remove gateway.enabled or set it to true.
+  - when: (gateway.external.service_type ?? gateway.service_type ?? 'ClusterIP') != 'ClusterIP'
+    message: A tunnel makes the external gateway ClusterIP; remove gateway.external.service_type and gateway.service_type.
+  - when: (gateway.external.ip ?? '') != ''
+    message: A tunnel makes the external gateway ClusterIP, which has no address; remove gateway.external.ip.
+  - when: len(gateway.external.node_ports ?? {}) > 0
+    message: A tunnel reaches port 443 only; remove gateway.external.node_ports.
+  - when: (gateway.external.https ?? true) == false
+    message: A tunnel connects to the gateway over HTTPS; remove gateway.external.https or set it to true.
+  - when: platform in ['aws', 'azure', 'gcp', 'hetzner'] && (dns.public_zone ?? true) == true
+    message: A tunnel serves the public domain from its own DNS zone. Set dns.public_zone to false.
+
+# =============================================================================
+# Config
+# =============================================================================
+config:
+
+  # ca_pool: the connector verifies the gateway certificate against the cluster CA.
+  - name: tunnel_effective
+    value:
+      driver: ${tunnel.driver}
+      ca_pool: "${tls_effective.external_issuer == 'private' && (gateway.external.tls.cert ?? '') == ''}"
+      origin_host: "${gateway.driver == 'cilium' ? 'cilium-gateway-external' : 'envoy-external'}.system-gateway.svc.cluster.local"
+
+# =============================================================================
+# Terraform
+# =============================================================================
+terraform:
+  - name: tunnel
+    path: tunnel/cloudflare
+    when: tunnel.driver == 'cloudflare'
+    inputs:
+      account_id: ${tunnel.cloudflare.account_id}
+      public_domain: ${dns.public_domain}
+      zone_name: "${tunnel.cloudflare.zone_name ?? null}"
+      name: ${id}
+      origin_service: https://${tunnel_effective.origin_host}:443
+      origin_ca_pool: "${tunnel_effective.ca_pool == true ? '/etc/tunnel/ca/ca.crt' : null}"
+
+# =============================================================================
+# Flux — connector in system-tunnel
+# =============================================================================
+flux:
+
+  - name: tunnel
+    dependsOn:
+      - pki-resources
+      - gateway-resources-external
+    install:
+      components:
+        - "${tunnel.driver}"
+        - "${tunnel_effective.ca_pool == true ? tunnel.driver + '/ca-pool' : ''}"
+      substitutions:
+        tunnel_id: "${terraform_output('tunnel', 'tunnel_id') ?? ''}"
+      timeout: 10m
+      interval: 5m
+
+  - name: tunnel
+    secrets:
+      tunnel-credentials:
+        namespaces: [system-tunnel]
+        data:
+          token: ${terraform_output('tunnel', 'tunnel_token')}

@@ -300,6 +300,8 @@ cases:
             extensions:
               - siderolabs/iscsi-tools
               - siderolabs/util-linux-tools
+            base_extensions: []
+            installer: installer
             powercycle_reboot: false
             controlplanes:
               - node: 10.5.0.10
@@ -318,7 +320,7 @@ cases:
           nodes:
             controlplane-1:
               <<: *cp1-node
-              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
         workers:
           count: 1
           volumes:
@@ -335,14 +337,14 @@ cases:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
                 hostname: controlplane-1
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
         - name: cluster-extensions
           path: cluster/talos/extensions
           inputs:
             controlplanes:
               - node: 10.5.0.10
                 endpoint: 10.5.0.10:50000
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.5
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
 
   # A pool's board gives its nodes the board's Image Factory overlay, for the cluster and extensions steps.
   - name: pool board sets the overlay on the pool's nodes
@@ -427,7 +429,7 @@ cases:
             worker-2:
               endpoint: 10.5.0.21:50000
               node: 10.5.0.21
-              install_image: ghcr.io/siderolabs/installer:v1.14.5
+              install_image: ghcr.io/siderolabs/installer:v1.14.6
           volumes:
             - /var/mnt/local
     expect:
@@ -447,10 +449,88 @@ cases:
                   image: siderolabs/sbc-raspberrypi
               - endpoint: 10.5.0.21:50000
                 node: 10.5.0.21
-                install_image: ghcr.io/siderolabs/installer:v1.14.5
+                install_image: ghcr.io/siderolabs/installer:v1.14.6
                 overlay:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi
+
+  # Pool config_patches reach the cluster step as YAML documents; a node's config_patches ride on the node.
+  - name: pool and node config_patches reach cluster
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "1"
+          nodes:
+            controlplane-1:
+              <<: *cp1-node
+              config_patches:
+                - apiVersion: v1alpha1
+                  kind: VolumeConfig
+                  name: EPHEMERAL
+                  provisioning:
+                    diskSelector:
+                      match: "!system_disk && disk.transport == 'usb'"
+                - machine:
+                    sysctls:
+                      vm.dirty_ratio: "5"
+        workers:
+          count: 1
+          config_patches:
+            - machine:
+                sysctls:
+                  vm.swappiness: "10"
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+          volumes:
+            - /var/mnt/local
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                sysctls:
+                  vm.swappiness: "1"
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+              ---
+              machine:
+                sysctls:
+                  vm.swappiness: "10"
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+                config_patches: |-
+                  apiVersion: v1alpha1
+                  kind: VolumeConfig
+                  name: EPHEMERAL
+                  provisioning:
+                    diskSelector:
+                      match: "!system_disk && disk.transport == 'usb'"
+                  ---
+                  machine:
+                    sysctls:
+                      vm.dirty_ratio: "5"
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
 
   # A board with no Image Factory overlay fails composition.
   - name: unknown pool board fails composition
@@ -500,6 +580,133 @@ cases:
                 node: 10.5.0.10
                 hostname: controlplane-1
             workers: []
+
+  - name: pool disks reach every node in the pool
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          disks:
+            - name: etcd-data
+              selector: "disk.transport == 'nvme'"
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          disks:
+            - name: data-1
+              selector: "disk.transport == 'usb'"
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+                disks:
+                  - name: etcd-data
+                    selector: "disk.transport == 'nvme'"
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
+                disks:
+                  - name: data-1
+                    selector: "disk.transport == 'usb'"
+              - endpoint: 10.5.0.21:50000
+                node: 10.5.0.21
+                disks:
+                  - name: data-1
+                    selector: "disk.transport == 'usb'"
+
+  - name: node disks replace pool disks for that node
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          disks:
+            - name: data-1
+              selector: "disk.transport == 'usb'"
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+            worker-2:
+              endpoint: 10.5.0.21:50000
+              node: 10.5.0.21
+              disks:
+                - name: data-2
+                  selector: "disk.serial == 'WD-ABC123'"
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
+                disks:
+                  - name: data-1
+                    selector: "disk.transport == 'usb'"
+              - endpoint: 10.5.0.21:50000
+                node: 10.5.0.21
+                disks:
+                  - name: data-2
+                    selector: "disk.serial == 'WD-ABC123'"
+
+  - name: no pool or node disks passes nodes without disks
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplanes:
+              - endpoint: 10.5.0.10:50000
+                node: 10.5.0.10
+                hostname: controlplane-1
+            workers:
+              - endpoint: 10.5.0.20:50000
+                node: 10.5.0.20
 
   # Edge case: openebs (default) does not need Talos extensions, so cluster-extensions
   # must NOT appear in the rendered blueprint and gitops must not depend on it.

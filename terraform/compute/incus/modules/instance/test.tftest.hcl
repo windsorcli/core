@@ -176,6 +176,52 @@ run "attach_to_bridge_uses_bridged_nic" {
   }
 }
 
+# cloud_init_network_config sets the instance key and attaches the cloud-init config drive.
+run "cloud_init_network_config_attaches_drive" {
+  command = plan
+
+  variables {
+    name                      = "talos-node"
+    image                     = "windsor:talos/v1.14.6/amd64/nocloud"
+    type                      = "virtual-machine"
+    network_name              = "lan"
+    attach_to_bridge          = true
+    cloud_init_network_config = "version: 2\n"
+  }
+
+  assert {
+    condition     = incus_instance.this.config["cloud-init.network-config"] == "version: 2\n"
+    error_message = "cloud-init.network-config must carry the given network-config"
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if d.name == "cloud-init" && d.type == "disk" && d.properties.source == "cloud-init:config"]) == 1
+    error_message = "a cloud-init:config disk must be attached"
+  }
+}
+
+# Without cloud_init_network_config, no config drive is attached.
+run "no_cloud_init_drive_by_default" {
+  command = plan
+
+  variables {
+    name         = "plain-vm"
+    image        = "ubuntu/22.04"
+    type         = "virtual-machine"
+    network_name = "test-network"
+  }
+
+  assert {
+    condition     = !contains(keys(incus_instance.this.config), "cloud-init.network-config")
+    error_message = "cloud-init.network-config must be unset"
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if d.name == "cloud-init"]) == 0
+    error_message = "no cloud-init drive must be attached"
+  }
+}
+
 # Verifies that container instances do not have VM-specific configuration.
 # Tests that secureboot and qemu_args are not applied to containers.
 run "container_no_vm_config" {

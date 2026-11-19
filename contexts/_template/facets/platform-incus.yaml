@@ -42,7 +42,7 @@ requires:
 # =============================================================================
 config:
 
-  # Remote, cluster members, LAN bridge, and shared pool for the standalone compute step.
+  # Remote, cluster members, LAN bridge, shared pool, and LAN guest network for the standalone compute step.
   - name: incus_effective
     value:
       remote: ${incus.remote ?? null}
@@ -51,6 +51,9 @@ config:
       lan: ${(incus.network ?? 'lan') != 'nat'}
       storage_pool: "${incus.storage_pool ?? 'local'}"
       host: ${(workstation.runtime ?? '') == '' && incus.host == true}
+      image_suffix: "${(incus.network ?? 'lan') != 'nat' ? '/nocloud' : ''}"
+      gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+      nameservers: "${network.nameservers ?? ['1.1.1.1', '8.8.8.8']}"
 
   # openebs is the default storage: Incus's Talos image has no extensions mechanism
   # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
@@ -125,7 +128,7 @@ config:
           ["network_config", cluster_node_addresses.controlplanes[# - 1].mac_address == null ? {}
             : {"hwaddr": cluster_node_addresses.controlplanes[# - 1].mac_address}],
           ["image", cluster.controlplanes.image
-            ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
+            ?? ("windsor:talos/v" + talos.talos_version + "/amd64" + incus_effective.image_suffix)],
           ["type", "virtual-machine"],
           ["description", "Talos control plane node"],
           ["storage_pool", "default"],
@@ -156,7 +159,7 @@ config:
           ["network_config", cluster_node_addresses.workers[# - 1].mac_address == null ? {}
             : {"hwaddr": cluster_node_addresses.workers[# - 1].mac_address}],
           ["image", cluster.workers.image
-            ?? ("windsor:talos/v" + talos.talos_version + "/amd64")],
+            ?? ("windsor:talos/v" + talos.talos_version + "/amd64" + incus_effective.image_suffix)],
           ["type", "virtual-machine"],
           ["description", "Talos worker node"],
           ["storage_pool", "default"],
@@ -204,6 +207,9 @@ terraform:
       static_dhcp_leases: ${!incus_effective.lan}
       default_storage_pool: "${incus_effective.storage_pool}"
       network_cidr: ${network.cidr_block}
+      cloud_init_network: ${incus_effective.lan}
+      network_gateway: "${incus_effective.lan ? incus_effective.gateway : null}"
+      network_nameservers: "${incus_effective.lan ? incus_effective.nameservers : []}"
       storage_pools:
         local:
           driver: null
@@ -219,8 +225,8 @@ terraform:
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
-      # Incus guests take their addresses from static DHCP leases.
-      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
+      # LAN guests take their addresses from cloud-init, NAT guests from static DHCP leases.
+      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: !incus_effective.lan} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
@@ -228,8 +234,8 @@ terraform:
       controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

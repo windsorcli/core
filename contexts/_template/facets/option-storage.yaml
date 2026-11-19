@@ -94,6 +94,8 @@ terraform:
       controlplanes: ${talos_node_targets.controlplanes ?? []}
       workers: ${talos_node_targets.workers ?? []}
       extensions: ${talos_common.extensions ?? []}
+      base_extensions: ${talos_common.base_extensions ?? []}
+      installer: "${talos_common.installer ?? 'installer'}"
       powercycle_reboot: ${platform == 'incus'}
 
   # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.

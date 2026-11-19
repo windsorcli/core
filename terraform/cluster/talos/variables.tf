@@ -23,7 +23,7 @@ variable "talos_version" {
   description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.14.5"
+  default = "1.14.6"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
@@ -108,7 +108,12 @@ variable "controlplanes" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -133,8 +138,8 @@ variable "controlplanes" {
   default = []
 
   validation {
-    condition     = alltrue([for controlplane in var.controlplanes : controlplane.config_patches == "" || can(yamldecode(controlplane.config_patches))])
-    error_message = "Each controlplane's config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for controlplane in var.controlplanes : alltrue([for doc in split("\n---\n", controlplane.config_patches) : doc == "" || can(yamldecode(doc))])])
+    error_message = "Each controlplane's config_patches must be an empty string or valid YAML documents."
   }
 }
 
@@ -143,7 +148,12 @@ variable "workers" {
   type = list(object({
     endpoint = string
     node     = string
-    disks    = optional(list(any), [])
+    disks = optional(list(object({
+      name     = optional(string)
+      size     = optional(number)
+      selector = optional(string)
+      device   = optional(string)
+    })), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -168,8 +178,8 @@ variable "workers" {
   default = []
 
   validation {
-    condition     = alltrue([for worker in var.workers : worker.config_patches == "" || can(yamldecode(worker.config_patches))])
-    error_message = "Each worker's config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for worker in var.workers : alltrue([for doc in split("\n---\n", worker.config_patches) : doc == "" || can(yamldecode(doc))])])
+    error_message = "Each worker's config_patches must be an empty string or valid YAML documents."
   }
 }
 
@@ -185,22 +195,22 @@ variable "common_config_patches" {
 }
 
 variable "controlplane_config_patches" {
-  description = "A YAML string of controlplane config patches to apply. Can be an empty string or valid YAML."
+  description = "A YAML string of controlplane config patches, applied after common_config_patches and the module's own patches, so they win wherever both set the same key. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
   validation {
-    condition     = var.controlplane_config_patches == "" || can(yamldecode(var.controlplane_config_patches))
-    error_message = "controlplane_config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for doc in split("\n---\n", var.controlplane_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "controlplane_config_patches must be an empty string or valid YAML documents."
   }
 }
 
 variable "worker_config_patches" {
-  description = "A YAML string of worker config patches to apply. Can be an empty string or valid YAML."
+  description = "A YAML string of worker config patches, applied after common_config_patches and the module's own patches, so they win wherever both set the same key. Can be an empty string, valid YAML, or several YAML documents separated by --- lines."
   type        = string
   default     = ""
   validation {
-    condition     = var.worker_config_patches == "" || can(yamldecode(var.worker_config_patches))
-    error_message = "worker_config_patches must be an empty string or a valid YAML string."
+    condition     = alltrue([for doc in split("\n---\n", var.worker_config_patches) : doc == "" || can(yamldecode(doc))])
+    error_message = "worker_config_patches must be an empty string or valid YAML documents."
   }
 }
 

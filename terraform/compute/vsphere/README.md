@@ -103,8 +103,10 @@ No modules.
 | <a name="input_common_config_patches"></a> [common\_config\_patches](#input\_common\_config\_patches) | Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig. | `string` | `""` | no |
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
-| <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos config patches, baked after common\_config\_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
+| <a name="input_controlplane_disks"></a> [controlplane\_disks](#input\_controlplane\_disks) | Pool-level control-plane disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name. | `list(any)` | `[]` | no |
 | <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
+| <a name="input_controlplane_volumes"></a> [controlplane\_volumes](#input\_controlplane\_volumes) | Raw volume strings (path or host:dest) baked as control-plane kubelet extraMounts on the path (part after ':' if present). | `list(string)` | `[]` | no |
 | <a name="input_datacenter"></a> [datacenter](#input\_datacenter) | vSphere datacenter name (exact match as shown in the vCenter inventory) | `string` | n/a | yes |
 | <a name="input_datastore"></a> [datastore](#input\_datastore) | Datastore or datastore cluster name where VM disks are placed | `string` | n/a | yes |
 | <a name="input_folder"></a> [folder](#input\_folder) | VM folder path relative to the datacenter VM folder root. The folder must already exist. Empty string creates and uses `windsor-<context_id>` | `string` | `""` | no |
@@ -117,7 +119,9 @@ No modules.
 | <a name="input_per_node_config_patches"></a> [per\_node\_config\_patches](#input\_per\_node\_config\_patches) | Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos\_machine\_configuration config\_patches. | `map(string)` | `{}` | no |
 | <a name="input_resource_pool"></a> [resource\_pool](#input\_resource\_pool) | Resource pool path relative to the compute cluster. Empty string uses the cluster's root resource pool | `string` | `""` | no |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles. | `string` | `""` | no |
-| <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos machine config patch (YAML string). | `string` | `""` | no |
+| <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | Worker-only Talos config patches, baked after common\_config\_patches and the module's own patches, so they win wherever both set the same key. An empty string, valid YAML, or several YAML documents separated by --- lines. | `string` | `""` | no |
+| <a name="input_worker_disks"></a> [worker\_disks](#input\_worker\_disks) | Pool-level worker disks baked as UserVolumeConfig documents. Each entry sets device, selector, or size (GB), plus an optional name. | `list(any)` | `[]` | no |
+| <a name="input_worker_volumes"></a> [worker\_volumes](#input\_worker\_volumes) | Raw volume strings (path or host:dest) baked as worker kubelet extraMounts on the path (part after ':' if present). | `list(string)` | `[]` | no |
 
 ## Outputs
 

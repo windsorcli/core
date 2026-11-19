@@ -209,6 +209,12 @@ terraform:
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
       per_node_config_patches: >-
         ${fromPairs(concat(
           map(vsphere_controlplanes.nodes, [
@@ -299,7 +305,8 @@ terraform:
           : (vsphere_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0
             ? filter(cluster_node_entries.workers, # != null) : []))}
       common_config_patches: ${talos_common.common_config_patches}
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_config_patches: ${talos_common.controlplane_config_patches}
+      worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
       # Shared cluster identity from compute — cluster/talos's
