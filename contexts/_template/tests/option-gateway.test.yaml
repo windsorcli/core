@@ -1257,6 +1257,50 @@ cases:
         private_domain: example.internal
     expectError: true
 
+  - name: internal tls.issuer acme composes in certificate-only mode
+    values:
+      platform: metal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.20"
+          end: "10.5.1.100"
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          volumes:
+            - /var/mnt/local
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+          tls:
+            issuer: acme
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+
   # Envoy on Cilium: each gateway pins its address, and the internal gateway keeps the pool start.
   - name: envoy gateways pin their addresses under Cilium LBIPAM
     values:

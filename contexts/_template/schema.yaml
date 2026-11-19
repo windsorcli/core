@@ -1341,7 +1341,8 @@ properties:
           real Let's Encrypt certificates for the gateway. The operator
           must delegate this domain at their registrar to the name
           servers the dns-zone module outputs. Leave unset for
-          selfsigned-only (just-works) mode. Lowercase DNS labels
+          selfsigned-only (just-works) mode, or with the cloudflare
+          driver to issue only the internal gateway certificate. Lowercase DNS labels
           separated by dots; no scheme, port, or trailing dot.
       public_zone:
         type: boolean
@@ -1355,14 +1356,14 @@ properties:
             enum:
               - cloud
               - cloudflare
-            description: Server for the public zone. cloud is the zone service of the platform and works on aws, azure, gcp, and hetzner; cloudflare works on every platform. Unset uses cloud on aws, azure, gcp, and hetzner, and no public zone elsewhere.
+            description: Server for the public zone. cloud is the zone service of the platform and works on aws, azure, gcp, and hetzner; cloudflare works on every platform. Without dns.public_domain, cloudflare only issues the internal gateway certificate. Unset uses cloud on aws, azure, gcp, and hetzner, and no public zone elsewhere.
           cloudflare:
             type: object
             description: Settings for the cloudflare driver.
             properties:
               zone_name:
                 $ref: '#/$defs/dnsHostname'
-                description: Cloudflare zone that holds dns.public_domain. Defaults to dns.public_domain, which suits a domain that is itself a zone.
+                description: Cloudflare zone that holds dns.public_domain or dns.private_domain. Defaults to dns.public_domain. Required when dns.public_domain is unset.
               create_zone:
                 type: boolean
                 default: false
