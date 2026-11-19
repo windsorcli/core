@@ -388,6 +388,109 @@ run "lan_network_rejects_wait_for_ipv4" {
   expect_failures = [var.static_dhcp_leases]
 }
 
+# On a LAN bridge, each virtual machine with an ipv4 gets cloud-init network-config for eth0.
+run "cloud_init_network_for_static_vms" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    create_network      = false
+    attach_to_bridge    = true
+    network_name        = "lan"
+    network_cidr        = "192.168.3.0/24"
+    static_dhcp_leases  = false
+    cloud_init_network  = true
+    network_gateway     = "192.168.3.1"
+    network_nameservers = ["192.168.3.1", "1.1.1.1"]
+    instances = [
+      {
+        name          = "controlplane"
+        image         = "windsor:talos/v1.14.6/amd64/nocloud"
+        type          = "virtual-machine"
+        ipv4          = "192.168.3.21"
+        wait_for_ipv4 = false
+      },
+      {
+        name          = "worker"
+        image         = "windsor:talos/v1.14.6/amd64/nocloud"
+        type          = "virtual-machine"
+        wait_for_ipv4 = false
+      }
+    ]
+  }
+
+  assert {
+    condition = yamldecode(local.cloud_init_network_configs["controlplane"]) == {
+      version = 2
+      ethernets = {
+        eth0 = {
+          addresses   = ["192.168.3.21/24"]
+          gateway4    = "192.168.3.1"
+          nameservers = { addresses = ["192.168.3.1", "1.1.1.1"] }
+        }
+      }
+    }
+    error_message = "network-config MUST give eth0 the ipv4 with the network_cidr prefix, the gateway, and the nameservers"
+  }
+
+  assert {
+    condition     = startswith(local.cloud_init_network_configs["controlplane"], "version: 2\n")
+    error_message = "network-config MUST start with version: 2"
+  }
+
+  assert {
+    condition     = !contains(keys(local.cloud_init_network_configs), "worker")
+    error_message = "An instance without an ipv4 MUST get no network-config"
+  }
+}
+
+# Without cloud_init_network, no instance gets network-config.
+run "no_cloud_init_network_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    instances = [
+      {
+        name  = "controlplane"
+        image = "ubuntu/22.04"
+        type  = "virtual-machine"
+        ipv4  = "10.5.0.10"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.cloud_init_network_configs) == 0
+    error_message = "cloud_init_network MUST default to off"
+  }
+}
+
+# cloud_init_network without a gateway fails validation.
+run "cloud_init_network_requires_gateway" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    create_network     = false
+    network_name       = "lan"
+    network_cidr       = "192.168.3.0/24"
+    static_dhcp_leases = false
+    cloud_init_network = true
+    instances = [
+      {
+        name          = "controlplane"
+        image         = "ubuntu/22.04"
+        type          = "virtual-machine"
+        ipv4          = "192.168.3.21"
+        wait_for_ipv4 = false
+      }
+    ]
+  }
+
+  expect_failures = [var.cloud_init_network]
+}
+
 # On a cluster, "default" resolves to default_storage_pool and data volumes follow their instance's member.
 run "cluster_pool_alias_and_volume_target" {
   command = plan

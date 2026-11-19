@@ -364,6 +364,22 @@ locals {
     )
   }
 
+  # Cloud-init network-config v2 per virtual machine with a static ipv4.
+  cloud_init_network_configs = {
+    for instance in local.all_instances : instance.name => "version: 2\n${yamlencode({
+      ethernets = {
+        eth0 = merge(
+          {
+            addresses = [strcontains(instance.ipv4, "/") ? instance.ipv4 : "${instance.ipv4}/${local.network_prefix_length}"]
+            gateway4  = var.network_gateway
+          },
+          length(var.network_nameservers) > 0 ? { nameservers = { addresses = var.network_nameservers } } : {}
+        )
+      }
+    })}"
+    if var.cloud_init_network && instance.ipv4 != null && instance.type == "virtual-machine"
+  }
+
   # Create a map of all_instances keyed by name for easy lookup in outputs
   all_instances_by_name = {
     for instance in local.all_instances : instance.name => instance
@@ -561,6 +577,8 @@ module "instances" {
   ipv6             = var.static_dhcp_leases ? lookup(each.value, "ipv6", null) : null
   wait_for_ipv4    = lookup(each.value, "wait_for_ipv4", true)
   wait_for_ipv6    = lookup(each.value, "wait_for_ipv6", null)
+
+  cloud_init_network_config = lookup(local.cloud_init_network_configs, each.value.name, null)
 
   limits        = lookup(each.value, "limits", null)
   profiles      = lookup(each.value, "profiles", [])
