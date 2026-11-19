@@ -152,6 +152,14 @@ $defs:
           type: array
           items: *diskItem
           description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
+        config_patches:
+          type: array
+          items:
+            type: object
+            minProperties: 1
+          description: >-
+            Talos config patches for this node on platform metal, in the form talosctl --config-patch takes.
+            Applied last, after Windsor's patches and its pool's config_patches, so it wins where they set the same key.
         volumes:
           type: array
           items:
@@ -177,6 +185,16 @@ $defs:
         install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
         and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
         uses ghcr.io/siderolabs/installer.
+    config_patches:
+      type: array
+      items:
+        type: object
+        minProperties: 1
+      description: >-
+        Talos config patches for every node in the pool, in the form talosctl --config-patch takes: a
+        strategic merge patch of the v1alpha1 config, or a typed document such as a VolumeConfig. Applied
+        after Windsor's own patches, so it wins where both set the same key. A node's config_patches
+        apply after it.
     instance_type:
       type: string
       description: Cloud provider instance type

@@ -434,6 +434,63 @@ run "overlay_selects_metal_installer" {
   }
 }
 
+# Verifies that role and node config patches may hold several documents and apply after the common and module patches
+run "role_and_node_config_patches_apply_last" {
+  command = plan
+
+  variables {
+    common_config_patches       = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
+    controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n---\napiVersion: v1alpha1\nkind: VolumeConfig\nname: IMAGECACHE\n"
+    worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    controlplane_volumes        = ["/var/mnt/local"]
+    worker_volumes              = ["/var/mnt/local"]
+    controlplanes = [
+      {
+        endpoint       = "10.0.0.10:50000"
+        node           = "10.0.0.10"
+        config_patches = "apiVersion: v1alpha1\nkind: VolumeConfig\nname: EPHEMERAL\nprovisioning:\n  diskSelector:\n    match: \"!system_disk\"\n---\nmachine:\n  sysctls:\n    vm.dirty_ratio: \"5\"\n"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.controlplane_config_patches[0]) == 4 && local.controlplane_config_patches[0][0] == var.common_config_patches && local.controlplane_config_patches[0][2] == var.controlplane_config_patches && local.controlplane_config_patches[0][3] == var.controlplanes[0].config_patches
+    error_message = "A control plane's role, then node patches should come after the common and module patches"
+  }
+  assert {
+    condition     = length(local.worker_config_patches[0]) == 3 && local.worker_config_patches[0][0] == var.common_config_patches && local.worker_config_patches[0][2] == var.worker_config_patches
+    error_message = "A worker's role patches should come after the common and module patches"
+  }
+}
+
+# Verifies that a malformed document in role or node config patches is rejected
+run "role_and_node_config_patches_reject_malformed_document" {
+  command = plan
+  expect_failures = [
+    var.controlplane_config_patches,
+    var.worker_config_patches,
+    var.controlplanes,
+  ]
+
+  variables {
+    controlplane_config_patches = "machine: {}\n---\nnot: valid: yaml: ["
+    worker_config_patches       = "machine: {}\n---\nnot: valid: yaml: ["
+    controlplanes = [
+      {
+        endpoint       = "10.0.0.10:50000"
+        node           = "10.0.0.10"
+        config_patches = "machine: {}\n---\nnot: valid: yaml: ["
+      }
+    ]
+  }
+}
+
 # Verifies that a worker list mixing nodes with and without disks plans, and each node gets its own volumes
 run "disks_mixed_across_nodes" {
   command = plan

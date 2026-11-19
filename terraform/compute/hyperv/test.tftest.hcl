@@ -966,6 +966,62 @@ run "common_config_patches_accepts_several_documents" {
   }
 }
 
+# Role config patches bake last into each role's machineconfig, so they win over the common and network patches
+run "role_config_patches_bake_last" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    cluster_name                = "talos"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    talos_version               = "1.12.6"
+    destination_dir             = "C:/hyperv/images"
+    network_gateway             = "10.5.0.1"
+    network_cidr                = "10.5.0.0/16"
+    common_config_patches       = "machine:\n  sysctls:\n    vm.max_map_count: \"262144\"\n"
+    controlplane_config_patches = "machine:\n  sysctls:\n    vm.swappiness: \"1\"\n"
+    worker_config_patches       = "machine:\n  sysctls:\n    vm.swappiness: \"10\"\n"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", count = 1, ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = data.talos_machine_configuration.controlplane["controlplane"].config_patches[0] == var.common_config_patches && data.talos_machine_configuration.controlplane["controlplane"].config_patches[length(data.talos_machine_configuration.controlplane["controlplane"].config_patches) - 1] == var.controlplane_config_patches
+    error_message = "The control-plane role patches should bake last"
+  }
+  assert {
+    condition     = data.talos_machine_configuration.worker["worker"].config_patches[0] == var.common_config_patches && data.talos_machine_configuration.worker["worker"].config_patches[length(data.talos_machine_configuration.worker["worker"].config_patches) - 1] == var.worker_config_patches
+    error_message = "The worker role patches should bake last"
+  }
+}
+
+# A malformed role patch fails the plan at compute, where it bakes
+run "role_config_patches_reject_malformed_document" {
+  command = plan
+
+  variables {
+    context_id                  = "test"
+    cluster_name                = "talos"
+    cluster_endpoint            = "https://10.5.0.10:6443"
+    talos_version               = "1.12.6"
+    destination_dir             = "C:/hyperv/images"
+    network_gateway             = "10.5.0.1"
+    network_cidr                = "10.5.0.0/16"
+    controlplane_config_patches = "machine: {}\n---\nmachine: [unclosed"
+    worker_config_patches       = "machine: [unclosed"
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  expect_failures = [
+    var.controlplane_config_patches,
+    var.worker_config_patches,
+  ]
+}
+
 # Verifies that volumes and disks bake as kubelet extraMounts and UserVolumeConfig documents per role
 run "volumes_and_disks_baked" {
   command = plan

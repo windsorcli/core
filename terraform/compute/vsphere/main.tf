@@ -184,11 +184,10 @@ data "talos_machine_configuration" "controlplane" {
 
   config_patches = compact(concat([
     var.common_config_patches,
-    var.controlplane_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
     local.vip_patch,
     local.controlplane_extra_mounts_patch,
-  ], local.controlplane_block_docs))
+  ], local.controlplane_block_docs, [var.controlplane_config_patches]))
 
   lifecycle {
     precondition {
@@ -210,10 +209,9 @@ data "talos_machine_configuration" "worker" {
 
   config_patches = compact(concat([
     var.common_config_patches,
-    var.worker_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
     local.worker_extra_mounts_patch,
-  ], local.worker_block_docs))
+  ], local.worker_block_docs, [var.worker_config_patches]))
 }
 
 locals {

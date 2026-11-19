@@ -196,6 +196,11 @@ config:
       # and the kubeReserved block below each merge a sibling key into this.
       worker_patch: {}
 
+      # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
+      # pool's own patches, so the user's settings win where both set the same key.
+      controlplane_config_patches: "${join(concat(filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
+      worker_config_patches: "${join(concat(talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : [], map(cluster.workers.config_patches ?? [], string(#))), '\\n---\\n')}"
+
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
     when: cluster.cni.driver == 'cilium'
@@ -323,11 +328,6 @@ config:
           kernel:
             modules:
               - name: nvme_tcp
-
-  - name: talos_common
-    when: talos_common.worker_patch_emit
-    value:
-      worker_config_patches: "${string(talos_common.worker_patch)}"
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
