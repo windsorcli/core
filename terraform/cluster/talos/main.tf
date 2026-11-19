@@ -110,26 +110,26 @@ locals {
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
   controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
-    coalesce(d.device, "-") != "-" ? yamlencode({
+    (d.device != null && d.device != "") ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
+    if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
   ]]
   worker_block_docs = [for w in var.workers : [for i, d in w.disks :
-    coalesce(d.device, "-") != "-" ? yamlencode({
+    (d.device != null && d.device != "") ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = coalesce(d.selector, "-") != "-" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
-    if coalesce(d.device, "-") != "-" || coalesce(d.selector, "-") != "-" || d.size != null
+    if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
   ]]
 }
 
