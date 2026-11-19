@@ -127,7 +127,7 @@ run "base_extensions_and_installer" {
     error_message = "The schematic should hold the base extensions, then the requested extensions, without duplicates"
   }
   assert {
-    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/nocloud-installer/qga123:v1.14.5"
+    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/nocloud-installer/qga123:v1.14.6"
     error_message = "A node should upgrade to the chosen installer"
   }
 }
