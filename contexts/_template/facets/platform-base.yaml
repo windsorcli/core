@@ -275,11 +275,19 @@ config:
   - name: dns_zone_effective
     value:
       enabled: "${(dns.public_domain ?? '') != '' && (dns.public_zone ?? true) == true}"
+  # driver: the server that holds the public zone. cloud is the platform's own zone service.
+  - name: dns_zone_effective
+    value:
+      driver: "${dns.public.driver ?? (platform in ['aws', 'azure', 'gcp', 'hetzner'] ? 'cloud' : 'none')}"
+  - name: dns_zone_effective
+    value:
+      cloud: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloud'}"
+      cloudflare: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloudflare'}"
 
   # ClusterIssuer each gateway certificate uses, inferred unless gateway.<name>.tls.issuer overrides it.
   - name: tls_effective
     value:
-      public_zone_writable: "${dns_zone_effective.enabled == true && platform in ['aws', 'azure', 'gcp', 'hetzner']}"
+      public_zone_writable: "${dns_zone_effective.cloud == true || dns_zone_effective.cloudflare == true}"
       private_subdomain: "${(dns.public_domain ?? '') != '' && hasSuffix(dns.private_domain ?? '', '.' + dns.public_domain)}"
       internal_acme: "${(pki.acme.server ?? '') != ''}"
       external_override: "${gateway.external.tls.issuer ?? ((pki.public_issuer ?? '') == 'selfsigned' ? 'selfsigned' : '')}"
@@ -296,7 +304,7 @@ config:
         ${tls_effective.internal_override == 'selfsigned' ? 'public-selfsigned' :
         (tls_effective.internal_override == 'ca' ? 'private' :
         (tls_effective.internal_acme == true ? 'private-acme' :
-        (tls_effective.private_subdomain == true && tls_effective.public_zone_writable == true ? 'public-acme' :
+        (tls_effective.private_subdomain == true && dns_zone_effective.cloud == true ? 'public-acme' :
         (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private'))))}
   # Which ClusterIssuers some gateway domain needs.
   - name: tls_effective

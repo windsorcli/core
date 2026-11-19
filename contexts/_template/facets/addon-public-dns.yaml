@@ -1,0 +1,103 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: public-dns
+  description: Public DNS zone, external-dns and DNS-01 solver on Cloudflare
+
+when: (dns.public.driver ?? '') != ''
+
+requires:
+  - paths:
+      - dns.public_domain
+    message: The public DNS driver serves and publishes records into this zone.
+  - when: (dns.public_zone ?? true) == false
+    message: dns.public.driver manages the public zone; remove dns.public_zone or set it to true.
+  - when: dns.public.driver == 'cloud' && !(platform in ['aws', 'azure', 'gcp', 'hetzner'])
+    message: The cloud public DNS driver needs platform aws, azure, gcp, or hetzner; set dns.public.driver to cloudflare.
+  - when: dns.public.driver == 'cloudflare'
+    paths:
+      - dns.public.cloudflare.api_token
+    message: external-dns and cert-manager write records through a Cloudflare API token scoped to the zone.
+  - when: dns.public.driver == 'cloudflare' && (dns.public.cloudflare.create_zone ?? false) == true
+    paths:
+      - dns.public.cloudflare.account_id
+    message: A created Cloudflare zone belongs to this account.
+  - when: dns.public.driver == 'cloudflare' && (dns.public.cloudflare.proxied ?? false) == true && (dns.public.cloudflare.zone_name ?? dns.public_domain) != dns.public_domain
+    message: dns.public.cloudflare.proxied needs dns.public_domain to be the Cloudflare zone itself; unset dns.public.cloudflare.zone_name or set proxied to false.
+  - when: dns.public.driver == 'cloudflare' && tls_effective.public_acme == true
+    paths:
+      - email
+    message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
+
+# =============================================================================
+# Terraform
+# =============================================================================
+terraform:
+
+  # Independent of the cluster; the zone must exist before external-dns and cert-manager run.
+  - name: dns-zone
+    path: dns/zone/cloudflare
+    when: dns_zone_effective.cloudflare == true
+    inputs:
+      domain_name: ${dns.public.cloudflare.zone_name ?? dns.public_domain}
+      create_zone: ${dns.public.cloudflare.create_zone ?? false}
+      account_id: "${dns.public.cloudflare.account_id ?? ''}"
+
+# =============================================================================
+# Flux
+# =============================================================================
+flux:
+
+  - name: dns
+    when: dns_zone_effective.cloudflare == true
+    secrets:
+      cloudflare-dns:
+        data:
+          api-token: ${dns.public.cloudflare.api_token}
+    install:
+      timeout: 5m
+      interval: 5m
+    resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
+      - name: cloudflare
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/cloudflare
+          - "${(dns.public.cloudflare.proxied ?? false) == true ? 'external-dns/providers/cloudflare/proxied' : ''}"
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+          - "${chart_registry != '' ? 'external-dns/chart-registry' : ''}"
+        substitutions:
+          external_dns_name: external-dns-cloudflare
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          external_dns_zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+
+  # cert-manager reads the token from system-pki, which pki-install creates.
+  - name: pki
+    when: dns_zone_effective.cloudflare == true
+    secrets:
+      cloudflare-dns:
+        namespaces: [system-pki]
+        data:
+          api-token: ${dns.public.cloudflare.api_token}
+
+  # DNS-01 solver on the public-acme issuer. dev == true uses staging, else prod.
+  - name: pki
+    when: dns_zone_effective.cloudflare == true && tls_effective.public_acme == true
+    resources:
+      - components:
+          - public-issuer/acme/cloudflare
+        substitutions:
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+        timeout: 5m
+        interval: 5m

@@ -307,6 +307,12 @@ _Enabled when platform is GCP AND a gateway uses the `public-acme` issuer._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
 
+### `public-issuer/acme/cloudflare`
+
+_Enabled when `dns.public.driver` is `cloudflare` AND a gateway uses the `public-acme` issuer._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloudflare. Auth is the API token in the `cloudflare-dns` Secret in `system-pki`.
+
 ## Dependencies
 
 | Add-on | Required when | Reason |
