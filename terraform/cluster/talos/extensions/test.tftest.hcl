@@ -6,7 +6,7 @@ mock_provider "null" {
 
 variables {
   context_path  = "/tmp/test"
-  talos_version = "1.14.5"
+  talos_version = "1.14.6"
 }
 
 # Verifies that no upgrade runs without extensions
@@ -41,16 +41,16 @@ run "install_image_replaces_extensions_installer" {
       { node = "10.0.0.10", endpoint = "10.0.0.10:50000" },
     ]
     workers = [
-      { node = "10.0.0.20", endpoint = "10.0.0.20:50000", install_image = "factory.talos.dev/metal-installer/rpi123:v1.14.5" },
+      { node = "10.0.0.20", endpoint = "10.0.0.20:50000", install_image = "factory.talos.dev/metal-installer/rpi123:v1.14.6" },
     ]
   }
 
   assert {
-    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/installer/ext123:v1.14.5"
+    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/installer/ext123:v1.14.6"
     error_message = "A node without install_image should upgrade to the extensions installer"
   }
   assert {
-    condition     = null_resource.upgrade_worker["10.0.0.20"].triggers.upgrade_image == "factory.talos.dev/metal-installer/rpi123:v1.14.5"
+    condition     = null_resource.upgrade_worker["10.0.0.20"].triggers.upgrade_image == "factory.talos.dev/metal-installer/rpi123:v1.14.6"
     error_message = "A node with install_image should upgrade to that image"
   }
 }
@@ -94,11 +94,11 @@ run "overlay_joins_extensions_schematic" {
     error_message = "The overlay schematic should hold the extensions"
   }
   assert {
-    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/metal-installer/rpi5ext:v1.14.5"
+    condition     = null_resource.upgrade_controlplane["10.0.0.10"].triggers.upgrade_image == "factory.talos.dev/metal-installer/rpi5ext:v1.14.6"
     error_message = "A node with an overlay should upgrade to the metal installer of the overlay schematic"
   }
   assert {
-    condition     = null_resource.upgrade_worker["10.0.0.20"].triggers.upgrade_image == "factory.talos.dev/installer/ext123:v1.14.5"
+    condition     = null_resource.upgrade_worker["10.0.0.20"].triggers.upgrade_image == "factory.talos.dev/installer/ext123:v1.14.6"
     error_message = "A node without an overlay should upgrade to the extensions installer"
   }
 }
