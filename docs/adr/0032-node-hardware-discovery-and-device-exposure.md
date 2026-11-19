@@ -216,8 +216,12 @@ it in a later release.
 When `devices.enabled` is true, every node gets the containerd CRI patch from
 section 2. When `nvidia` is in `devices.gpu.drivers`, every node also gets
 the four NVIDIA modules in `machine.kernel.modules` and the sysctl
-`net.core.bpf_jit_harden: 1`. That sysctl lowers a Talos KSPP default, so the
-`nvidia` entry MUST say so in its schema description.
+`net.core.bpf_jit_harden: 1`. That sysctl lowers a Talos KSPP default on
+every node, control planes included, not only on nodes with an NVIDIA GPU.
+This release accepts that cost, because `core` has no per-node or per-pool
+machine config patch on every target platform yet. The `nvidia` entry MUST
+say so in its schema description. A later ADR MAY scope the patch to the
+nodes of one pool.
 
 Extensions and patches apply to every node in this release. Talos loads
 `i915`, `xe`, and `amdgpu` only on matching hardware. The NVIDIA modules are
@@ -323,8 +327,10 @@ node that `placement` names. On `proxmox`, an entry with `id` and no
 The extensions step MUST build its Proxmox installer from a schematic that
 keeps `siderolabs/qemu-guest-agent`, and it MUST use
 `factory.talos.dev/nocloud-installer`. Today the step uses the plain
-installer with the requested extensions only, so this fix also applies to
-`longhorn` on Proxmox.
+installer with the requested extensions only, which also breaks `longhorn`
+on Proxmox. The fix is in scope for the implementation of this ADR, and it
+MUST land in its own PR before the device extensions, so `longhorn` gets it
+without `devices.enabled`.
 
 ### 8. Scope on the other platforms
 
