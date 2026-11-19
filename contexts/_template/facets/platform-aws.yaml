@@ -197,7 +197,7 @@ terraform:
   # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
   # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
   - name: cni
-    when: "cluster.driver == 'eks' && cluster.cni.driver == 'cilium'"
+    when: "cluster.cni.driver == 'cilium'"
     path: cni/cilium
     dependsOn:
       - cluster
@@ -252,7 +252,7 @@ terraform:
     path: gitops/flux
     dependsOn:
       - cluster
-      - "${cluster.driver == 'eks' && cluster.cni.driver == 'cilium' ? 'cni' : ''}"
+      - "${cluster.cni.driver == 'cilium' ? 'cni' : ''}"
     inputs:
       concurrency: "${cluster.driver == 'talos' ? max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10)) : 5}"
     destroy: false
