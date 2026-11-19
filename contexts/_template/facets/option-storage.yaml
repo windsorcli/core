@@ -72,18 +72,18 @@ config:
             : #.device) + ' '))}
 
 # =============================================================================
-# Terraform — Talos extensions for CSI
+# Terraform — Talos extensions for CSI and devices
 # =============================================================================
-# Some CSI drivers need kernel/system tools missing from the stock Talos image
-# (Longhorn needs iscsi-tools + util-linux-tools). Installed via the
-# cluster/talos/extensions module, with Flux waiting until they're live.
+# talos_common.extensions holds the storage driver's and devices.gpu.drivers'
+# extensions. Installed via the cluster/talos/extensions module, with Flux
+# waiting until they're live.
 terraform:
 
   # cluster-extensions — apply Talos system extensions when the storage driver
-  # needs them (longhorn, mayastor). Waits for cni when Cilium is the CNI,
+  # or devices.gpu.drivers need them. Waits for cni when Cilium is the CNI,
   # since both write Talos machine config and must not run concurrently.
   - name: cluster-extensions
-    when: "(cluster.storage.driver ?? 'openebs') in ['longhorn', 'mayastor'] && cluster_provisioned"
+    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: cluster/talos/extensions
     dependsOn:
       - cluster
@@ -100,7 +100,7 @@ terraform:
 
   # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.
   - name: gitops
-    when: "(cluster.storage.driver ?? 'openebs') in ['longhorn', 'mayastor'] && cluster_provisioned"
+    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: gitops/flux
     dependsOn:
       - cluster-extensions

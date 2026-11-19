@@ -207,7 +207,9 @@ locals {
           join(".", slice(split(".", split("/", instance.ipv4)[0]), 0, 3)),
           tostring(tonumber(split(".", split("/", instance.ipv4)[0])[3]) + i)
         ) : (instance.ipv4 != null ? split("/", instance.ipv4)[0] : null)
-        notes = instance.notes
+        notes        = instance.notes
+        usb_mappings = instance.usb_mappings
+        pci_mappings = instance.pci_mappings
       }
     ]
   ])
@@ -328,10 +330,31 @@ resource "proxmox_virtual_environment_vm" "instances" {
     type = "l26"
   }
 
+  dynamic "usb" {
+    for_each = each.value.usb_mappings
+    content {
+      mapping = usb.value
+    }
+  }
+
+  dynamic "hostpci" {
+    for_each = each.value.pci_mappings
+    content {
+      device  = "hostpci${hostpci.key}"
+      mapping = hostpci.value
+      pcie    = true
+    }
+  }
+
   serial_device {}
 
   lifecycle {
     ignore_changes = [disk[0].import_from]
+
+    precondition {
+      condition     = length(each.value.pci_mappings) == 0 || !local.is_arm64
+      error_message = "pci_mappings on ${each.value.name} needs arch amd64, which uses the q35 machine."
+    }
 
     precondition {
       condition = each.value.vm_id == null || (

@@ -1,0 +1,17 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: nvidia-device-plugin
+  namespace: system-devices
+spec:
+  interval: 10m
+  timeout: 5m
+  url: ${chart_registry}/nvidia-device-plugin
+  ref:
+    # artifact: type=chart name=nvidia-device-plugin repo=https://nvidia.github.io/k8s-device-plugin
+    tag: 0.20.2
+  insecure: ${chart_registry_insecure:=false}
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

@@ -1,0 +1,42 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: generic-device-plugin
+  namespace: system-devices
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
+  chartRef:
+    kind: OCIRepository
+    name: generic-device-plugin
+  values:
+    image:
+      repository: ghcr.io/squat/generic-device-plugin
+      # artifact: type=image name=ghcr.io/squat/generic-device-plugin
+      tag: 0.2.0@sha256:66c8d5c270eb2b721f1064c549b9b7898152a6d2f0163380a5d37dc7636c20ff
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      automount: false
+    deployPodMonitor: false
+    args:
+      - --domain
+      - devices.windsorcli.dev
+    devices: ${generic_device_plugin_devices}
+  # The chart pins its DaemonSet to kube-system.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: DaemonSet
+              name: generic-device-plugin
+            patch: |
+              - op: replace
+                path: /metadata/namespace
+                value: system-devices

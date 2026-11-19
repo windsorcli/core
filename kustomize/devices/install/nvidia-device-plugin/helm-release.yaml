@@ -1,0 +1,58 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nvidia-device-plugin
+  namespace: system-devices
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
+  chart:
+    spec:
+      chart: nvidia-device-plugin
+      # artifact: type=chart name=nvidia-device-plugin repo=https://nvidia.github.io/k8s-device-plugin
+      version: 0.20.2
+      sourceRef:
+        kind: HelmRepository
+        name: nvidia-device-plugin
+  values:
+    image:
+      repository: nvcr.io/nvidia/k8s-device-plugin
+      # artifact: type=image name=nvcr.io/nvidia/k8s-device-plugin
+      tag: v0.20.2@sha256:7673383d44a84bece724d9ca8feeadf4eee69cd46475fdff614cbbca6732d463
+    runtimeClassName: nvidia
+    nfd:
+      enabled: false
+    gfd:
+      enabled: false
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: devices.windsorcli.dev/gpu-nvidia
+                  operator: In
+                  values:
+                    - "true"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    config:
+      default: time-slicing
+      map:
+        time-slicing: |-
+          version: v1
+          sharing:
+            timeSlicing:
+              resources:
+                - name: nvidia.com/gpu
+                  replicas: 10

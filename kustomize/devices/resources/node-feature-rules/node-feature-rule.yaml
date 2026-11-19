@@ -1,0 +1,59 @@
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: devices
+spec:
+  rules:
+    - name: usb-serial
+      labels:
+        devices.windsorcli.dev/usb-serial: "true"
+      matchFeatures:
+        - feature: kernel.loadedmodule
+          matchName:
+            op: In
+            value: ["cdc_acm", "ch341", "cp210x", "ftdi_sio", "pl2303"]
+    - name: gpu-intel
+      labels:
+        devices.windsorcli.dev/gpu-intel: "true"
+      matchFeatures: &intel
+        - feature: pci.device
+          matchExpressions:
+            vendor: {op: In, value: ["8086"]}
+            class: {op: In, value: ["0300", "0380"]}
+        - feature: kernel.loadedmodule
+          matchName:
+            op: In
+            value: ["i915", "xe"]
+    - name: gpu-amd
+      labels:
+        devices.windsorcli.dev/gpu-amd: "true"
+      matchFeatures: &amd
+        - feature: pci.device
+          matchExpressions:
+            vendor: {op: In, value: ["1002"]}
+            class: {op: In, value: ["0300", "0380"]}
+        - feature: kernel.loadedmodule
+          matchName:
+            op: In
+            value: ["amdgpu"]
+    - name: gpu-nvidia
+      labels:
+        devices.windsorcli.dev/gpu-nvidia: "true"
+      matchFeatures: &nvidia
+        - feature: pci.device
+          matchExpressions:
+            vendor: {op: In, value: ["10de"]}
+            class: {op: In, value: ["0300", "0302"]}
+        - feature: kernel.loadedmodule
+          matchName:
+            op: In
+            value: ["nvidia"]
+    - name: video
+      labels:
+        devices.windsorcli.dev/video-encode: "true"
+        devices.windsorcli.dev/video-decode: "true"
+      matchAny:
+        - matchFeatures: *intel
+        - matchFeatures: *amd
+        - matchFeatures: *nvidia

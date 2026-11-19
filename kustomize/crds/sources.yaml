@@ -59,6 +59,14 @@ vendors:
         - fluentbit.crdsEnable=true
         - fluentd.crdsEnable=true
 
+  - name: node-feature-discovery
+    # renovate: datasource=docker depName=registry.k8s.io/nfd/charts/node-feature-discovery package=registry.k8s.io/nfd/charts/node-feature-discovery
+    version: 0.20.1
+    helm:
+      repo: oci://registry.k8s.io/nfd/charts
+      chart: node-feature-discovery
+      mode: crds
+
   - name: keycloak
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
     version: 26.8.0

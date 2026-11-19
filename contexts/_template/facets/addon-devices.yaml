@@ -1,0 +1,70 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: devices
+  description: Node Feature Discovery labels and device plugins for USB serial radios and GPUs
+
+requires:
+  - when: len(devices.gpu.drivers ?? []) > 0 && devices.enabled != true
+    message: "devices.gpu.drivers needs devices.enabled: true"
+  - when: devices.enabled == true && platform == 'docker'
+    message: devices.enabled is not supported on platform docker.
+  - when: devices.enabled == true && platform in ['aws', 'azure', 'gcp']
+    message: devices.enabled is not supported on platforms aws, azure, and gcp.
+  - when: len(devices_effective.passthrough ?? []) > 0 && platform == 'metal'
+    message: passthrough is not supported on platform metal
+  - when: len(devices_effective.passthrough ?? []) > 0 && !(platform in ['metal', 'incus', 'proxmox'])
+    message: passthrough is supported only on platforms incus and proxmox.
+  - when: platform == 'proxmox' && any(devices_effective.passthrough ?? [], (#.mapping ?? '') == '')
+    message: On platform proxmox, set mapping on each passthrough entry instead of id.
+  - when: platform == 'incus' && any(devices_effective.passthrough ?? [], (#.id ?? '') == '')
+    message: On platform incus, set id on each passthrough entry instead of mapping.
+
+config:
+  - name: devices_effective
+    value:
+      gpu_drivers: "${devices.enabled == true ? (devices.gpu.drivers ?? []) : []}"
+      passthrough: >-
+        ${flatten(map(concat(values(cluster.controlplanes.nodes ?? {}), values(cluster.workers.nodes ?? {})),
+          #.passthrough ?? []))}
+      zigbee_globs: "${concat(['*Zigbee*', '*ConBee*', '*SkyConnect*', '*ZBT-1*'], devices.serial.zigbee ?? [])}"
+      zwave_globs: "${concat(['*Z-Wave*', '*0658_0200*'], devices.serial.zwave ?? [])}"
+
+  # generic-device-plugin --device specs, as one-line JSON for the HelmRelease values.
+  - name: devices_effective
+    value:
+      plugin_devices: >-
+        ${replace(replace(toJSON(concat(
+          [
+            {"name": "zigbee", "groups": map(devices_effective.zigbee_globs,
+              ({"paths": [{"path": "/dev/serial/by-id/" + #, "mountPath": "/dev/zigbee"}]}))},
+            {"name": "zwave", "groups": map(devices_effective.zwave_globs,
+              ({"paths": [{"path": "/dev/serial/by-id/" + #, "mountPath": "/dev/zwave"}]}))}
+          ],
+          any(devices_effective.gpu_drivers, # in ['intel', 'amd'])
+            ? [{"name": "dri", "groups": [{"count": 10, "paths": [{"path": "/dev/dri/renderD*", "mountPath": "/dev/dri/"}]}]}]
+            : []
+        )), "\n", ""), "  ", "")}
+
+crds:
+  # renovate: datasource=docker depName=registry.k8s.io/nfd/charts/node-feature-discovery package=registry.k8s.io/nfd/charts/node-feature-discovery
+  - "${devices.enabled == true ? 'node-feature-discovery-0.20.1' : ''}"
+
+flux:
+  - name: devices
+    when: devices.enabled == true
+    install:
+      components:
+        - node-feature-discovery
+        - generic-device-plugin
+        - "${'nvidia' in devices_effective.gpu_drivers ? 'nvidia-device-plugin' : ''}"
+        - "${'nvidia' in devices_effective.gpu_drivers && chart_registry != '' ? 'nvidia-device-plugin/chart-registry' : ''}"
+      substitutions:
+        generic_device_plugin_devices: ${devices_effective.plugin_devices}
+      timeout: 10m
+      interval: 5m
+    resources:
+      - components:
+          - node-feature-rules
+        timeout: 5m
+        interval: 5m

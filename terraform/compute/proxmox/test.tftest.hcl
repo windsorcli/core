@@ -328,6 +328,63 @@ run "worker_pool" {
   }
 }
 
+# Resource mappings become usb blocks and PCIe hostpci blocks in list order.
+run "device_mappings" {
+  command = plan
+
+  variables {
+    instances = [{
+      name         = "worker"
+      role         = "worker"
+      image        = "talos"
+      ipv4         = "10.5.0.20"
+      usb_mappings = ["zigbee"]
+      pci_mappings = ["igpu", "nvidia"]
+    }]
+  }
+
+  assert {
+    condition     = length(proxmox_virtual_environment_vm.instances["worker"].usb) == 1 && proxmox_virtual_environment_vm.instances["worker"].usb[0].mapping == "zigbee"
+    error_message = "usb_mappings must add one usb block per mapping"
+  }
+
+  assert {
+    condition     = [for d in proxmox_virtual_environment_vm.instances["worker"].hostpci : d.device] == ["hostpci0", "hostpci1"]
+    error_message = "pci_mappings must number hostpci devices from hostpci0"
+  }
+
+  assert {
+    condition     = alltrue([for d in proxmox_virtual_environment_vm.instances["worker"].hostpci : d.pcie]) && proxmox_virtual_environment_vm.instances["worker"].hostpci[1].mapping == "nvidia"
+    error_message = "hostpci blocks must carry the mapping with pcie set"
+  }
+}
+
+# A VM with no mappings gets no usb or hostpci blocks.
+run "no_device_mappings" {
+  command = plan
+
+  variables {
+    instances = [{ name = "worker", role = "worker", image = "talos", ipv4 = "10.5.0.20" }]
+  }
+
+  assert {
+    condition     = length(proxmox_virtual_environment_vm.instances["worker"].usb) == 0 && length(proxmox_virtual_environment_vm.instances["worker"].hostpci) == 0
+    error_message = "no mappings must add no usb or hostpci blocks"
+  }
+}
+
+# PCI passthrough on arm64 fails the plan.
+run "rejects_pci_mapping_on_arm64" {
+  command = plan
+
+  variables {
+    arch      = "arm64"
+    instances = [{ name = "worker", role = "worker", image = "talos", ipv4 = "10.5.0.20", pci_mappings = ["igpu"] }]
+  }
+
+  expect_failures = [proxmox_virtual_environment_vm.instances["worker"]]
+}
+
 # Name suffix keeps several contexts apart on one node.
 run "name_suffix" {
   command = plan
