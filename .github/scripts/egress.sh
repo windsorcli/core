@@ -13,7 +13,7 @@
 #                     destination with its count.
 #
 # Environment:
-#   EGRESS_NETWORK       Docker network to block. Default: windsor-local.
+#   EGRESS_NETWORK       Docker network to block. Default: the one network of the DNS container.
 #   EGRESS_DNS           DNS container on that network. Default: dns.test.
 #   EGRESS_PROBE         Container that runs the probes. Default: charts.test.
 #   EGRESS_POD_CIDR      Cluster pod CIDR. Default: 10.244.0.0/16.
@@ -23,8 +23,16 @@ set -euo pipefail
 
 CHAIN="WINDSOR-EGRESS"
 LOG_PREFIX="windsor-egress: "
-NETWORK="${EGRESS_NETWORK:-windsor-local}"
 DNS_CONTAINER="${EGRESS_DNS:-dns.test}"
+NETWORK="${EGRESS_NETWORK:-}"
+if [ -z "$NETWORK" ]; then
+  networks="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$DNS_CONTAINER")"
+  if [ "$(wc -w <<< "$networks")" -ne 1 ]; then
+    echo "::error::$DNS_CONTAINER is on networks [${networks}]; set EGRESS_NETWORK"
+    exit 1
+  fi
+  NETWORK="${networks% }"
+fi
 PROBE="${EGRESS_PROBE:-charts.test}"
 POD_CIDR="${EGRESS_POD_CIDR:-10.244.0.0/16}"
 SERVICE_CIDR="${EGRESS_SERVICE_CIDR:-10.96.0.0/12}"

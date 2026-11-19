@@ -18,9 +18,7 @@ requires:
       && identity.enabled == true
       && (identity.driver ?? 'keycloak') == 'keycloak'
       && gateway.enabled != true
-    message: >-
-      kube-apiserver OIDC against the hosted Keycloak needs it reachable through
-      the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+    message: With cluster.oidc.enabled and identity.driver keycloak, set gateway.enabled to true or set cluster.oidc.issuer_url.
   - when: >-
       any(
         values(registries ?? {}),
@@ -31,7 +29,7 @@ requires:
     message: Entries in registries with the same endpoint host need the same username and password.
   # Registry mode copies only the images of the Talos versions in talos_images.
   - when: (charts.registry ?? '') != '' && !(talos.talos_version in talos_images)
-    message: Registry mode supports only the Talos versions that this blueprint pins. Use a pinned Talos version, or turn off registry mode.
+    message: charts.registry supports only the Talos versions this blueprint pins; unset charts.registry.
   - when: >-
       (charts.registry ?? '') != ''
       && !(let versions = keys(talos_images ?? {}); all(filter(concat(
@@ -39,7 +37,7 @@ requires:
         map(values(cluster.controlplanes.nodes ?? {}), #.image ?? ''),
         map(values(cluster.workers.nodes ?? {}), #.image ?? '')
       ), # != ''), {let image = #; any(versions, image endsWith ('v' + #) || image contains ('v' + # + '/') || image contains ('v' + # + '@'))}))
-    message: Registry mode supports only node images of the Talos versions that this blueprint pins. Remove the node image override, or turn off registry mode.
+    message: With charts.registry set, each image in cluster.controlplanes and cluster.workers MUST use a Talos version this blueprint pins; remove the image or unset charts.registry.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -88,7 +86,7 @@ config:
       worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # Default to the longhorn disk when longhorn is the driver, else no disks.
+      # Pool data disks that Incus compute creates on each node; the longhorn disk by default under longhorn.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 

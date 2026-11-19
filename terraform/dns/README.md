@@ -7,12 +7,13 @@ stack_backing: public zones
 
 # DNS
 
-The dns category has four drivers under `dns/zone/`: `route53`
+The dns category has five drivers under `dns/zone/`: `route53`
 provisions a public Route53 hosted zone on AWS, `azure-dns` a public
 DNS zone on Azure, `gcp-dns` a public Cloud DNS managed zone on GCP,
-and `hetzner` a public zone on Hetzner DNS. The driver is selected by
-`platform`, and the zone module only runs when `dns.public_domain` is
-set. With no public domain, the cluster falls back to self-signed
+`hetzner` a public zone on Hetzner DNS, and `cloudflare` looks up or
+creates a Cloudflare zone on any platform. `platform` selects the first
+four. `dns.public.driver: cloudflare` selects the last. The zone module
+only runs when `dns.public_domain` is set. With no public domain, the cluster falls back to self-signed
 certificates and no external zone is created.
 
 Zones are provisioned in their own Terraform stack so they have an
@@ -172,6 +173,65 @@ NS delegation record in the parent zone automatically. Otherwise,
 delegate the parent domain at your registrar to the name servers in
 the module output (`name_servers`), the same as the other drivers.
 
+### Cloudflare
+
+```mermaid
+flowchart LR
+  registrar[Domain registrar<br/>NS delegation]
+  cm[cert-manager]
+  ed[external-dns]
+
+  subgraph cloudflare[Cloudflare account]
+    zone[Cloudflare zone]
+    token[DNS API token<br/>Kubernetes Secret]
+  end
+
+  registrar -.delegates created zone.-> zone
+  cm -.reads token from.-> token
+  ed -.reads token from.-> token
+  token -.writes records.-> zone
+```
+
+```yaml
+platform: metal
+email: ops@example.com
+dns:
+  public_domain: apps.example.com
+  public:
+    driver: cloudflare
+    cloudflare:
+      zone_name: example.com
+      api_token: ${secret("MyVault", "cloudflare-dns", "token")}
+```
+
+The driver works on every platform. The module looks up the zone named
+by `zone_name`, which defaults to `dns.public_domain`. A Cloudflare zone
+is usually the registrable domain, so a name such as `apps.example.com`
+needs `zone_name: example.com`. Set `create_zone: true` and `account_id`
+to create the zone instead. A created zone stays pending until the
+`name_servers` output is set at the registrar, and `windsor destroy`
+deletes it.
+
+One API token, `dns.public.cloudflare.api_token`, serves Terraform,
+external-dns, and cert-manager. It MUST be scoped to `Zone:Read` and
+`DNS:Edit` on this one zone. With `create_zone`, it also needs `Zone:Edit`
+on the account, and SHOULD be replaced by a zone-scoped token once the zone
+exists. The token can change every record in the zone and pass DNS-01 for
+any name in it.
+
+On a platform without a public address, DNS-01 still issues a Let's
+Encrypt certificate for the external gateway. external-dns publishes the
+gateway address, so a private address becomes visible in public DNS.
+The internal gateway keeps the `private` issuer unless
+`gateway.internal.tls.issuer` is `acme`.
+
+With `proxied: true`, the records external-dns writes pass through the
+Cloudflare proxy. It needs a public gateway address and the zone SSL mode
+set to Full (strict), which the module does not manage. Universal SSL
+covers the apex and one label below it, so `dns.public_domain` MUST be
+the zone itself; a deeper name needs Advanced Certificate Manager.
+Cloudflare proxies HTTP(S) on its listed ports only.
+
 ### Self-signed (no public domain)
 
 ```yaml
@@ -228,6 +288,7 @@ verification.
 
 - [pdns-api-key](pdns-api-key/) — Generated API key for the in-cluster PowerDNS server and its external-dns provider.
 - [zone/azure-dns](zone/azure-dns/) — DNS zone on Azure DNS.
+- [zone/cloudflare](zone/cloudflare/) — Looks up or creates a public Cloudflare zone.
 - [zone/gcp-dns](zone/gcp-dns/) — DNS zone on Google Cloud DNS.
 - [zone/hetzner](zone/hetzner/) — Creates a primary Hetzner DNS zone via the official hcloud provider.
 - [zone/route53](zone/route53/) — Public DNS zone on AWS Route53.
@@ -235,7 +296,7 @@ verification.
 
 ## See also
 
-- [zone/route53/](zone/route53/), [zone/azure-dns/](zone/azure-dns/), [zone/gcp-dns/](zone/gcp-dns/), and [zone/hetzner/](zone/hetzner/) for the per-driver Terraform reference.
+- [zone/route53/](zone/route53/), [zone/azure-dns/](zone/azure-dns/), [zone/gcp-dns/](zone/gcp-dns/), [zone/hetzner/](zone/hetzner/), and [zone/cloudflare/](zone/cloudflare/) for the per-driver Terraform reference.
 - [../cluster/](../cluster/) for the cluster module that provisions the identity binding (IAM Pod Identity, Workload Identity).
 - [../../kustomize/pki/](../../kustomize/pki/) for cert-manager and the ClusterIssuers.
 - [../../kustomize/dns/](../../kustomize/dns/) for the external-dns reconciler.

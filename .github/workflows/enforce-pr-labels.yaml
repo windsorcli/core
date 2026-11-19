@@ -12,12 +12,14 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
-            const requiredLabels = [
-              'feature', 'enhancement', 'documentation','fix', 'bugfix', 'bug', 'chore', 'dependencies', 'major', 'minor', 'patch'
-            ];
+            const requiredLabels = ['bug', 'chore', 'feature', 'documentation', 'enhancement', 'dependencies'];
+            const allowedLabels = [...requiredLabels, 'breaking'];
             const prLabels = context.payload.pull_request.labels.map(label => label.name);
             const hasRequiredLabel = prLabels.some(label => requiredLabels.includes(label));
-            
+            const unknownLabels = prLabels.filter(label => !allowedLabels.includes(label));
+
             if (!hasRequiredLabel) {
               core.setFailed('Your PR must have at least one of the required labels: ' + requiredLabels.join(', '));
+            } else if (unknownLabels.length > 0) {
+              core.setFailed('Allowed labels are: ' + allowedLabels.join(', ') + '. Remove: ' + unknownLabels.join(', '));
             }

@@ -48,7 +48,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
-        YQ_VERSION: v4.54.2
+        YQ_VERSION: v4.54.3
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
@@ -126,7 +126,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=helm package=helm/helm
-        HELM_VERSION: v4.3.1
+        HELM_VERSION: v4.3.2
       run: |
         cd "$(mktemp -d)"
         asset="helm-${HELM_VERSION}-linux-amd64.tar.gz"

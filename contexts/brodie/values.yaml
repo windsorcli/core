@@ -1,0 +1,9 @@
+id: brodie
+platform: docker
+dev: true
+cluster:
+  controlplanes:
+    cpu: 3
+    memory: 8
+gitops:
+  concurrency: 2

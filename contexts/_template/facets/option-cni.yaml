@@ -101,11 +101,16 @@ flux:
       - components:
           - cilium/l2
           - "${(network.loadbalancer_ips.start ?? '') != '' ? 'cilium/l2/pool' : ''}"
-        substitutions:
-          loadbalancer_start_ip: "${network.loadbalancer_ips.start ?? ''}"
-          loadbalancer_end_ip: "${network.loadbalancer_ips.end ?? ''}"
         timeout: 5m
         interval: 5m
+
+  # IP range for the Cilium LBIPAM pool, present only with the cilium/l2/pool component.
+  - name: cni
+    when: talos_enabled && lb_effective.driver == 'cilium' && lb_effective.controller_required != true && (network.loadbalancer_ips.start ?? '') != ''
+    resources:
+      - substitutions:
+          loadbalancer_start_ip: "${network.loadbalancer_ips.start}"
+          loadbalancer_end_ip: "${network.loadbalancer_ips.end ?? ''}"
 
   # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
@@ -138,7 +143,7 @@ flux:
   # Add the Cilium dashboards to the observability-resources kustomization when
   # Grafana is the dashboard backend.
   - name: observability
-    when: observability.dashboards == 'grafana'
+    when: observability.enabled == true && observability.dashboards == 'grafana'
     resources:
       - components:
           - grafana/dashboards/cilium

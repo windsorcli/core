@@ -19,7 +19,7 @@ requires:
       tls_effective.public_acme == true
     paths:
       - email
-    message: Public DNS requires an operator email for TLS certificate registration.
+    message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
   - when: (dns.private_domain ?? '') != '' && dev != true
     message: Hetzner has no private DNS and no internal gateway; unset dns.private_domain and use dns.public_domain.
   - when: >-
@@ -160,7 +160,7 @@ config:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      tls_effective.public_acme == true
+      tls_effective.public_acme == true && dns_zone_effective.cloud == true
     value:
       issuer_component: public-issuer/acme/hetzner
 
@@ -230,7 +230,7 @@ terraform:
   # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     inputs:
       hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
@@ -247,10 +247,9 @@ terraform:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))}
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}"
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       # The oidc patch drops its "machine:" header to nest under the control-plane patch's header.
       controlplane_config_patches: >-
@@ -350,7 +349,7 @@ flux:
 
   # DNS — external-dns via the Hetzner webhook provider, public zone only.
   - name: dns
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     secrets:
       hetzner-dns:
         data:
@@ -383,7 +382,7 @@ flux:
   # system-pki-trust, so the target is named explicitly. cert-manager's ACME
   # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
   - name: pki
-    when: "dns_zone_effective.enabled == true"
+    when: "dns_zone_effective.cloud == true"
     secrets:
       hetzner-dns:
         namespaces: [system-pki]

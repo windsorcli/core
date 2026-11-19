@@ -46,6 +46,14 @@ To create or inspect this inventory out of band, `govc` reads the same
 credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 `GOVC_PASSWORD`, and `GOVC_INSECURE` — mirror the `VSPHERE_*` values into those.
 
+## Control-plane placement
+
+With two or more control planes, the module adds a soft DRS anti-affinity rule
+named `windsor-<context>-controlplane`. Every VM starts on the `host_system`
+host, and DRS then moves the control planes to separate hosts. The cluster MUST
+have DRS enabled for the rule to take effect. On a one-host cluster, DRS reports
+the rule as violated and the VMs keep running.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
@@ -60,6 +68,7 @@ credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 | Name | Version |
 |------|---------|
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 | <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.1 |
 
 ## Modules
@@ -71,6 +80,8 @@ No modules.
 | Name | Type |
 |------|------|
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
+| [terraform_data.controlplane_ids](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [vsphere_compute_cluster_vm_anti_affinity_rule.controlplane](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/compute_cluster_vm_anti_affinity_rule) | resource |
 | [vsphere_folder.vm](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/folder) | resource |
 | [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/vmware/vsphere/2.17.1/docs/resources/virtual_machine) | resource |
 | [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
@@ -96,11 +107,12 @@ No modules.
 | <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
 | <a name="input_datacenter"></a> [datacenter](#input\_datacenter) | vSphere datacenter name (exact match as shown in the vCenter inventory) | `string` | n/a | yes |
 | <a name="input_datastore"></a> [datastore](#input\_datastore) | Datastore or datastore cluster name where VM disks are placed | `string` | n/a | yes |
-| <a name="input_folder"></a> [folder](#input\_folder) | VM folder path relative to the datacenter VM folder root. Empty string places VMs at the datacenter root | `string` | `""` | no |
+| <a name="input_folder"></a> [folder](#input\_folder) | VM folder path relative to the datacenter VM folder root. The folder must already exist. Empty string creates and uses `windsor-<context_id>` | `string` | `""` | no |
 | <a name="input_host_system"></a> [host\_system](#input\_host\_system) | ESXi host name or IP to place VMs on. Required by the vSphere provider for OVF deployment. Empty string auto-selects the sole host in the datacenter (single-host clusters). | `string` | `""` | no |
 | <a name="input_images"></a> [images](#input\_images) | Map of image references the module deploys via OVF. Each entry is deployed with ovf\_deploy on first apply and ignored on subsequent applies (lifecycle.ignore\_changes). Instances reference an image by its map key; when an instance's image field is empty, no OVF deploy is performed and the VM boots from a blank disk. There is no keep-on-destroy option: ovf\_deploy has no separate cached-template resource to preserve, unlike compute/hyperv's downloaded VHD — destroying an instance always destroys its VM. | <pre>map(object({<br/>    url = string<br/>  }))</pre> | `{}` | no |
 | <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for vmtoolsd to report a guest address. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. GuestInfo machineconfig is generated inside this module for controlplane and worker roles. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    notes          = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to install, with or without a leading v. The v form is the tag of the Kubernetes images. | `string` | `"v1.37.2"` | no |
+| <a name="input_name_suffix"></a> [name\_suffix](#input\_name\_suffix) | Suffix appended to each VM name. Output hostnames stay unsuffixed. | `string` | `""` | no |
 | <a name="input_network"></a> [network](#input\_network) | Port group name the VM primary NIC attaches to (e.g. 'VM Network' or 'vlan-prod-100') | `string` | n/a | yes |
 | <a name="input_per_node_config_patches"></a> [per\_node\_config\_patches](#input\_per\_node\_config\_patches) | Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos\_machine\_configuration config\_patches. | `map(string)` | `{}` | no |
 | <a name="input_resource_pool"></a> [resource\_pool](#input\_resource\_pool) | Resource pool path relative to the compute cluster. Empty string uses the cluster's root resource pool | `string` | `""` | no |

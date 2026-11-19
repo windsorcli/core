@@ -90,7 +90,7 @@ config:
     requires:
       - paths:
           - cluster.endpoint
-        message: NodePort mode derives the host's bench IP from this URL.
+        message: With gateway.external.service_type and gateway.internal.service_type both NodePort, cluster.endpoint MUST point at the Hyper-V host.
     value:
       switch_type: NAT
       nat_name: "windsor-${id ?? 'hyperv'}"
@@ -429,14 +429,13 @@ terraform:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       # Length-check compute output (empty until the guest reports an IP) and
       # fall through to schema-declared nodes.
       # In NodePort+NAT, compute's NAT-internal endpoints are unreachable from
       # the runner, so use for_cluster (bench-side host:port routing to each VM).
       controlplanes: "${hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null)))}"
       workers: "${hyperv_effective.nat == true ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])))}"
-      controlplane_disks: ${talos_common.controlplane_disks}
-      worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}

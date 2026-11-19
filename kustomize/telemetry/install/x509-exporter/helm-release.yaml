@@ -22,7 +22,7 @@ spec:
       registry: quay.io
       repository: enix/x509-certificate-exporter
       # artifact: type=image name=quay.io/enix/x509-certificate-exporter
-      tag: 4.2.3@sha256:54663f4f49f849e43356747c08ed297772cfff9d150c637ab19d6835a63303b1
+      tag: 4.2.4@sha256:3863f835ba95af6b8130a0ab0d8063b2a6136adc495111b017371637d0137a88
     secretsExporter:
       # ca.crt covers the cluster CA through every certificate the private issuer signs.
       secretTypes:

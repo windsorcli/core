@@ -19,7 +19,7 @@ Each name below has a rule narrower than the 63-character DNS label a `context_i
 
 ## Clusters
 
-`remote` names an Incus client remote, such as a cluster added with `incus remote add`. Each instance's `target` names the cluster member that hosts it. An instance without a `target` goes wherever Incus places it.
+`remote` names an Incus client remote, such as a cluster added with `incus remote add`. Each instance's `target` names the cluster member that hosts it. On a cluster, instances without a `target` go round-robin across the members, sorted by name, in the order of `instances`. On a single server, they have no `target`. An instance and its data volumes keep the member they were created on: a later `target` change has no effect, and `incus move` moves an instance.
 
 The `platform-incus` facet sets these from `incus.remote` and `incus.targets`. Control plane N and worker N take entry (N - 1) of `incus.targets`, modulo its length. A node's `placement` in `cluster.controlplanes.nodes` or `cluster.workers.nodes` overrides the round-robin entry.
 
@@ -28,6 +28,8 @@ A data disk's volume is created on the same member as its instance, because a vo
 ## LAN networks
 
 With `create_network = false`, the instances attach to the existing network in `network_name`. On a cluster, that network MUST exist on every member that hosts an instance.
+
+With `attach_to_bridge = true`, each NIC is a bridged NIC on the host bridge that `network_name` names, such as a bridge that IncusOS creates for an interface with the `instances` role. That bridge MUST exist under the same name on every member that hosts an instance.
 
 Incus serves DHCP only on a bridge it manages. On a macvlan network, or a bridge to the LAN, the LAN's DHCP server assigns addresses and Incus can't report them for a Talos guest. Set `static_dhcp_leases = false` and `wait_for_ipv4 = false` on each instance there. The module then leaves `ipv4` and `ipv6` off the NIC and reports them only in the outputs. Reserve each address on the LAN's DHCP server against the MAC set in `network_config.hwaddr`.
 
@@ -64,11 +66,13 @@ The facet does this when `incus.network` is set. Each node then declares its res
 | [incus_storage_pool.pools](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_pool) | resource |
 | [incus_storage_volume.disks](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/resources/storage_volume) | resource |
 | [terraform_data.ip_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [incus_cluster.main](https://registry.terraform.io/providers/lxc/incus/1.2.1/docs/data-sources/cluster) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_attach_to_bridge"></a> [attach\_to\_bridge](#input\_attach\_to\_bridge) | Attach instance NICs to the existing host bridge named network\_name, instead of to a managed Incus network. | `bool` | `false` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create the network. If false, network\_name must reference an existing network | `bool` | `true` | no |
 | <a name="input_default_storage_pool"></a> [default\_storage\_pool](#input\_default\_storage\_pool) | Existing storage pool that root disks and data disks use when they name the pool "default". IncusOS names its pool "local" | `string` | `"default"` | no |
