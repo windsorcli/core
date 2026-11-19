@@ -434,6 +434,52 @@ run "overlay_selects_metal_installer" {
   }
 }
 
+# Verifies that a worker list mixing nodes with and without disks plans, and each node gets its own volumes
+run "disks_mixed_across_nodes" {
+  command = plan
+
+  variables {
+    controlplanes = [
+      {
+        endpoint = "10.0.0.10:50000"
+        node     = "10.0.0.10"
+      }
+    ]
+    workers = [
+      {
+        endpoint = "10.0.0.20:50000"
+        node     = "10.0.0.20"
+        disks = [
+          { name = "data-1", selector = "disk.transport == 'usb'" },
+          { name = "raw", device = "/dev/sdc" },
+          { name = "sized", size = 100 },
+        ]
+      },
+      {
+        endpoint = "10.0.0.21:50000"
+        node     = "10.0.0.21"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.worker_block_docs[0]) == 3 && length(local.worker_block_docs[1]) == 0
+    error_message = "Each worker should get a volume per disk it lists"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][0]).provisioning.diskSelector.match == "disk.transport == 'usb'"
+    error_message = "A selector disk should use its selector"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][1]).volumeType == "disk" && yamldecode(local.worker_block_docs[0][1]).provisioning.diskSelector.match == "disk.dev_path == '/dev/sdc'"
+    error_message = "A device disk should be a whole-disk volume pinned to its dev_path"
+  }
+  assert {
+    condition     = yamldecode(local.worker_block_docs[0][2]).provisioning.diskSelector.match == "!system_disk && disk.size == 100u * GB"
+    error_message = "A size-only disk should use the size-based selector"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
