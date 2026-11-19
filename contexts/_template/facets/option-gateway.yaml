@@ -91,9 +91,8 @@ requires:
       dns_zone_effective.certificate_only != true &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
     message: >-
-      gateway.internal.tls.issuer acme needs pki.acme.server, dns.public.driver cloudflare without
-      dns.public_domain, or a dns.private_domain under a dns.public_domain zone on aws, azure, gcp,
-      hetzner, or dns.public.driver cloudflare.
+      gateway.internal.tls.issuer acme needs pki.acme.server or a public DNS zone for dns.private_domain;
+      set dns.public.driver, and keep dns.private_domain under dns.public_domain when that is set.
   - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
     message: Hetzner has no internal gateway; remove gateway.internal.enabled.
   - when: >-
