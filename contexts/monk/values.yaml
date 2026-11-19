@@ -1,0 +1,11 @@
+id: monk
+platform: docker
+dev: true
+cluster:
+  controlplanes:
+    cpu: 4
+    memory: 8
+gitops:
+  concurrency: 2
+identity:
+  enabled: true

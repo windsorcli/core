@@ -76,6 +76,7 @@ config:
       datastore: "${vsphere.datastore}"
       network: "${vsphere.network}"
       folder: "${vsphere.folder ?? ''}"
+      name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       resource_pool: "${vsphere.resource_pool ?? ''}"
       host_system: "${vsphere.host_system ?? ''}"
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
@@ -200,6 +201,7 @@ terraform:
       datastore: "${vsphere_effective.datastore}"
       network: "${vsphere_effective.network}"
       folder: "${vsphere_effective.folder}"
+      name_suffix: "${vsphere_effective.name_suffix}"
       resource_pool: "${vsphere_effective.resource_pool}"
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
@@ -285,6 +287,7 @@ terraform:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
       # node map. Fall through to the node map when compute hasn't run yet or
       # vmtoolsd hasn't reported an IP (e.g. during initial plan).

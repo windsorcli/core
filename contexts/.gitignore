@@ -3,3 +3,14 @@
 # But allow _template directory and all its contents
 !/_template/
 !/_template/**
+
+# CI integration legs
+!/monk/
+/monk/*
+!/monk/values.yaml
+!/brodie/
+/brodie/*
+!/brodie/values.yaml
+!/butcher/
+/butcher/*
+!/butcher/values.yaml

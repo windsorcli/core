@@ -221,6 +221,7 @@ terraform:
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: proxmox_effective.dhcp} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? terraform_output("compute", "controlplanes")

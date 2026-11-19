@@ -113,6 +113,7 @@ terraform:
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: network.dhcp != false} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: ${metal_nodes.controlplanes}
       workers: ${metal_nodes.workers}
       common_config_patches: ${talos_common.common_config_patches}

@@ -246,6 +246,7 @@ terraform:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), get(#, 0)), get(#, 1))}
       workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? map(sortBy(toPairs(cluster.workers.nodes ?? {}), get(#, 0)), get(#, 1)) : [])}"
       common_config_patches: ${talos_common.common_config_patches}

@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://ghcr.io/cloudnative-pg/charts}/cloudnative-pg
   ref:
     # artifact: type=chart name=cloudnative-pg repo=oci://ghcr.io/cloudnative-pg/charts
-    tag: 0.29.1
+    tag: 0.29.2
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip

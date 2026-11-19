@@ -138,7 +138,7 @@ flux:
   # Add the Cilium dashboards to the observability-resources kustomization when
   # Grafana is the dashboard backend.
   - name: observability
-    when: observability.dashboards == 'grafana'
+    when: observability.enabled == true && observability.dashboards == 'grafana'
     resources:
       - components:
           - grafana/dashboards/cilium

@@ -41,21 +41,21 @@ config:
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: develop@sha256:9246d39df01bddf0aea9f0c17dcbf8e4ef150c79c49fcf5e00dd9602ce9ef031
+        agent_core: develop@sha256:7bab61e36f261479d784d822e9e8df74256206d7aa51ea763bb1021dd4fffcfa
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
-        agent_ha_cluster: develop@sha256:2a2e8c2c76729c856c1a9789136262508b5c22915b5ea1209bb15354b596c9a9
+        agent_ha_cluster: develop@sha256:3258814f04f59200509d5743bd0c6d102045190b6ec4e203020e49d880f23a24
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
-        agent_ha_node: develop@sha256:7c998074beeff6f698922e210b74f2001d81456b8ed59e5002e4861f131deab1
+        agent_ha_node: develop@sha256:f0f0f1085be811caf7efc36d4160c3b10864797783038fd7e1737694a4bc30bb
         # artifact: type=image name=docker.io/openebs/mayastor-api-rest
-        api_rest: develop@sha256:70e94df2c85dd4a5ebd239465c7e625badad14f4591b21244168db0431d559ec
+        api_rest: develop@sha256:22de37b8bcca0eacc6ee35cf43c712fec157980114f8c40545917846c3da7e4d
         # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
-        csi_controller: develop@sha256:14d9fa12e2d0b7f0cc00fcdbb6ae101e987f0512b22cdd61f36ab67dd5ff0591
+        csi_controller: develop@sha256:08a4ca1e7721dec8c025f0d1e32750ce04ad81930efd4f44cab55677ee8107eb
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
-        csi_node: develop@sha256:656c118ace6407f64d0df7cf43895367f8e66eb00ad37ad8dd77190af5cc5e33
+        csi_node: develop@sha256:37240ee410c524699637c4f430000d8910f4751da47b800b7b338f296cbf7a06
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
-        io_engine: develop@sha256:49631e724bdcafba1651496879e4e1c75739692ed224d2175a95288ee37ce26c
+        io_engine: develop@sha256:2a17d2c1ea0ff67d3ce3a506ca1c8cddb2164f581f878cc5b01e4862e3aa2db6
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
-        operator_diskpool: develop@sha256:aa8d1370f7a419f76327abd03e05aad3a08e22c94c30eaca59906505cac05305
+        operator_diskpool: develop@sha256:249bbf96fb8e577e99290105ba40da63083edeb459ca3db6be5e93bd5fd0b0e2
 
   # DiskPool disks need a persistent devlink; Mayastor rejects /dev/sdb.
   # incus derives its QEMU by-id path here. Other platforms set
@@ -140,7 +140,7 @@ flux:
       - dependsOn:
           - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
         components:
-          - "${observability.enabled == true ? 'longhorn/prometheus' : ''}"
+          - "${observability.enabled == true && telemetry.metrics.enabled ? 'longhorn/prometheus' : ''}"
 
   # Mayastor — replicated NVMe-oF block storage across the disk each worker carries.
   - name: csi
@@ -184,7 +184,7 @@ flux:
   # when Longhorn is active and observability is on; the driver gate is required
   # since the dashboard is meaningless without longhorn metrics.
   - name: observability
-    when: talos_common.storage_driver == 'longhorn' && (observability.enabled == true || dev == true)
+    when: talos_common.storage_driver == 'longhorn' && observability.enabled == true
     resources:
       - components:
           - grafana/dashboards/longhorn

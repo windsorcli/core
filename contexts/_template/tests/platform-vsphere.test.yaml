@@ -240,6 +240,42 @@ cases:
             folder: prod/talos
             resource_pool: talos-pool
 
+  # id suffixes vSphere VM names.
+  - name: id suffixes vm names
+    values:
+      id: ctx1
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        vsphere_effective:
+          name_suffix: "-ctx1"
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            name_suffix: "-ctx1"
+
+  # Without id, VM names stay bare.
+  - name: no id leaves vm names unsuffixed
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        vsphere_effective:
+          name_suffix: ""
+
   # host_system flows through to compute inputs when set. Required for
   # multi-host / DRS clusters where the vsphere_host data source cannot
   # auto-select a sole host.

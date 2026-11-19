@@ -679,3 +679,71 @@ run "hyphenated_context_id" {
     error_message = "Network name should keep the hyphenated context_id"
   }
 }
+
+run "rejects_attach_to_bridge_with_created_network" {
+  command = plan
+
+  variables {
+    create_network   = true
+    attach_to_bridge = true
+  }
+
+  expect_failures = [var.attach_to_bridge]
+}
+
+# On a cluster, instances without a target go round-robin across the members by name.
+run "places_untargeted_instances_round_robin" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = true
+      members = {
+        nuc3 = { status = "Online" }
+        nuc1 = { status = "Online" }
+      }
+    }
+  }
+
+  variables {
+    context_id = "test"
+    instances = [
+      { name = "controlplane", count = 3, image = "ubuntu/22.04", type = "virtual-machine" },
+      { name = "worker", image = "ubuntu/22.04", type = "virtual-machine", target = "nuc1", disks = [{ name = "data", size = 30 }] },
+    ]
+  }
+
+  assert {
+    condition     = [for i in local.all_instances : i.target] == ["nuc1", "nuc3", "nuc1", "nuc1"]
+    error_message = "untargeted instances must alternate across sorted members, and explicit targets must stay"
+  }
+
+  assert {
+    condition     = incus_storage_volume.disks["worker-data"].target == "nuc1"
+    error_message = "data volume must follow its instance's member"
+  }
+}
+
+# On a single server, instances without a target get no target.
+run "single_server_leaves_target_unset" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = false
+      members      = {}
+    }
+  }
+
+  variables {
+    context_id = "test"
+    instances  = [{ name = "controlplane", image = "ubuntu/22.04", type = "virtual-machine" }]
+  }
+
+  assert {
+    condition     = local.all_instances[0].target == null
+    error_message = "single-server instances must have no target"
+  }
+}
