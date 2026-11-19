@@ -13,7 +13,7 @@ requires:
     message: devices.enabled is not supported on platforms aws, azure, and gcp.
   - when: len(devices_effective.passthrough ?? []) > 0 && platform == 'metal'
     message: passthrough is not supported on platform metal
-  - when: len(devices_effective.passthrough ?? []) > 0 && !(platform in ['metal', 'incus', 'proxmox'])
+  - when: len(devices_effective.passthrough ?? []) > 0 && !(platform in ['incus', 'proxmox'])
     message: passthrough is supported only on platforms incus and proxmox.
   - when: platform == 'proxmox' && any(devices_effective.passthrough ?? [], (#.mapping ?? '') == '')
     message: On platform proxmox, set mapping on each passthrough entry instead of id.
