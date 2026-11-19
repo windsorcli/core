@@ -109,13 +109,14 @@ locals {
   #   selector set → filesystem volume (xfs), CEL expression provided by caller (e.g. metal per-node serial)
   #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
   #                  where we created exactly one disk of that size)
+  # Filesystem volumes are partitions, which Talos rejects without a size; maxSize = 100% fills the disk.
   controlplane_block_docs = [for cp in var.controlplanes : [for i, d in cp.disks :
     (d.device != null && d.device != "") ? yamlencode({
       apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" }, maxSize = "100%" },
       filesystem   = { type = "xfs" }
     })
     if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
@@ -126,7 +127,7 @@ locals {
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = coalesce(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
+      provisioning = { diskSelector = { match = (d.selector != null && d.selector != "") ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" }, maxSize = "100%" },
       filesystem   = { type = "xfs" }
     })
     if d.size != null || (d.device != null && d.device != "") || (d.selector != null && d.selector != "")
