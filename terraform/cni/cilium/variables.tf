@@ -2,7 +2,7 @@ variable "cilium_version" {
   description = "Version of the Cilium Helm chart to install."
   type        = string
   # artifact: type=chart name=cilium repo=oci://quay.io/cilium/charts
-  default = "1.20.4"
+  default = "1.20.5"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.cilium_version))
     error_message = "cilium_version must be in X.Y.Z format."
@@ -41,9 +41,9 @@ variable "image_tags" {
   })
   default = {
     # artifact: type=image name=quay.io/cilium/cilium
-    cilium = "v1.20.3@sha256:95cfa5c2427cc6b452c00908778d0566311f572589284af949d06a013db1a849"
+    cilium = "v1.20.5@sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526"
     # artifact: type=image name=quay.io/cilium/operator-generic
-    operator = "v1.20.3@sha256:efdd8d89d6d8f63d21a065fa2f9e17614a2b3ac9371b221af9355f63829e2dbc"
+    operator = "v1.20.5@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4"
     # artifact: type=image name=quay.io/cilium/cilium-envoy
     envoy = "v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f@sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef"
     # artifact: type=image name=quay.io/cilium/certgen

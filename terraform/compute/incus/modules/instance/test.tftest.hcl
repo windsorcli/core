@@ -154,6 +154,28 @@ run "custom_networks_override_default" {
   }
 }
 
+# attach_to_bridge attaches eth0 to the host bridge by name.
+run "attach_to_bridge_uses_bridged_nic" {
+  command = plan
+
+  variables {
+    name             = "bridged-instance"
+    image            = "ubuntu/22.04"
+    network_name     = "lan"
+    attach_to_bridge = true
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth0" && d.properties.nictype == "bridged" && d.properties.parent == "lan", false)]) == 1
+    error_message = "eth0 must be a bridged NIC on the lan bridge"
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth0" && lookup(d.properties, "network", null) == null, false)]) == 1
+    error_message = "eth0 must not name a managed network"
+  }
+}
+
 # Verifies that container instances do not have VM-specific configuration.
 # Tests that secureboot and qemu_args are not applied to containers.
 run "container_no_vm_config" {

@@ -69,6 +69,7 @@ terraform:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       kubernetes_version: ${talos.kubernetes_version ?? null}
 
       # With compute output: pass nodes through; docker-desktop adds a certSANs
@@ -107,8 +108,6 @@ terraform:
               []
             ))}
 
-      controlplane_disks: ${cluster.controlplanes.disks ?? []}
-      worker_disks: ${cluster.workers.disks ?? []}
       common_config_patches: ${talos_common.common_config_patches}
       # Docker only: the control plane's kubelet sizes itself from the shared
       # Docker daemon's host, not its own container's cgroup quota, so it

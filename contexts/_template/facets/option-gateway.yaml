@@ -80,18 +80,18 @@ requires:
       tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
     message: >-
       The external gateway has no certificate source. Use a dns.public_domain zone the cluster writes
-      (aws, azure, gcp, or hetzner), set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
+      (aws, azure, gcp, or hetzner), set dns.public.driver to cloudflare, set pki.acme.server or gateway.external.tls.cert, or set gateway.external.tls.issuer.
   - when: >-
       gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
-    message: gateway.external.tls.issuer acme needs pki.acme.server or a dns.public_domain zone on aws, azure, gcp, or hetzner.
+    message: gateway.external.tls.issuer acme needs pki.acme.server, dns.public.driver cloudflare, or a dns.public_domain zone on aws, azure, gcp, or hetzner.
   - when: >-
       gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
       (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
     message: >-
       gateway.internal.tls.issuer acme needs pki.acme.server, or a dns.private_domain under a
-      dns.public_domain zone on aws, azure, gcp, or hetzner.
+      dns.public_domain zone on aws, azure, gcp, hetzner, or dns.public.driver cloudflare.
   - when: platform == 'hetzner' && (gateway.internal.enabled ?? false) == true
     message: Hetzner has no internal gateway; remove gateway.internal.enabled.
   - when: >-
@@ -182,7 +182,7 @@ flux:
     install:
       components:
         - "${gateway.driver}"
-        - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+        - "${gateway.driver == 'envoy' && telemetry.metrics.enabled ? 'envoy/prometheus' : ''}"
       timeout: 10m
       interval: 5m
     resources:

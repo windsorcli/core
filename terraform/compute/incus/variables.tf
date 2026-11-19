@@ -26,6 +26,16 @@ variable "network_description" {
   default     = null
 }
 
+variable "attach_to_bridge" {
+  description = "Attach instance NICs to the existing host bridge named network_name, instead of to a managed Incus network."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.attach_to_bridge || !var.create_network
+    error_message = "attach_to_bridge requires create_network false, since the bridge MUST already exist on the host"
+  }
+}
+
 variable "static_dhcp_leases" {
   description = "Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs"
   type        = bool

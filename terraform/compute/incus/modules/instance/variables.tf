@@ -57,6 +57,12 @@ variable "network_name" {
   type        = string
 }
 
+variable "attach_to_bridge" {
+  description = "Attach NICs to the host bridge that each network name names, instead of to a managed Incus network."
+  type        = bool
+  default     = false
+}
+
 variable "networks" {
   description = "List of network names to attach to the instance (overrides network_name)"
   type        = list(string)

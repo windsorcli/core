@@ -22,14 +22,12 @@ spec:
           - flow
           - icmp
           - http
-        serviceMonitor:
-          enabled: true
       relay:
         enabled: true
         image:
           repository: quay.io/cilium/hubble-relay
           # artifact: type=image name=quay.io/cilium/hubble-relay
-          tag: v1.20.3@sha256:c6f819d9c5e0b35ccac63b9f2f1ae213fd9be50588e15d5a444d5d305ad317b5
+          tag: v1.20.5@sha256:d0b3f5b944adc4a79f82ac51bcdc2d723b734c2c97872d8551626ad48b3c5538
           useDigest: false
       ui:
         enabled: true

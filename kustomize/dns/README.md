@@ -269,7 +269,7 @@ Envoy gateway.
 | `external_dns_name` | a `resources/external-dns` instance is enabled | HelmRelease name of the instance: `external-dns-public` for the public zone, `external-dns-private` for the private zone. |
 | `external_dns_domain` | a `resources/external-dns` instance is enabled | Domain filter for the instance: `dns.public_domain` or `dns.private_domain`. |
 | `external_dns_zone_type` | `resources/external-dns/providers/route53` is enabled | Route53 zone type of the instance, `public` or `private`. Combined with `external_dns_zone_id_filter` to lock the controller onto one zone. |
-| `external_dns_zone_id_filter` | `resources/external-dns/providers/route53` is enabled | Hosted-zone ID to constrain the instance to. Public: `terraform_output('dns-zone', 'zone_id')`. Private: `terraform_output('network', 'private_zone_id')`. |
+| `external_dns_zone_id_filter` | `resources/external-dns/providers/route53` or `cloudflare` is enabled | Zone ID to constrain the instance to. Public: `terraform_output('dns-zone', 'zone_id')`. Private: `terraform_output('network', 'private_zone_id')`. |
 | `external_dns_azure_provider` | `resources/external-dns/providers/azure` is enabled | Azure provider of the instance: `azure` for the public zone, `azure-private-dns` for the VNet-linked private zone. |
 | `external_dns_subscription_id` | `resources/external-dns/providers/azure` is enabled | Azure subscription holding the instance's DNS zone. Public: `terraform_output('dns-zone', 'subscription_id')`. Private: `terraform_output('network', 'subscription_id')`. |
 | `external_dns_resource_group` | `resources/external-dns/providers/azure` is enabled | Azure resource group holding the instance's DNS zone. Public: `terraform_output('dns-zone', 'resource_group_name')`. Private: `terraform_output('network', 'resource_group_name')`. |
@@ -336,6 +336,18 @@ Patches the HelmRelease for the Google provider: `provider.name: google` and `--
 _Enabled when platform is Hetzner._
 
 Patches the HelmRelease for Hetzner DNS through the external-dns webhook provider, reading the API token from the `hetzner-dns` Secret.
+
+### `resources/external-dns/providers/cloudflare`
+
+_Enabled when `dns.public.driver` is `cloudflare`._
+
+Patches the HelmRelease for the in-tree Cloudflare provider, reading the API token from the `cloudflare-dns` Secret and locking the instance to `--zone-id-filter=${external_dns_zone_id_filter}`.
+
+### `resources/external-dns/providers/cloudflare/proxied`
+
+_Enabled when `dns.public.cloudflare.proxied` is true._
+
+Adds `--cloudflare-proxied`, so the records the instance writes pass through the Cloudflare proxy.
 
 ### `resources/external-dns/providers/coredns`
 
