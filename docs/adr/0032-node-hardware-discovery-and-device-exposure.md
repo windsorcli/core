@@ -347,9 +347,12 @@ without `devices.enabled`.
   with `longhorn`, every `requires:` message, and the `passthrough` mapping
   on `incus` and `proxmox`.
 - The implementation MUST record, in its PR, a live run on one Talos node
-  with one USB Zigbee dongle. The run shows the `usb-serial` label, the
-  `devices.windsorcli.dev/zigbee` resource, and a non-root pod that opens
-  `/dev/zigbee`.
+  with an Intel integrated GPU and one USB Zigbee dongle. The run shows the
+  `usb-serial`, `gpu-intel`, `video-encode`, and `video-decode` labels, the
+  `devices.windsorcli.dev/zigbee` and `devices.windsorcli.dev/dri`
+  resources, a non-root pod that opens `/dev/zigbee`, and two pods in
+  different namespaces that each run `vainfo` on `/dev/dri/renderD128` at the
+  same time.
 - The `nvidia` entry MUST have a live run on a Talos node with an NVIDIA GPU
   before its schema description drops the untested notice. The run shows the
   `gpu-nvidia`, `video-encode`, and `video-decode` labels, the
@@ -357,7 +360,7 @@ without `devices.enabled`.
   the NVIDIA patch, and two pods in different namespaces that each run
   `nvidia-smi` and an `ffmpeg` NVENC encode at the same time. This run MAY
   follow the implementation PR, once the hardware is available.
-- Intel, AMD, Incus passthrough, and Proxmox passthrough ship without a live
+- AMD, Incus passthrough, and Proxmox passthrough ship without a live
   run. Their schema descriptions MUST say that they are untested.
 
 ### 10. Path to DRA
