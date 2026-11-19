@@ -62,9 +62,11 @@ These facts decide the design:
 - Node Feature Discovery (NFD) `v0.20.1` reads the instance features
   `pci.device` (`class`, `vendor`, `device`) and `usb.device` (`class`,
   `vendor`, `device`, `serial`), and the flag feature `kernel.loadedmodule`.
-  A `NodeFeatureRule` sets labels from them. nfd-master allows every label
-  namespace except `kubernetes.io` by default, so a `windsorcli.dev` key
-  needs no `-extra-label-ns` flag.
+  A `NodeFeatureRule` sets labels from them. nfd-master allows the
+  `feature.node.kubernetes.io` namespace by default.
+- Kubernetes reserves the `kubernetes.io` domain and its subdomains for
+  extended resource names, so a device plugin registers its resources under
+  a domain its owner picks, such as `nvidia.com` or `gpu.intel.com`.
 - `squat/generic-device-plugin` (chart `0.2.0`) advertises host device files
   as extended resources. It matches paths by glob, mounts a match at a fixed
   `mountPath`, lets one device be allocated `count` times, and takes a
@@ -96,17 +98,18 @@ device plugins for every class.
 ### 1. Node labels
 
 NFD sets these labels from `NodeFeatureRule` objects that `core` ships. The
-value of each label is `"true"`. No other label is part of the contract. The
-built-in `feature.node.kubernetes.io/*` labels stay at the NFD defaults.
+value of each label is `"true"`. The labels use NFD's own namespace,
+`feature.node.kubernetes.io`, so no Windsor name is on a node. No other label
+is part of the contract. The built-in NFD labels stay at their defaults.
 
 | Label | Device class | Rule |
 |---|---|---|
-| `devices.windsorcli.dev/usb-serial` | USB serial radio | `kernel.loadedmodule` has one of `cdc_acm`, `ch341`, `cp210x`, `ftdi_sio`, `pl2303` |
-| `devices.windsorcli.dev/gpu-intel` | Transcoding GPU | `pci.device` with `vendor: 8086` and `class` `0300` or `0380`, and `kernel.loadedmodule` has `i915` or `xe` |
-| `devices.windsorcli.dev/gpu-amd` | Transcoding GPU | `pci.device` with `vendor: 1002` and `class` `0300` or `0380`, and `kernel.loadedmodule` has `amdgpu` |
-| `devices.windsorcli.dev/gpu-nvidia` | Transcoding GPU | `pci.device` with `vendor: 10de` and `class` `0300` or `0302`, and `kernel.loadedmodule` has `nvidia` |
-| `devices.windsorcli.dev/video-encode` | Transcoding GPU | Any `gpu-*` rule matches |
-| `devices.windsorcli.dev/video-decode` | Video decoder | Any `gpu-*` rule matches |
+| `feature.node.kubernetes.io/usb-serial` | USB serial radio | `kernel.loadedmodule` has one of `cdc_acm`, `ch341`, `cp210x`, `ftdi_sio`, `pl2303` |
+| `feature.node.kubernetes.io/gpu-intel` | Transcoding GPU | `pci.device` with `vendor: 8086` and `class` `0300` or `0380`, and `kernel.loadedmodule` has `i915` or `xe` |
+| `feature.node.kubernetes.io/gpu-amd` | Transcoding GPU | `pci.device` with `vendor: 1002` and `class` `0300` or `0380`, and `kernel.loadedmodule` has `amdgpu` |
+| `feature.node.kubernetes.io/gpu-nvidia` | Transcoding GPU | `pci.device` with `vendor: 10de` and `class` `0300` or `0302`, and `kernel.loadedmodule` has `nvidia` |
+| `feature.node.kubernetes.io/video-encode` | Transcoding GPU | Any `gpu-*` rule matches |
+| `feature.node.kubernetes.io/video-decode` | Video decoder | Any `gpu-*` rule matches |
 
 A GPU rule requires the kernel module, so a node gets a GPU label only when
 the matching extension from section 4 is installed. A GPU without its
@@ -415,6 +418,11 @@ after any move.
   change.
 - Radio labels from a USB vendor and device list. Zigbee and Z-Wave sticks
   share bridge chips, so the list cannot tell them apart.
+- Resources under `feature.node.kubernetes.io` like the labels. Kubernetes
+  rejects extended resource names in `kubernetes.io` domains.
+- Resources under the plugin's default domain `squat.ai`. It ties the
+  contract to the plugin author's domain, so the resources keep
+  `devices.windsorcli.dev`.
 - One label with the GPU vendor as its value. A node with an integrated GPU
   and a discrete GPU needs two values.
 - The NVIDIA GPU Operator. On Talos it duplicates the driver and toolkit

@@ -20,7 +20,7 @@ flowchart LR
     gdp[DaemonSet generic-device-plugin]
   end
 
-  node[Node labels<br/>devices.windsorcli.dev/*]
+  node[Node labels<br/>feature.node.kubernetes.io/*]
   kubelet[kubelet device plugin API]
   pod[Workload pod<br/>limits a devices.windsorcli.dev resource]
 
@@ -105,7 +105,7 @@ Helm release of generic-device-plugin with `--domain devices.windsorcli.dev`. It
 
 _Enabled when `devices.gpu.drivers` has `nvidia`._
 
-Helm release of the NVIDIA device plugin with `runtimeClassName: nvidia` and time-slicing at 10 replicas per GPU, on nodes labeled `devices.windsorcli.dev/gpu-nvidia`. Ships the `nvidia` RuntimeClass.
+Helm release of the NVIDIA device plugin with `runtimeClassName: nvidia` and time-slicing at 10 replicas per GPU, on nodes labeled `feature.node.kubernetes.io/gpu-nvidia`. Ships the `nvidia` RuntimeClass.
 
 ### `nvidia-device-plugin/chart-registry`
 
@@ -117,7 +117,7 @@ Replaces the NVIDIA HelmRepository with an OCIRepository at `${chart_registry}/n
 
 _Enabled when `devices.enabled: true`._
 
-The `devices` NodeFeatureRule. It sets `devices.windsorcli.dev/usb-serial`, `gpu-intel`, `gpu-amd`, `gpu-nvidia`, `video-encode`, and `video-decode` to `"true"`.
+The `devices` NodeFeatureRule. It sets `feature.node.kubernetes.io/usb-serial`, `gpu-intel`, `gpu-amd`, `gpu-nvidia`, `video-encode`, and `video-decode` to `"true"`.
 
 ## Dependencies
 

@@ -7,7 +7,7 @@ spec:
   rules:
     - name: usb-serial
       labels:
-        devices.windsorcli.dev/usb-serial: "true"
+        feature.node.kubernetes.io/usb-serial: "true"
       matchFeatures:
         - feature: kernel.loadedmodule
           matchName:
@@ -15,7 +15,7 @@ spec:
             value: ["cdc_acm", "ch341", "cp210x", "ftdi_sio", "pl2303"]
     - name: gpu-intel
       labels:
-        devices.windsorcli.dev/gpu-intel: "true"
+        feature.node.kubernetes.io/gpu-intel: "true"
       matchFeatures: &intel
         - feature: pci.device
           matchExpressions:
@@ -27,7 +27,7 @@ spec:
             value: ["i915", "xe"]
     - name: gpu-amd
       labels:
-        devices.windsorcli.dev/gpu-amd: "true"
+        feature.node.kubernetes.io/gpu-amd: "true"
       matchFeatures: &amd
         - feature: pci.device
           matchExpressions:
@@ -39,7 +39,7 @@ spec:
             value: ["amdgpu"]
     - name: gpu-nvidia
       labels:
-        devices.windsorcli.dev/gpu-nvidia: "true"
+        feature.node.kubernetes.io/gpu-nvidia: "true"
       matchFeatures: &nvidia
         - feature: pci.device
           matchExpressions:
@@ -51,8 +51,8 @@ spec:
             value: ["nvidia"]
     - name: video
       labels:
-        devices.windsorcli.dev/video-encode: "true"
-        devices.windsorcli.dev/video-decode: "true"
+        feature.node.kubernetes.io/video-encode: "true"
+        feature.node.kubernetes.io/video-decode: "true"
       matchAny:
         - matchFeatures: *intel
         - matchFeatures: *amd
