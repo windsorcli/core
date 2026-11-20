@@ -1378,7 +1378,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.11"
+            talos_version: "1.13.12"
 
   # The default pin (Talos 1.14) has a table entry.
   - name: registry mode composes on incus
@@ -1417,7 +1417,7 @@ cases:
               endpoint: 10.5.0.10:50000
               node: 10.5.0.10
               hostname: controlplane-1
-              image: ghcr.io/siderolabs/talos:v1.13.11
+              image: ghcr.io/siderolabs/talos:v1.13.12
     terraformOutputs: *registry-terraform-outputs
     expect:
       terraform:
