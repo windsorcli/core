@@ -1,4 +1,4 @@
-# The dev admin user's password is the bootstrap admin's.
+# The dev admin user signs in with the same password as the admin the realm Job uses.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -13,5 +13,5 @@ spec:
             - name: DEV_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: keycloak-bootstrap-admin
+                  name: ${keycloak_admin_secret}
                   key: password
