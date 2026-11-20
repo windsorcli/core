@@ -14,9 +14,10 @@ mock_provider "local" {
 }
 
 variables {
-  machine_type = "controlplane"
-  endpoint     = "dummy"
-  node         = "dummy"
+  default_image = "factory.talos.dev/metal-installer/stock:v1.10.1"
+  machine_type  = "controlplane"
+  endpoint      = "dummy"
+  node          = "dummy"
   client_configuration = {
     ca_certificate     = "dummy"
     client_certificate = "dummy"
@@ -106,7 +107,7 @@ run "machine_config_patch_without_disk" {
   }
 }
 
-run "install_image_defaults_to_talos_version" {
+run "install_image_defaults_to_default_image" {
   variables {
     disk_selector = {
       busPath  = ""
@@ -121,8 +122,8 @@ run "install_image_defaults_to_talos_version" {
     }
   }
   assert {
-    condition     = strcontains(local.machine_config_patch, "\"image\": \"factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.10.1\"")
-    error_message = "Should default the install image to the installer at talos_version"
+    condition     = strcontains(local.machine_config_patch, "\"image\": \"factory.talos.dev/metal-installer/stock:v1.10.1\"")
+    error_message = "Should default the install image to the default_image"
   }
 }
 

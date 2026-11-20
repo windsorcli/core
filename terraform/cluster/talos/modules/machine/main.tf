@@ -31,7 +31,7 @@ resource "terraform_data" "instance_replace_trigger" {
 
 locals {
 
-  install_image = coalesce(var.image, "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v${var.talos_version}")
+  install_image = coalesce(var.image, var.default_image)
 
   # Install block is patched when a disk_selector or an image is provided. Hostname is not patched:
   # Talos 1.12+ auto-derives machine.network.hostname from the runtime (Docker container name,

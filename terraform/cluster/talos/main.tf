@@ -192,6 +192,7 @@ module "controlplane_bootstrap" {
   wipe_disk                 = lookup(var.controlplanes[0], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[0], "extra_kernel_args", [])
   image                     = local.controlplane_install_images[0]
+  default_image             = local.stock_installer
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -218,6 +219,7 @@ module "controlplanes" {
   wipe_disk                 = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
   extra_kernel_args         = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
   image                     = local.controlplane_install_images[count.index + 1]
+  default_image             = local.stock_installer
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
@@ -249,6 +251,7 @@ module "workers" {
   wipe_disk                 = lookup(var.workers[count.index], "wipe_disk", true)
   extra_kernel_args         = lookup(var.workers[count.index], "extra_kernel_args", [])
   image                     = local.worker_install_images[count.index]
+  default_image             = local.stock_installer
   cluster_name              = var.cluster_name
   cluster_endpoint          = local.cluster_endpoint
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
