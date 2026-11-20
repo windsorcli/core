@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry}/hcloud-cloud-controller-manager
   ref:
     # artifact: type=chart name=hcloud-cloud-controller-manager repo=https://charts.hetzner.cloud
-    tag: 1.39.2
+    tag: 1.39.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip

@@ -19,7 +19,7 @@ spec:
     spec:
       chart: hcloud-cloud-controller-manager
       # artifact: type=chart name=hcloud-cloud-controller-manager repo=https://charts.hetzner.cloud
-      version: 1.39.2
+      version: 1.39.3
       sourceRef:
         kind: HelmRepository
         name: hcloud-cloud-controller-manager
