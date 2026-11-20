@@ -47,7 +47,7 @@ spec:
           registry: docker.io
           repository: longhornio/longhorn-instance-manager
           # artifact: type=image name=docker.io/longhornio/longhorn-instance-manager
-          tag: v1.11.1@sha256:3ba59894a878a73273fd18cd85294e718f0c4d95981ef88b3ed71436ed1a06ac
+          tag: v1.13.0@sha256:fc9e1c15e81988b04c146866ce7010b6df3a70f88302809bf53e19b27d1658a3
         shareManager:
           registry: docker.io
           repository: longhornio/longhorn-share-manager
