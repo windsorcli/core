@@ -20,7 +20,7 @@ config:
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: v2.11.1@sha256:f4f4b85b67b399cfb6452e139680cb35b788574f626ca27094bd7fda7fb8e6f3
+        agent_core: v2.12.2@sha256:00429e4874788eeb15e1c2e3233046a3cac1dc1745ca8a09bd05e442dc23012d
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
         agent_ha_cluster: v2.11.1@sha256:5007ae0a38bf52fa51744d845325038327fe03c626c3f95f954c98cd100aed9d
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
