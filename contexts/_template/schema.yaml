@@ -147,7 +147,7 @@ $defs:
         install_image:
           type: string
           minLength: 1
-          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.6. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses ghcr.io/siderolabs/installer at talos.talos_version.
+          description: Talos installer image for installs and upgrades on platform metal, such as factory.talos.dev/metal-installer/<schematic>:v1.14.6. It wins over the node's board and the pool's board. Its schematic MUST carry any system extensions the storage driver installs. Unset with no board uses the stock factory metal installer at talos.talos_version.
         disks:
           type: array
           items: *diskItem
@@ -209,7 +209,7 @@ $defs:
         overlay name such as rpi_5 (Raspberry Pi 5) or rpi_generic (Raspberry Pi 4 and older). Nodes
         install and upgrade from a factory.talos.dev metal installer that carries the board's firmware
         and bootloader, at talos.talos_version. A node's board or install_image wins over it. Unset
-        uses ghcr.io/siderolabs/installer.
+        uses the stock factory metal installer.
     config_patches:
       type: array
       items:

@@ -121,7 +121,7 @@ run "install_image_defaults_to_talos_version" {
     }
   }
   assert {
-    condition     = strcontains(local.machine_config_patch, "\"image\": \"ghcr.io/siderolabs/installer:v1.10.1\"")
+    condition     = strcontains(local.machine_config_patch, "\"image\": \"factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.10.1\"")
     error_message = "Should default the install image to the installer at talos_version"
   }
 }

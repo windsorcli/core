@@ -34,7 +34,7 @@ variable "disk_selector" {
 }
 
 variable "image" {
-  description = "The Talos installer image. Null uses ghcr.io/siderolabs/installer at talos_version."
+  description = "The Talos installer image. Null uses the stock Image Factory metal installer at talos_version."
   type        = string
   default     = null
 }

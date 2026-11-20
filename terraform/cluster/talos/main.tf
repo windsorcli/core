@@ -272,7 +272,7 @@ module "workers" {
 # Order: bootstrap control plane, other control planes, workers. The step MUST run with parallelism 1 so nodes in a group upgrade one at a time.
 
 locals {
-  stock_installer             = "ghcr.io/siderolabs/installer:v${var.talos_version}"
+  stock_installer             = "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v${var.talos_version}"
   controlplane_upgrade_images = [for image in local.controlplane_install_images : coalesce(image, local.stock_installer)]
   upgrade_flags               = "${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}${var.upgrade_offline_timeout != "" ? " --offline-timeout ${var.upgrade_offline_timeout}" : ""}"
   worker_upgrade_images       = [for image in local.worker_install_images : coalesce(image, local.stock_installer)]
