@@ -25,7 +25,7 @@ config:
   # is always derivable (unlike incus/docker).
   - name: cluster_endpoint_fallback
     value:
-      endpoint: "${cluster.endpoint ?? ('https://' + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint, ':')[0] + ':6443')}"
+      endpoint: "${cluster.endpoint ?? ('https://' + split((map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].node), ':')[0] + ':6443')}"
 
   # Talos Image Factory official overlays by board name, with the overlay image that carries each
   # board's firmware and bootloader. Source: factory.talos.dev/version/<talos version>/overlays/official.
@@ -112,7 +112,7 @@ terraform:
     dependsOn:
       - pki
     inputs:
-      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint, ":")[0] + ":6443")}
+      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split((map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint ?? map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].node), ":")[0] + ":6443")}
       # Bare-metal nodes normally lease addresses, so the VIP interface keeps DHCP unless network.dhcp is false.
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: network.dhcp != false} : null}"
       cluster_name: talos

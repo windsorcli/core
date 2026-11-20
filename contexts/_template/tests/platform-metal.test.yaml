@@ -27,6 +27,25 @@ x-defaults:
 
 
 cases:
+  - name: node without endpoint derives cluster_endpoint from node
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              node: 10.5.0.10
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+
   # Minimal: Test default behavior with required fields only
   - name: minimal config creates Talos cluster with Cilium L2 and default CSI
     values:

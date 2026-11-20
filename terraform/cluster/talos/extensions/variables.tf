@@ -36,10 +36,10 @@ variable "installer" {
 }
 
 variable "controlplanes" {
-  description = "List of controlplane nodes to upgrade. Only node and endpoint are required. A node's overlay adds its board overlay to the extensions schematic. A node's install_image replaces the extensions installer and MUST carry the extensions."
+  description = "List of controlplane nodes to upgrade. Only node is required. A node's overlay adds its board overlay to the extensions schematic. A node's install_image replaces the extensions installer and MUST carry the extensions."
   type = list(object({
     node          = string
-    endpoint      = string
+    endpoint      = optional(string)
     install_image = optional(string)
     overlay = optional(object({
       name  = string
@@ -50,10 +50,10 @@ variable "controlplanes" {
 }
 
 variable "workers" {
-  description = "List of worker nodes to upgrade. Only node and endpoint are required. A node's overlay adds its board overlay to the extensions schematic. A node's install_image replaces the extensions installer and MUST carry the extensions."
+  description = "List of worker nodes to upgrade. Only node is required. A node's overlay adds its board overlay to the extensions schematic. A node's install_image replaces the extensions installer and MUST carry the extensions."
   type = list(object({
     node          = string
-    endpoint      = string
+    endpoint      = optional(string)
     install_image = optional(string)
     overlay = optional(object({
       name  = string
