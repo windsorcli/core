@@ -12,7 +12,7 @@ the Talos API, the Kubernetes API and NodePorts to the VPC CIDR, and lets the
 nodes reach each other on every port. The metadata service requires IMDSv2
 with a hop limit of 1. Root volumes
 are gp3, sized from each pool's `root_disk_size` at 3000 IOPS and 125 MB/s,
-and encrypted with a KMS key the module creates. Every
+and encrypted with a KMS key the module creates, or with `kms_key_id` when set. Every
 resource carries the context id tag. When `ephemeral` is true, resources also
 carry `windsorcli.dev/ephemeral` and a fixed `windsorcli.dev/created-at` time
 for cleanup of short-lived nodes.
@@ -74,6 +74,7 @@ No modules.
 | <a name="input_controlplane_root_volume"></a> [controlplane\_root\_volume](#input\_controlplane\_root\_volume) | gp3 root volume for control plane nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
 | <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | Control plane nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | n/a | yes |
 | <a name="input_ephemeral"></a> [ephemeral](#input\_ephemeral) | Tags every resource as ephemeral with its creation time, for cleanup of short-lived nodes. | `bool` | `false` | no |
+| <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | KMS key ID, ARN or alias that encrypts the node root volumes. The module creates a key when empty. | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS region to launch the nodes in. | `string` | n/a | yes |
 | <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | Subnet to launch the nodes in. Every fixed node address must fall inside it. | `string` | n/a | yes |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version whose published AMI the nodes boot, with or without a leading v. | `string` | n/a | yes |

@@ -86,7 +86,7 @@ run "single_controlplane" {
   }
 
   assert {
-    condition     = aws_kms_alias.ebs.name == "alias/talos-test123-ebs" && aws_kms_key.ebs.enable_key_rotation == true
+    condition     = aws_kms_alias.ebs[0].name == "alias/talos-test123-ebs" && aws_kms_key.ebs[0].enable_key_rotation == true
     error_message = "A rotating KMS key should be created for the root volumes."
   }
 
@@ -108,6 +108,24 @@ run "single_controlplane" {
   assert {
     condition     = output.controlplanes[0].endpoint == "10.150.1.37:50000" && length(output.workers) == 0
     error_message = "Outputs should describe the control plane in cluster/talos format."
+  }
+}
+
+run "uses_a_supplied_kms_key" {
+  command = plan
+
+  variables {
+    kms_key_id = "arn:aws:kms:us-east-2:123456789012:key/11111111-2222-3333-4444-555555555555"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.ebs) == 0 && length(aws_kms_alias.ebs) == 0
+    error_message = "A supplied key must replace the module-created one."
+  }
+
+  assert {
+    condition     = one(aws_instance.this["controlplane-1"].root_block_device).kms_key_id == var.kms_key_id
+    error_message = "Root volumes must use the supplied key."
   }
 }
 

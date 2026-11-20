@@ -113,3 +113,9 @@ variable "ephemeral" {
   type        = bool
   default     = false
 }
+
+variable "kms_key_id" {
+  description = "KMS key ID, ARN or alias that encrypts the node root volumes. The module creates a key when empty."
+  type        = string
+  default     = ""
+}

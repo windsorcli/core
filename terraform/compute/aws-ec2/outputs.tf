@@ -34,5 +34,5 @@ output "ami_id" {
 
 output "kms_key_arn" {
   description = "KMS key that encrypts every node's root volume."
-  value       = aws_kms_key.ebs.arn
+  value       = local.kms_key_id
 }

@@ -53,6 +53,8 @@ locals {
     { for node in var.workers : node.hostname => merge(node, { role = "worker", instance_type = coalesce(var.worker_instance_type, var.controlplane_instance_type), root_volume = var.worker_root_volume }) },
   )
 
+  kms_key_id = var.kms_key_id != "" ? var.kms_key_id : aws_kms_key.ebs[0].arn
+
   ingress_ports = {
     talos      = { from = 50000, to = 50000 }
     kubernetes = { from = 6443, to = 6443 }
@@ -65,6 +67,7 @@ resource "time_static" "created" {
 }
 
 resource "aws_kms_key" "ebs" {
+  count                   = var.kms_key_id == "" ? 1 : 0
   description             = "Talos node root volumes${local.name_suffix}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -92,8 +95,9 @@ resource "aws_kms_key" "ebs" {
 }
 
 resource "aws_kms_alias" "ebs" {
+  count         = var.kms_key_id == "" ? 1 : 0
   name          = "alias/talos${local.name_suffix}-ebs"
-  target_key_id = aws_kms_key.ebs.key_id
+  target_key_id = aws_kms_key.ebs[0].key_id
 }
 
 resource "aws_security_group" "this" {
@@ -150,7 +154,7 @@ resource "aws_instance" "this" {
     iops                  = each.value.root_volume.iops
     throughput            = each.value.root_volume.throughput
     encrypted             = true
-    kms_key_id            = aws_kms_key.ebs.arn
+    kms_key_id            = local.kms_key_id
     delete_on_termination = true
   }
 
