@@ -24,6 +24,8 @@ requires:
     paths:
       - cluster.controlplanes.instance_type
     message: Talos on AWS needs cluster.controlplanes.instance_type.
+  - when: cluster.driver == 'talos' && len(cluster.pools ?? {}) > 0
+    message: Talos on AWS does not support cluster.pools; use cluster.workers.
   - when: cluster.driver == 'talos' && (dns.public_domain ?? '') != ''
     message: Talos on AWS has no public DNS zone; unset dns.public_domain.
   - when: cluster.driver == 'talos' && dns.private.driver == 'cloud'

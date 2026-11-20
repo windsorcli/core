@@ -1024,6 +1024,23 @@ cases:
       crds:
         - aws-load-balancer-controller-3.6.0
 
+  - name: talos on aws rejects cluster.pools
+    values:
+      platform: aws
+      aws: *talos-aws
+      gateway:
+        enabled: false
+      cluster:
+        driver: talos
+        controlplanes:
+          instance_type: m6a.2xlarge
+        pools:
+          gpu:
+            class: gpu
+            count: 1
+    terraformOutputs: *talos-terraform-outputs
+    expectError: true
+
   - name: talos on aws installs cilium through the talos path
     values:
       platform: aws
