@@ -5,7 +5,7 @@ metadata:
   name: provider-aws-rds
 spec:
   # artifact: type=image name=xpkg.upbound.io/upbound/provider-aws-rds
-  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.9.2@sha256:5a3627488488f62f2d967fae8831d5854824b9aa0eb6655eeae3d1a231ccac5c
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.9.4@sha256:81de0f6fa18947a1d6f48a959e4f96a6a2af42d0c6fc9904c2a555de4892f7c6
   # provider-family-aws.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true
   runtimeConfigRef:
