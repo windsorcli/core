@@ -48,23 +48,33 @@ variable "workers" {
 }
 
 variable "controlplane_instance_type" {
-  description = "EC2 instance type for control plane nodes. Must be an x86_64 type."
+  description = "EC2 instance type for control plane nodes. Must be an x86_64, non-burstable type."
   type        = string
 
   validation {
     condition     = !can(regex("^[a-z]+[0-9]+[a-z]*g[a-z]*\\.", var.controlplane_instance_type))
     error_message = "Only x86_64 instance types are supported; Graviton types such as m7g are not."
   }
+
+  validation {
+    condition     = !can(regex("^t[0-9]", var.controlplane_instance_type))
+    error_message = "Burstable t-class instance types are not supported."
+  }
 }
 
 variable "worker_instance_type" {
-  description = "EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86_64 type."
+  description = "EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86_64, non-burstable type."
   type        = string
   default     = ""
 
   validation {
     condition     = !can(regex("^[a-z]+[0-9]+[a-z]*g[a-z]*\\.", var.worker_instance_type))
     error_message = "Only x86_64 instance types are supported; Graviton types such as m7g are not."
+  }
+
+  validation {
+    condition     = !can(regex("^t[0-9]", var.worker_instance_type))
+    error_message = "Burstable t-class instance types are not supported."
   }
 }
 

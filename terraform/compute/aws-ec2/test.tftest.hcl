@@ -121,6 +121,16 @@ run "rejects_graviton_instance_type" {
   expect_failures = [var.controlplane_instance_type]
 }
 
+run "rejects_burstable_instance_type" {
+  command = plan
+
+  variables {
+    controlplane_instance_type = "t3.medium"
+  }
+
+  expect_failures = [var.controlplane_instance_type]
+}
+
 run "workers_and_root_volumes" {
   command = plan
 

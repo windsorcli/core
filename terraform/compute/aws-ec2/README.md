@@ -21,7 +21,7 @@ Enable it with `platform: aws` and `cluster.driver: talos`. Nodes launch in the
 first private subnet of the VPC the `network` step creates, so all nodes share
 one availability zone. The nodes have no public IP, and the cluster endpoint is
 the first control plane node's private address. The machine that runs Windsor
-MUST have a route into the VPC (VPN or bastion) to reach it. Only x86_64
+MUST have a route into the VPC (VPN or bastion) to reach it. Only x86_64, non-burstable
 instance types are supported. The AWS provider authenticates from the context's
 ambient credentials.
 
@@ -70,14 +70,14 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment; used to name and tag resources. | `string` | `""` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder. | `string` | `""` | no |
-| <a name="input_controlplane_instance_type"></a> [controlplane\_instance\_type](#input\_controlplane\_instance\_type) | EC2 instance type for control plane nodes. Must be an x86\_64 type. | `string` | n/a | yes |
+| <a name="input_controlplane_instance_type"></a> [controlplane\_instance\_type](#input\_controlplane\_instance\_type) | EC2 instance type for control plane nodes. Must be an x86\_64, non-burstable type. | `string` | n/a | yes |
 | <a name="input_controlplane_root_volume"></a> [controlplane\_root\_volume](#input\_controlplane\_root\_volume) | gp3 root volume for control plane nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
 | <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | Control plane nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | n/a | yes |
 | <a name="input_ephemeral"></a> [ephemeral](#input\_ephemeral) | Tags every resource as ephemeral with its creation time, for cleanup of short-lived nodes. | `bool` | `false` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS region to launch the nodes in. | `string` | n/a | yes |
 | <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | Subnet to launch the nodes in. Every fixed node address must fall inside it. | `string` | n/a | yes |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version whose published AMI the nodes boot, with or without a leading v. | `string` | n/a | yes |
-| <a name="input_worker_instance_type"></a> [worker\_instance\_type](#input\_worker\_instance\_type) | EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86\_64 type. | `string` | `""` | no |
+| <a name="input_worker_instance_type"></a> [worker\_instance\_type](#input\_worker\_instance\_type) | EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86\_64, non-burstable type. | `string` | `""` | no |
 | <a name="input_worker_root_volume"></a> [worker\_root\_volume](#input\_worker\_root\_volume) | gp3 root volume for worker nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
 | <a name="input_workers"></a> [workers](#input\_workers) | Worker nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | `[]` | no |
 
