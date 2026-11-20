@@ -42,7 +42,7 @@ spec:
           registry: docker.io
           repository: longhornio/longhorn-ui
           # artifact: type=image name=docker.io/longhornio/longhorn-ui
-          tag: v1.11.1@sha256:9008cce5be4752f7fcef2d0e008076ba5c0c8a6df8f57fb6ab0285b0f49634ab
+          tag: v1.13.0@sha256:f22fb0254ae50195c1635ce428dfae26375956b3d7bd39640fae8fe33a236023
         instanceManager:
           registry: docker.io
           repository: longhornio/longhorn-instance-manager
