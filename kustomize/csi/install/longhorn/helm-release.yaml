@@ -32,7 +32,7 @@ spec:
           registry: docker.io
           repository: longhornio/longhorn-engine
           # artifact: type=image name=docker.io/longhornio/longhorn-engine
-          tag: v1.11.1@sha256:5ec00ddbc8f66911b2c8154f2c7ebf15342b4ee4508d6d2f5435aec2537e596f
+          tag: v1.13.0@sha256:b0cc5090889d57705acd69c5106492992e84560170ac3bec4a1cc8dd3fe83ca6
         manager:
           registry: docker.io
           repository: longhornio/longhorn-manager
