@@ -2461,7 +2461,7 @@ cases:
                 flux_ui_domain: home.example.com
                 flux_ui_gateway_name: internal
 
-  - name: hetzner routes private services through the external gateway
+  - name: hetzner routes public services externally and gives private services no route
     values:
       platform: hetzner
       email: ops@example.com
@@ -2498,8 +2498,8 @@ cases:
             domain: example.com
             ip: ""
           private:
-            name: external
-            domain: example.com
+            name: ""
+            domain: ""
             ip: ""
       flux:
         - name: identity
@@ -2512,37 +2512,22 @@ cases:
               substitutions:
                 keycloak_domain: example.com
                 keycloak_gateway_name: external
-        - name: observability
-          resources:
-            - dependsOn:
-                - gateway-resources-external
-              components:
-                - grafana/gateway
-              substitutions:
-                grafana_domain: example.com
-                grafana_gateway_name: external
-            - dependsOn:
-                - gateway-resources-external
-              components:
-                - kibana/gateway
-              substitutions:
-                kibana_domain: example.com
-                kibana_gateway_name: external
-        - name: gitops
-          dependsOn:
-            - gateway-resources-external
-          resources:
-            - components:
-                - ui
-              substitutions:
-                flux_ui_domain: example.com
-                flux_ui_gateway_name: external
     exclude:
       flux:
         - name: identity
           resources:
             - components:
                 - keycloak/gateway-admin
+        - name: observability
+          resources:
+            - components:
+                - grafana/gateway
+            - components:
+                - kibana/gateway
+        - name: gitops
+          resources:
+            - components:
+                - ui
 
   - name: an enabled external gateway without a public domain carries public services
     values:

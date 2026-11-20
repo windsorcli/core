@@ -146,17 +146,17 @@ config:
           ${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? (gateway.external.ip ?? '') :
           (platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
           (gateway.internal.ip ?? '') : '')}
-      # Route target for operator-only services: internal, else external, else none.
+      # Route target for operator-only services: internal, else none.
       private:
         name: >-
-          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ? 'internal' :
-          ((dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? 'external' : '')}
+          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
+          'internal' : ''}
         domain: >-
-          ${platform != 'hetzner' && (dns.private_domain ?? '') != '' ? dns.private_domain :
-          ((dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? ''))}
+          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
+          ((dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')) : ''}
         ip: >-
-          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ? (gateway.internal.ip ?? '') :
-          ((dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? (gateway.external.ip ?? '') : '')}
+          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
+          (gateway.internal.ip ?? '') : ''}
       external_https: ${gateway.external.https ?? true}
       internal_https: ${gateway.internal.https ?? true}
       # Host port mappings that publish each gateway.<name>.node_ports listener port on docker-desktop.

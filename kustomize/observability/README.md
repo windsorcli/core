@@ -152,9 +152,9 @@ and Kibana is exposed through the cluster Gateway.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `grafana_gateway_name` | `grafana/gateway` is enabled | Gateway the Grafana HTTPRoute attaches to: the private route target, `internal` when it exists, else `external`. |
+| `grafana_gateway_name` | `grafana/gateway` is enabled | Gateway the Grafana HTTPRoute attaches to: the private route target, which is always `internal`. |
 | `grafana_domain` | `grafana/gateway` is enabled | Hostname suffix for the Grafana HTTPRoute (`grafana.${grafana_domain}`), the private route target's domain. |
-| `kibana_gateway_name` | `kibana/gateway` is enabled | Gateway the Kibana HTTPRoute attaches to: the private route target, `internal` when it exists, else `external`. |
+| `kibana_gateway_name` | `kibana/gateway` is enabled | Gateway the Kibana HTTPRoute attaches to: the private route target, which is always `internal`. |
 | `kibana_domain` | `kibana/gateway` is enabled | Hostname suffix for the Kibana HTTPRoute (`kibana.${kibana_domain}`), the private route target's domain. |
 | `timezone` | `grafana` is enabled | Grafana display timezone. Sourced from the top-level `timezone` config; defaults to `utc` when unset. |
 | `date_full` | `grafana` is enabled | Grafana full date format. Derived from `time_format` (`12h` switches to 12-hour clock); falls back to `YYYY-MM-DD HH:mm:ss`. |

@@ -177,15 +177,30 @@ flux:
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
 
-  # Bookinfo route on the private route target.
+  # Bookinfo route on the internal gateway.
   - name: demo
     path: demo
-    when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_effective.private.name != ''
+    when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_effective.internal == true
     resources:
       - dependsOn:
-          - "${'gateway-resources-' + gateway_effective.private.name}"
+          - gateway-resources-internal
         components:
           - bookinfo/gateway
         substitutions:
-          bookinfo_gateway: "${gateway_effective.private.name}"
-          bookinfo_domain: "${gateway_effective.private.domain}"
+          bookinfo_gateway: internal
+          bookinfo_domain: ${dns.private_domain}
+
+  # Bookinfo route on the external gateway when there is no internal one.
+  - name: demo
+    path: demo
+    when: >-
+      demo.resources.bookinfo == true && gateway.enabled == true &&
+      gateway_effective.internal != true && (dns.public_domain ?? '') != ''
+    resources:
+      - dependsOn:
+          - gateway-resources-external
+        components:
+          - bookinfo/gateway
+        substitutions:
+          bookinfo_gateway: external
+          bookinfo_domain: ${dns.public_domain}

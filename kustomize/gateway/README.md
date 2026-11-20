@@ -45,13 +45,15 @@ targets instead of choosing a Gateway themselves. Each target has a
 | Target | Use for | Gateway |
 |---|---|---|
 | `gateway_effective.public` | Services that browsers and remote machines reach | `external` when it exists, else `internal` |
-| `gateway_effective.private` | Operator-only services | `internal` when it exists, else `external` |
+| `gateway_effective.private` | Operator-only services | `internal` when it exists, else none |
 
-`name` is empty when neither Gateway exists. `domain` is the chosen
-Gateway's domain (`dns.public_domain` for `external`, `dns.private_domain`
-for `internal`) and falls back to the other domain when that one is unset.
-`ip` is `gateway.external.ip` or `gateway.internal.ip`. On Hetzner, which
-has no internal Gateway, both targets resolve to `external`.
+`private` never falls back to `external`, so operator-only services stay
+off the internet. A target with no Gateway has an empty `name`, `domain`
+and `ip`. `domain` is the chosen Gateway's domain (`dns.public_domain` for
+`external`, `dns.private_domain` for `internal`) and falls back to the
+other domain when that one is unset. `ip` is `gateway.external.ip` or
+`gateway.internal.ip`. On Hetzner, which has no internal Gateway, `public`
+resolves to `external` and `private` is empty.
 
 ## Recipes
 
