@@ -165,6 +165,31 @@ $defs:
           items:
             $ref: '#/$defs/bindMountPath'
           description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
+        passthrough:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - usb
+                  - pci
+                description: Device bus.
+              id:
+                type: string
+                pattern: '^([0-9a-fA-F]{4}:[0-9a-fA-F]{4}|[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7])$'
+                description: On incus, the USB vendor:product (e.g. 10c4:ea60) or the PCI address on the member (e.g. 0000:00:02.0).
+              mapping:
+                type: string
+                minLength: 1
+                description: On proxmox, the id of a USB or PCI cluster resource mapping with an entry for the node in placement.
+            required:
+              - type
+            additionalProperties: false
+          description: >-
+            Host devices passed through to this VM, on platforms incus and proxmox. The host in placement MUST
+            have the device. Untested.
       required:
         - endpoint
         - node
@@ -1945,6 +1970,49 @@ properties:
                 additionalProperties: false
             additionalProperties: false
         additionalProperties: false
+    additionalProperties: false
+
+  devices:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: >-
+          Install Node Feature Discovery and the device plugins that expose USB serial devices and Intel GPUs, and set
+          the containerd device-ownership option on every node. Talos on metal, incus, proxmox, hyperv, vsphere,
+          and hetzner only.
+      gpu:
+        type: object
+        properties:
+          drivers:
+            type: array
+            uniqueItems: true
+            items:
+              type: string
+              enum:
+                - intel
+            default: []
+            description: >-
+              GPU drivers to install as Talos extensions on every node, each with its device plugin. Needs
+              devices.enabled.
+        additionalProperties: false
+      serial:
+        type: object
+        propertyNames:
+          type: string
+          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+          maxLength: 63
+        additionalProperties:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^\S+$'
+        default: {}
+        description: >-
+          USB serial devices to expose, keyed by resource name. Each entry lists globs under /dev/serial/by-id/
+          and becomes the resource devices.windsorcli.dev/<name>, mounted at /dev/<name>.
     additionalProperties: false
 
   object_store:

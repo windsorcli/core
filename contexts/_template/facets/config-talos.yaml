@@ -139,7 +139,16 @@ config:
         mayastor:
           - siderolabs/nvme-cli
 
-      extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
+      device_extensions:
+        intel:
+          - siderolabs/i915
+          - siderolabs/xe
+
+      extensions: >-
+        ${uniq(concat(get(talos_common.csi_extensions, talos_common.storage_driver) ?? [],
+          devices.enabled == true
+            ? flatten(map(devices.gpu.drivers ?? [], get(talos_common.device_extensions, #) ?? []))
+            : []))}
 
       # RegistryMirrorConfig documents for the registries endpoints and the resolved workstation caches.
       registry_mirror_documents: >-
@@ -332,6 +341,19 @@ config:
           kernel:
             modules:
               - name: nvme_tcp
+
+  # Mounted devices take the pod's runAsUser and runAsGroup.
+  - name: talos_common
+    when: devices.enabled == true
+    value:
+      common_patch:
+        machine:
+          files:
+            - op: create
+              path: /etc/cri/conf.d/20-customization.part
+              content: |
+                [plugins."io.containerd.cri.v1.runtime"]
+                  device_ownership_from_security_context = true
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.

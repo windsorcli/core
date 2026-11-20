@@ -1,0 +1,62 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: node-feature-discovery
+  namespace: system-devices
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    crds: Skip
+    remediation:
+      retries: 5
+  upgrade:
+    crds: Skip
+    remediation:
+      retries: 5
+  chartRef:
+    kind: OCIRepository
+    name: node-feature-discovery
+  values:
+    image:
+      repository: registry.k8s.io/nfd/node-feature-discovery
+      # artifact: type=image name=registry.k8s.io/nfd/node-feature-discovery
+      tag: v0.20.1@sha256:6fc5c9af9176e1acb5ce57a4a1d0c0d3eb25cd34f5bdd0efefebf0efe45a8379
+    priorityClassName: windsorcli-platform-critical
+    master:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+    worker:
+      tolerations:
+        - operator: Exists
+      resources:
+        requests:
+          cpu: 5m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+    gc:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+    topologyUpdater:
+      enable: false

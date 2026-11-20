@@ -92,6 +92,8 @@ create, refresh, and destroy:
 | `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
 | `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
 | `/nodes/<node_name>` | `Sys.AccessNetwork Sys.Audit` |
+| `/mapping/usb/<mapping>` | `Mapping.Use` (only for an entry in `usb_mappings`) |
+| `/mapping/pci/<mapping>` | `Mapping.Use` (only for an entry in `pci_mappings`) |
 
 The `host/proxmox` component needs `Datastore.Allocate` on `/storage` to create
 the image datastore. This module needs no privilege on `/storage` itself.
@@ -108,6 +110,12 @@ datastore, so keep other files out of it. `Sys.AccessNetwork` gates the URL
 metadata query and the `download-url` call. `Pool.Audit` lets the provider read the
 VMs' pool back, without which every plan shows a `pool_id` change.
 
+An instance's `usb_mappings` and `pci_mappings` name cluster resource mappings
+(Datacenter > Resource Mappings), which the user creates outside this module.
+Each mapping MUST have an entry for the node that hosts the VM. A PCI mapping
+attaches as a PCIe device, so it needs `arch` amd64 and its `q35` machine. The
+mapping rows are not verified on a live host.
+
 ```bash
 pveum role add WindsorVM --privs "Pool.Audit,VM.Allocate,VM.Audit,VM.PowerMgmt,VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options"
 pveum role add WindsorDisk --privs "Datastore.AllocateSpace,Datastore.Audit"
@@ -120,6 +128,14 @@ pveum acl modify /storage/local-lvm --users windsor@pve --roles WindsorDisk
 pveum acl modify /storage/windsor-images --users windsor@pve --roles WindsorImage
 pveum acl modify /sdn/zones/localnetwork/vmbr0 --users windsor@pve --roles WindsorNet
 pveum acl modify /nodes/pve --users windsor@pve --roles WindsorNode
+```
+
+With device passthrough, add one ACL per mapping:
+
+```bash
+pveum role add WindsorMapping --privs "Mapping.Use"
+pveum acl modify /mapping/usb/zigbee --users windsor@pve --roles WindsorMapping
+pveum acl modify /mapping/pci/igpu --users windsor@pve --roles WindsorMapping
 ```
 
 For a token instead of a password, add `pveum user token add windsor@pve terraform --privsep 0`.
@@ -198,7 +214,7 @@ No modules.
 | <a name="input_datastore_id"></a> [datastore\_id](#input\_datastore\_id) | Datastore for VM disks, EFI disks, and cloud-init drives (e.g. 'local-lvm'). | `string` | `"local-lvm"` | no |
 | <a name="input_image_datastore_id"></a> [image\_datastore\_id](#input\_image\_datastore\_id) | Datastore that receives downloaded images. It must allow the 'import' content type. | `string` | `"local"` | no |
 | <a name="input_images"></a> [images](#input\_images) | Map of disk images each node downloads into import storage, keyed by the name instances reference. Each url must point at an uncompressed qcow2, raw, or vmdk image; file\_name must end in the matching extension. | <pre>map(object({<br/>    url            = string<br/>    file_name      = string<br/>    upload_timeout = optional(number, 1800)<br/>  }))</pre> | `{}` | no |
-| <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node\_name to place the instance on a node other than var.node\_name; all count copies share that node. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    vm_id          = optional(number)<br/>    mac_address    = optional(string)<br/>    notes          = optional(string)<br/>    node_name      = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_instances"></a> [instances](#input\_instances) | List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node\_name to place the instance on a node other than var.node\_name; all count copies share that node. usb\_mappings and pci\_mappings name cluster resource mappings to pass through to the VM; pci\_mappings needs the q35 machine of arch amd64. | <pre>list(object({<br/>    name           = string<br/>    count          = optional(number, 1)<br/>    role           = optional(string)<br/>    image          = optional(string)<br/>    cpu            = optional(number, 4)<br/>    memory         = optional(number, 8)  # GiB<br/>    root_disk_size = optional(number, 30) # GiB<br/>    ipv4           = optional(string)<br/>    vm_id          = optional(number)<br/>    mac_address    = optional(string)<br/>    notes          = optional(string)<br/>    node_name      = optional(string)<br/>    usb_mappings   = optional(list(string), [])<br/>    pci_mappings   = optional(list(string), [])<br/>  }))</pre> | `[]` | no |
 | <a name="input_name_suffix"></a> [name\_suffix](#input\_name\_suffix) | Suffix appended to every VM name so several contexts can share one node. | `string` | `""` | no |
 | <a name="input_network_bridge"></a> [network\_bridge](#input\_network\_bridge) | Linux bridge the VM NIC attaches to (e.g. 'vmbr0'). | `string` | `"vmbr0"` | no |
 | <a name="input_network_cidr"></a> [network\_cidr](#input\_network\_cidr) | CIDR of the network the VMs attach to. Supplies the prefix length for static addresses. | `string` | `"10.5.0.0/16"` | no |

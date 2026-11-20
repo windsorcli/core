@@ -21,6 +21,7 @@ composition. Links from there land here.
 | [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed. |
 | [database](database/) | CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL. |
 | [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
+| [devices](devices/) | Node Feature Discovery labels for USB serial devices and Intel GPUs, and device plugins that expose them as extended resources. |
 | [dns](dns/) | external-dns for hostname publication and (opt-in) coredns or PowerDNS for in-cluster private DNS. |
 | [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways. |
 | [identity](identity/) | Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer. |

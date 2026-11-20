@@ -170,7 +170,7 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node_name to place the instance on a node other than var.node_name; all count copies share that node."
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for qemu-guest-agent to report an address. Set image to a key in var.images to boot from that image; leave it empty for a blank disk. Set node_name to place the instance on a node other than var.node_name; all count copies share that node. usb_mappings and pci_mappings name cluster resource mappings to pass through to the VM; pci_mappings needs the q35 machine of arch amd64."
   type = list(object({
     name           = string
     count          = optional(number, 1)
@@ -184,6 +184,8 @@ variable "instances" {
     mac_address    = optional(string)
     notes          = optional(string)
     node_name      = optional(string)
+    usb_mappings   = optional(list(string), [])
+    pci_mappings   = optional(list(string), [])
   }))
   default = []
 
