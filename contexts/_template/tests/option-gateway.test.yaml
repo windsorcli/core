@@ -124,11 +124,11 @@ cases:
             - <<: *gateway-resources-cilium-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
     exclude:
       crds:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -259,9 +259,9 @@ cases:
             - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   - name: envoy driver omits envoy/prometheus when the metrics pipeline is disabled
     values:
@@ -447,9 +447,9 @@ cases:
             - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -486,9 +486,9 @@ cases:
         - name: gateway
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   # Gateway disabled: gitops is a resources-only system, so it composes to a
   # gitops-resources kustomization with the plain webhook (no webhook/gateway,
