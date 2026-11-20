@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://quay.io/metallb/chart}/metallb
   ref:
     # artifact: type=chart name=metallb repo=oci://quay.io/metallb/chart
-    tag: 0.16.1
+    tag: 0.16.2
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
