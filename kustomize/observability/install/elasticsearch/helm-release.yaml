@@ -25,7 +25,7 @@ spec:
   values:
     image: docker.elastic.co/elasticsearch/elasticsearch
     # artifact: type=image name=docker.elastic.co/elasticsearch/elasticsearch referrers=false
-    imageTag: 8.5.1@sha256:d784066422aec9f66ae424f692d2416057e78853ab015915a04530570c955cc8
+    imageTag: 8.19.25@sha256:5bfdf4313b9bc05c0d46fe219d6e67710eb0c7654ed6c275167bdf9beefc56f0
     createCert: false
     secretMounts:
     - name: elasticsearch-certificates
