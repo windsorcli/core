@@ -35,4 +35,4 @@ spec:
     image:
       repository: docker.io/hetzner/cert-manager-webhook-hetzner
       # artifact: type=image name=docker.io/hetzner/cert-manager-webhook-hetzner
-      tag: v0.8.0@sha256:5b0ec20d4d43a8ac76d2855a0cdd3866d8e1f75dc6052b604ceefa4a412dae0f
+      tag: v0.9.1@sha256:54e69f39a67ff7950ab84d08d14d4caa70f9a2b80834b993a416ef48f4b66359
