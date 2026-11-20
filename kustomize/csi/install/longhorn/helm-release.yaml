@@ -52,7 +52,7 @@ spec:
           registry: docker.io
           repository: longhornio/longhorn-share-manager
           # artifact: type=image name=docker.io/longhornio/longhorn-share-manager
-          tag: v1.11.1@sha256:8536e403137b50b60ed0cb3268de225c26cbbe7e1fdb9e01080d3db34c7ce4c0
+          tag: v1.13.0@sha256:53950f78b7af38b8a943c298cd3020622191a4661a13036f69d83c154cc8690d
         backingImageManager:
           registry: docker.io
           repository: longhornio/backing-image-manager
