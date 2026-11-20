@@ -352,7 +352,7 @@ run "install_image_propagates" {
   }
   assert {
     condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
-    error_message = "A controlplane without install_image should use the installer at talos_version"
+    error_message = "A controlplane without install_image should use the stock installer"
   }
   assert {
     condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.6"
@@ -430,7 +430,7 @@ run "overlay_selects_metal_installer" {
   }
   assert {
     condition     = module.workers[1].install_image == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
-    error_message = "A node without an overlay or install_image should use the installer at talos_version"
+    error_message = "A node without an overlay or install_image should use the stock installer"
   }
 }
 

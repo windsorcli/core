@@ -34,14 +34,9 @@ variable "disk_selector" {
 }
 
 variable "image" {
-  description = "The Talos installer image. Null uses default_image."
+  description = "The Talos installer image. Null leaves the install image to the Talos default."
   type        = string
   default     = null
-}
-
-variable "default_image" {
-  description = "The installer image used when image is null."
-  type        = string
 }
 
 variable "wipe_disk" {
