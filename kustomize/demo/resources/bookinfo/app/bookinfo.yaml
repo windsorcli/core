@@ -177,7 +177,7 @@ spec:
       containers:
       - name: reviews
         # artifact: type=image name=docker.io/istio/examples-bookinfo-reviews-v1
-        image: docker.io/istio/examples-bookinfo-reviews-v1:1.19.1
+        image: docker.io/istio/examples-bookinfo-reviews-v1:1.20.3
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
