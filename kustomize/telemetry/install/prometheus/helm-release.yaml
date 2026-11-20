@@ -119,7 +119,7 @@ spec:
       replicas: 1
     prometheus-node-exporter:
       # renovate: datasource=github-releases depName=prometheus/node_exporter package=prometheus/node_exporter
-      version: v1.12.1
+      version: v1.13.0
       image:
         registry: quay.io
         repository: prometheus/node-exporter
