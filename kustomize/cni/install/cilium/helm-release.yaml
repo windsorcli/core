@@ -63,7 +63,7 @@ spec:
       image:
         repository: quay.io/cilium/certgen
         # artifact: type=image name=quay.io/cilium/certgen
-        tag: v0.4.11@sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0
+        tag: v0.4.14@sha256:2f89929b7474b739d5225d69f44bd70d9e28067ff6dc7fdbe0f6407828fb8395
         useDigest: false
 
     # Bounds the per-node Envoy that serves gateway traffic.
