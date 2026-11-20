@@ -6,13 +6,12 @@ metadata:
 spec:
   parentRefs:
     # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
-    # internal: Kibana is an operational surface, never internet-facing.
     - kind: Gateway
-      name: internal
+      name: ${kibana_gateway_name}
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - kibana.${private_domain}
+    - kibana.${kibana_domain}
   rules:
     - backendRefs:
         - kind: Service

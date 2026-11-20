@@ -6,13 +6,12 @@ metadata:
 spec:
   parentRefs:
     # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
-    # internal: Grafana is an operational surface, never internet-facing.
     - kind: Gateway
-      name: internal
+      name: ${grafana_gateway_name}
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - grafana.${private_domain}
+    - grafana.${grafana_domain}
   rules:
     - backendRefs:
         - kind: Service

@@ -2255,3 +2255,357 @@ cases:
       workstation:
         registries: {}
     expectError: true
+
+  # Route targets: public prefers the external gateway, private the internal one.
+  - name: both gateways route public services externally and private services internally
+    values:
+      platform: metal
+      dev: true
+      dns:
+        public_domain: public.example.com
+        private_domain: private.example.com
+      gateway:
+        driver: envoy
+        external:
+          ip: "10.5.1.11"
+        internal:
+          ip: "10.5.1.10"
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        gateway_effective:
+          public:
+            name: external
+            domain: public.example.com
+            ip: "10.5.1.11"
+          private:
+            name: internal
+            domain: private.example.com
+            ip: "10.5.1.10"
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: public.example.com
+                keycloak_gateway_name: external
+        - name: observability
+          resources:
+            - dependsOn:
+                - gateway-resources-internal
+              components:
+                - grafana/gateway
+              substitutions:
+                grafana_domain: private.example.com
+                grafana_gateway_name: internal
+            - dependsOn:
+                - gateway-resources-internal
+              components:
+                - kibana/gateway
+              substitutions:
+                kibana_domain: private.example.com
+                kibana_gateway_name: internal
+        - name: gitops
+          dependsOn:
+            - gateway-resources-internal
+          resources:
+            - components:
+                - ui
+              substitutions:
+                flux_ui_domain: private.example.com
+                flux_ui_gateway_name: internal
+
+  - name: only a private domain routes every service through the internal gateway
+    values:
+      platform: metal
+      dns:
+        private_domain: private.example.com
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        gateway_effective:
+          public:
+            name: internal
+            domain: private.example.com
+            ip: "10.5.1.10"
+          private:
+            name: internal
+            domain: private.example.com
+            ip: "10.5.1.10"
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: private.example.com
+                keycloak_gateway_name: internal
+        - name: observability
+          resources:
+            - components:
+                - grafana/gateway
+              substitutions:
+                grafana_domain: private.example.com
+                grafana_gateway_name: internal
+            - components:
+                - kibana/gateway
+              substitutions:
+                kibana_domain: private.example.com
+                kibana_gateway_name: internal
+        - name: gitops
+          resources:
+            - components:
+                - ui
+              substitutions:
+                flux_ui_domain: private.example.com
+                flux_ui_gateway_name: internal
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/gateway/public-paths
+
+  - name: certificate-only mode routes every service through the internal gateway
+    values:
+      platform: metal
+      email: ops@example.com
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+    expect:
+      config:
+        gateway_effective:
+          public:
+            name: internal
+            domain: home.example.com
+            ip: "10.5.1.10"
+          private:
+            name: internal
+            domain: home.example.com
+            ip: "10.5.1.10"
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/gateway
+              substitutions:
+                keycloak_domain: home.example.com
+                keycloak_gateway_name: internal
+        - name: observability
+          resources:
+            - components:
+                - grafana/gateway
+              substitutions:
+                grafana_domain: home.example.com
+                grafana_gateway_name: internal
+            - components:
+                - kibana/gateway
+              substitutions:
+                kibana_domain: home.example.com
+                kibana_gateway_name: internal
+        - name: gitops
+          resources:
+            - components:
+                - ui
+              substitutions:
+                flux_ui_domain: home.example.com
+                flux_ui_gateway_name: internal
+
+  - name: hetzner routes private services through the external gateway
+    values:
+      platform: hetzner
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: envoy
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+      gitops:
+        web_ui: true
+      network:
+        cidr_block: 10.5.0.0/16
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      config:
+        gateway_effective:
+          public:
+            name: external
+            domain: example.com
+            ip: ""
+          private:
+            name: external
+            domain: example.com
+            ip: ""
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+              substitutions:
+                keycloak_domain: example.com
+                keycloak_gateway_name: external
+        - name: observability
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+              components:
+                - grafana/gateway
+              substitutions:
+                grafana_domain: example.com
+                grafana_gateway_name: external
+            - dependsOn:
+                - gateway-resources-external
+              components:
+                - kibana/gateway
+              substitutions:
+                kibana_domain: example.com
+                kibana_gateway_name: external
+        - name: gitops
+          dependsOn:
+            - gateway-resources-external
+          resources:
+            - components:
+                - ui
+              substitutions:
+                flux_ui_domain: example.com
+                flux_ui_gateway_name: external
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/gateway-admin
+
+  - name: an enabled external gateway without a public domain carries public services
+    values:
+      platform: metal
+      dns:
+        private_domain: private.example.com
+      gateway:
+        driver: envoy
+        external:
+          enabled: true
+          ip: "10.5.1.11"
+          https: false
+        internal:
+          ip: "10.5.1.10"
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        gateway_effective:
+          public:
+            name: external
+            domain: private.example.com
+            ip: "10.5.1.11"
+          private:
+            name: internal
+            domain: private.example.com
+            ip: "10.5.1.10"
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: private.example.com
+                keycloak_gateway_name: external
+        - name: observability
+          resources:
+            - components:
+                - grafana/gateway
+              substitutions:
+                grafana_domain: private.example.com
+                grafana_gateway_name: internal
+            - components:
+                - kibana/gateway
+              substitutions:
+                kibana_domain: private.example.com
+                kibana_gateway_name: internal
+        - name: gitops
+          resources:
+            - components:
+                - ui
+              substitutions:
+                flux_ui_domain: private.example.com
+                flux_ui_gateway_name: internal

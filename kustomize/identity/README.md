@@ -338,11 +338,11 @@ Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-ad
 
 _Enabled when `gateway.enabled == true`._
 
-HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one, to port 8443 of the operator-managed `keycloak-service`. Ships the `BackendTLSPolicy` that verifies `keycloak-service.system-identity.svc` against the cluster CA.
+HTTPRoute publishing `keycloak.${keycloak_domain}` through `${keycloak_gateway_name}`, the public route target (the external gateway when it exists, otherwise the internal one), to port 8443 of the operator-managed `keycloak-service`. Ships the `BackendTLSPolicy` that verifies `keycloak-service.system-identity.svc` against the cluster CA.
 
 ### `keycloak/gateway/public-paths`
 
-_Enabled when `dns.public_domain` is set._
+_Enabled when the login route binds to the external gateway._
 
 Limits the login route on the external gateway to `/realms/${keycloak_realm}`, `/resources/` and `/.well-known/`, so the admin console and the master realm stay off the public hostname. Unmatched paths get the gateway's 404.
 
@@ -350,7 +350,7 @@ Limits the login route on the external gateway to `/realms/${keycloak_realm}`, `
 
 _Enabled when the internal gateway exists._
 
-HTTPRoute publishing `keycloak-admin.${private_domain}` through the internal gateway, so the admin console is reachable only on the private network.
+HTTPRoute publishing `keycloak-admin.${private_domain}` through the internal gateway, so the admin console is reachable only on the private network. It never falls back to the external gateway.
 
 ### `keycloak/cilium`
 

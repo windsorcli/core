@@ -135,6 +135,28 @@ config:
       internal_enabled: >-
         ${platform != 'hetzner' &&
         ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true)}
+      # Route target for browser- and remote-facing services: external, else internal, else none.
+      public:
+        name: >-
+          ${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? 'external' :
+          (platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
+          'internal' : '')}
+        domain: "${(dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? '')}"
+        ip: >-
+          ${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? (gateway.external.ip ?? '') :
+          (platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
+          (gateway.internal.ip ?? '') : '')}
+      # Route target for operator-only services: internal, else external, else none.
+      private:
+        name: >-
+          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ? 'internal' :
+          ((dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? 'external' : '')}
+        domain: >-
+          ${platform != 'hetzner' && (dns.private_domain ?? '') != '' ? dns.private_domain :
+          ((dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? ''))}
+        ip: >-
+          ${platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ? (gateway.internal.ip ?? '') :
+          ((dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? (gateway.external.ip ?? '') : '')}
       external_https: ${gateway.external.https ?? true}
       internal_https: ${gateway.internal.https ?? true}
       # Host port mappings that publish each gateway.<name>.node_ports listener port on docker-desktop.

@@ -1,5 +1,5 @@
 ---
-# Routes keycloak.${keycloak_domain} to keycloak-service on the external gateway when a public domain is set, else the internal one.
+# Routes keycloak.${keycloak_domain} to keycloak-service on the public route target.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
