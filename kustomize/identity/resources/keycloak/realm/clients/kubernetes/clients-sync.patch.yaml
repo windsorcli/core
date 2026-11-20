@@ -1,0 +1,11 @@
+# Recreates the client sync Job when this client joins the realm.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-realm-clients
+  namespace: system-identity
+spec:
+  template:
+    metadata:
+      annotations:
+        realm.windsorcli.dev/client-kubernetes: "true"

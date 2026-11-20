@@ -159,9 +159,11 @@ identity:
     realm: corp
 ```
 
-The import is one-shot: the operator applies the realm once via
-`KeycloakRealmImport`, so later edits happen in-console (or by recreating the CR),
-not by continuous reconciliation.
+The operator imports the realm once. Its import Job runs `kc.sh import --override=false`,
+which skips a realm that already exists, and the operator never reruns that Job when the
+`KeycloakRealmImport` changes. Recreating the CR does not help either: the new Job skips the
+existing realm too. Later edits to realm settings, groups, and users happen in-console.
+Clients are the exception, as described in Declarative clients.
 
 ### Grafana single sign-on
 
@@ -261,8 +263,17 @@ Core patches an OIDC client into the platform realm import per opted-in consumer
 a per-consumer folder under `clients/` (Grafana, kubectl today; MinIO and gateway
 edge-auth to follow). This uses the stable v2beta1 `KeycloakRealmImport` — not the v2alpha1
 `KeycloakOIDCClient` CRDs, which need the preview `client-admin-api:v2` feature plus a
-manually bootstrapped admin service-account. The realm import is one-shot, so adding a
-client re-imports the realm.
+manually bootstrapped admin service-account.
+
+The operator imports the realm only once, so a client patched in after that first import
+never reaches Keycloak through the operator. The `keycloak-realm-clients` Job closes that
+gap. It reads the clients from the `KeycloakRealmImport` and posts them to the admin API's
+`partialImport` endpoint with `ifResourceExists: SKIP`, which adds the missing clients and
+leaves existing ones untouched. Each `clients/` component annotates the Job's pod template,
+so enabling a consumer changes the Job and Flux recreates it. The Job signs in as the
+master-realm bootstrap admin: `keycloak-bootstrap-admin` when `identity.keycloak.admin` is
+set or in dev, otherwise the operator's `keycloak-initial-admin`. Changes to a client that
+already exists are not synced; edit that client in-console.
 
 ## Security
 
@@ -308,7 +319,7 @@ The `Keycloak` server CR and its `keycloak-tls` serving certificate from the `pr
 
 _Enabled when `identity.driver == 'keycloak'`._
 
-One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name.
+`KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. The operator imports it once; the `keycloak-realm-clients` Job adds clients patched in later.
 
 ### `keycloak/realm/clients/grafana`
 

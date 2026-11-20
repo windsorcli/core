@@ -10,3 +10,11 @@ spec:
   ingress:
     - fromEntities:
         - ingress
+    # The realm client sync Job calls the admin API over HTTP.
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: keycloak-realm-clients
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

@@ -1,0 +1,110 @@
+---
+# Adds the import's clients that the realm lacks. The operator imports a realm
+# only once, so a client patched in later reaches Keycloak through this Job.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-realm-clients
+  namespace: system-identity
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycloak-realm-clients
+  namespace: system-identity
+rules:
+  - apiGroups: ["k8s.keycloak.org"]
+    resources: ["keycloakrealmimports"]
+    resourceNames: ["${keycloak_realm}"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycloak-realm-clients
+  namespace: system-identity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keycloak-realm-clients
+subjects:
+  - kind: ServiceAccount
+    name: keycloak-realm-clients
+    namespace: system-identity
+---
+# Each clients/ component annotates the pod template, so a new client recreates the Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-realm-clients
+  namespace: system-identity
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-realm-clients
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: keycloak-realm-clients
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sync
+          # artifact: type=image name=ghcr.io/windsorcli/utils
+          image: ghcr.io/windsorcli/utils:1.37.2-r1@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              KC=http://keycloak-service.system-identity:8080
+              token() {
+                curl -fsS -d grant_type=password -d client_id=admin-cli \
+                  --data-urlencode "username=$KC_ADMIN_USERNAME" --data-urlencode "password=$KC_ADMIN_PASSWORD" \
+                  "$KC/realms/master/protocol/openid-connect/token" | jq -er .access_token
+              }
+              kubectl -n system-identity get keycloakrealmimport "$REALM" -o json |
+                jq -c '{ifResourceExists: "SKIP", clients: (.spec.realm.clients // [])}' > /tmp/clients.json
+              until t=$(token) && curl -fsS -o /dev/null -H "Authorization: Bearer $t" "$KC/admin/realms/$REALM"; do
+                echo "waiting for realm $REALM"
+                sleep 10
+              done
+              curl -fsS -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
+                -d @/tmp/clients.json "$KC/admin/realms/$REALM/partialImport" | jq -c '{added, skipped}'
+          env:
+            - name: REALM
+              value: ${keycloak_realm}
+            - name: KC_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: username
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: password
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

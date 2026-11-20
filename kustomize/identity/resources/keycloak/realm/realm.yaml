@@ -1,7 +1,7 @@
 ---
 # Platform realm — the security baseline and RBAC anchor core owns. Apps never
-# live in master; every consumer targets this realm. One-shot import: the
-# operator applies the RealmRepresentation once, later edits happen in-console.
+# live in master; every consumer targets this realm. The operator imports it
+# once; clients-sync.yaml adds clients patched in later.
 apiVersion: k8s.keycloak.org/v2beta1
 kind: KeycloakRealmImport
 metadata:

@@ -4,3 +4,4 @@ patches:
   - path: realm-client.patch.yaml
     target:
       kind: KeycloakRealmImport
+  - path: clients-sync.patch.yaml
