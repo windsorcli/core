@@ -109,7 +109,7 @@ config:
 # chart's own CRD install is skipped.
 crds:
   # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-  - "${cluster.driver == 'eks' ? 'aws-load-balancer-controller-3.6.2' : ''}"
+  - "${cluster.driver == 'eks' ? 'aws-load-balancer-controller-3.6.3' : ''}"
 
 # =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
