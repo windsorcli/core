@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry}/aws-load-balancer-controller
   ref:
     # artifact: type=chart name=aws-load-balancer-controller repo=https://aws.github.io/eks-charts
-    tag: 3.6.2
+    tag: 3.6.3
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
