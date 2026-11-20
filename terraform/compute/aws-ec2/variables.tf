@@ -48,14 +48,24 @@ variable "workers" {
 }
 
 variable "controlplane_instance_type" {
-  description = "EC2 instance type for control plane nodes."
+  description = "EC2 instance type for control plane nodes. Must be an x86_64 type."
   type        = string
+
+  validation {
+    condition     = !can(regex("^[a-z]+[0-9]+[a-z]*g[a-z]*\\.", var.controlplane_instance_type))
+    error_message = "Only x86_64 instance types are supported; Graviton types such as m7g are not."
+  }
 }
 
 variable "worker_instance_type" {
-  description = "EC2 instance type for worker nodes. Defaults to the control plane type."
+  description = "EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86_64 type."
   type        = string
   default     = ""
+
+  validation {
+    condition     = !can(regex("^[a-z]+[0-9]+[a-z]*g[a-z]*\\.", var.worker_instance_type))
+    error_message = "Only x86_64 instance types are supported; Graviton types such as m7g are not."
+  }
 }
 
 variable "controlplane_root_volume" {

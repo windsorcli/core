@@ -41,7 +41,7 @@ locals {
     for image in jsondecode(data.http.talos_images.response_body) : image.id
     if try(image.cloud, "aws") == "aws" && image.region == var.region && image.arch == "amd64" && startswith(image.id, "ami-")
   ]
-  ami_id      = local.talos_amis[0]
+  ami_id      = try(local.talos_amis[0], null)
   name_suffix = var.context_id != "" ? "-${var.context_id}" : ""
   tags = merge(
     var.context_id != "" ? { "windsorcli.dev/context-id" = var.context_id } : {},
@@ -113,6 +113,13 @@ resource "aws_vpc_security_group_ingress_rule" "this" {
   cidr_ipv4         = data.aws_vpc.this.cidr_block
 }
 
+resource "aws_vpc_security_group_ingress_rule" "nodes" {
+  security_group_id            = aws_security_group.this.id
+  description                  = "node to node"
+  ip_protocol                  = "-1"
+  referenced_security_group_id = aws_security_group.this.id
+}
+
 resource "aws_vpc_security_group_egress_rule" "all" {
   security_group_id = aws_security_group.this.id
   description       = "all"
@@ -121,17 +128,20 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 }
 
 resource "aws_instance" "this" {
+  # checkov:skip=CKV_AWS_126: Detailed monitoring is billed per instance.
+  # checkov:skip=CKV2_AWS_41: Talos nodes use no instance profile.
   for_each               = local.nodes
   ami                    = local.ami_id
   instance_type          = each.value.instance_type
   subnet_id              = var.subnet_id
   private_ip             = each.value.node
   vpc_security_group_ids = [aws_security_group.this.id]
+  ebs_optimized          = true
 
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 2
+    http_put_response_hop_limit = 1
   }
 
   root_block_device {
@@ -149,5 +159,10 @@ resource "aws_instance" "this" {
 
   lifecycle {
     ignore_changes = [ami]
+
+    precondition {
+      condition     = local.ami_id != null
+      error_message = "No amd64 Talos AMI is published for talos_version ${var.talos_version} in region ${var.region}."
+    }
   }
 }

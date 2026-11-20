@@ -61,8 +61,18 @@ run "single_controlplane" {
   }
 
   assert {
-    condition     = aws_instance.this["controlplane-1"].metadata_options[0].http_tokens == "required"
+    condition     = one(aws_instance.this["controlplane-1"].metadata_options).http_tokens == "required" # checkov:skip=CKV_SECRET_6: Not a secret.
     error_message = "IMDSv2 should be required."
+  }
+
+  assert {
+    condition     = one(aws_instance.this["controlplane-1"].metadata_options).http_put_response_hop_limit == 1
+    error_message = "Pods should not reach the metadata service."
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_ingress_rule.nodes.ip_protocol == "-1"
+    error_message = "Nodes should reach each other on every port."
   }
 
   assert {
@@ -97,8 +107,18 @@ run "single_controlplane" {
 
   assert {
     condition     = output.controlplanes[0].endpoint == "10.150.1.37:50000" && length(output.workers) == 0
-    error_message = "Outputs should describe the control plane in cluster/talos shape."
+    error_message = "Outputs should describe the control plane in cluster/talos format."
   }
+}
+
+run "rejects_graviton_instance_type" {
+  command = plan
+
+  variables {
+    controlplane_instance_type = "m7g.large"
+  }
+
+  expect_failures = [var.controlplane_instance_type]
 }
 
 run "workers_and_root_volumes" {

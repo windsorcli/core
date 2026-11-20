@@ -1,5 +1,5 @@
 output "controlplanes" {
-  description = "Control plane nodes in the shape cluster/talos consumes."
+  description = "Control plane nodes in the format cluster/talos consumes."
   value = [
     for node in var.controlplanes : {
       hostname    = node.hostname
@@ -11,7 +11,7 @@ output "controlplanes" {
 }
 
 output "workers" {
-  description = "Worker nodes in the shape cluster/talos consumes."
+  description = "Worker nodes in the format cluster/talos consumes."
   value = [
     for node in var.workers : {
       hostname    = node.hostname
