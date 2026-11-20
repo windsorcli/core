@@ -89,7 +89,7 @@ manifests:
 
   - name: kubelet-csr-approver
     # renovate: datasource=helm depName=kubelet-csr-approver package=kubelet-csr-approver helmRepo=https://postfinance.github.io/kubelet-csr-approver
-    version: 1.2.15
+    version: 1.2.16
     helm:
       repo: https://postfinance.github.io/kubelet-csr-approver
       chart: kubelet-csr-approver
