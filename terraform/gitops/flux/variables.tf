@@ -8,7 +8,7 @@ variable "flux_operator_version" {
   description = "The version of the flux-operator Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-operator repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.62.1"
+  default = "0.63.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
@@ -20,7 +20,7 @@ variable "flux_instance_version" {
   description = "The version of the flux-instance Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-instance repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.62.1"
+  default = "0.63.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_instance_version))
@@ -32,7 +32,7 @@ variable "flux_version" {
   description = "The Flux distribution version the operator installs (FluxInstance spec.distribution.version)"
   type        = string
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  default = "2.10.0"
+  default = "2.10.1"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_version))
@@ -68,7 +68,7 @@ variable "operator_image_tag" {
   description = "Tag of the flux-operator image, with its digest."
   type        = string
   # artifact: type=image name=ghcr.io/controlplaneio-fluxcd/flux-operator
-  default  = "v0.62.1@sha256:1d09a3f96524d0895fb11e8072d84a3dd029cecdec0f869efa371be6b001469c"
+  default  = "v0.63.0@sha256:82a6a83711fcfb00af55b23684a5c5fbfbde36cf3a233b4b81b4d45180f99cb0"
   nullable = false
 }
 
@@ -89,17 +89,17 @@ variable "controller_image_tags" {
   type        = map(string)
   default = {
     # artifact: type=image name=ghcr.io/fluxcd/source-controller
-    "source-controller" = "v1.10.1@sha256:611b6bca3eae95bcff471414d1fb14a4ab83d7f14e609cccef2bd389c121f37e"
+    "source-controller" = "v1.10.2@sha256:1405a9e460833df9aff920664243c0df271f42be05e0bf38db31d2b7e9ebbaab"
     # artifact: type=image name=ghcr.io/fluxcd/kustomize-controller
-    "kustomize-controller" = "v1.10.1@sha256:37db29b25dae35b881a5e064acedb0cc954442da453a39eaa0eab7a90dbecc4e"
+    "kustomize-controller" = "v1.10.2@sha256:e122808057ef0f6a3cb7fbd8e256b5a528d8a59f41d237f2d6664f54481c26d9"
     # artifact: type=image name=ghcr.io/fluxcd/helm-controller
-    "helm-controller" = "v1.7.1@sha256:54526cc6ed1202d71d44c310676448065664f3255ad671d9a69ac26f904e617a"
+    "helm-controller" = "v1.7.2@sha256:cc944eff709767f9a4d22de6b52dfa330f872962465868ed7787320b056b84f8"
     # artifact: type=image name=ghcr.io/fluxcd/notification-controller
-    "notification-controller" = "v1.10.0@sha256:9f58b9532ec9d3ccf539cd3ccdf283477a5dcb7777b922db5477d8bbd4d3767c"
+    "notification-controller" = "v1.10.1@sha256:229b0685768aec0adf7f0d9536890c93bcffc06b17336e1c1fdd4372c4c27dca"
     # artifact: type=image name=ghcr.io/fluxcd/image-reflector-controller
-    "image-reflector-controller" = "v1.3.0@sha256:b4d2cbdc1b7a046c53786628fe900b72b31a95c4cec219478777e3f97c453635"
+    "image-reflector-controller" = "v1.3.1@sha256:2b9bc474a0f806353e2367fad5cb1e05962c8c8f697979201446aa612b4cc532"
     # artifact: type=image name=ghcr.io/fluxcd/image-automation-controller
-    "image-automation-controller" = "v1.3.0@sha256:6ec488320def72fecfd01ab1289cc6c881d76b984fbbcf69b174e1e10886029e"
+    "image-automation-controller" = "v1.3.1@sha256:63408d2ee35a1203d744561d8944dffed3d2c29c9dc18d99f82e1f2551675853"
   }
   nullable = false
 }
