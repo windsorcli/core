@@ -63,7 +63,7 @@ The operator applies this only when it first creates the server. Changing it lat
 
 ## Platform realm
 
-Core imports a `platform` realm, so applications stay out of `master`. The realm enforces TLS for external requests, brute-force detection, and a password policy of at least 12 characters that cannot match the username or email. Access tokens last 5 minutes, and SSO sessions expire after 30 minutes idle or 10 hours total.
+Core creates a `platform` realm, so applications stay out of `master`. The realm enforces TLS for external requests, brute-force detection, and a password policy of at least 12 characters that cannot match the username or email. Access tokens last 5 minutes, and SSO sessions expire after 30 minutes idle or 10 hours total.
 
 The realm also has a `platform-admins` group mapped to the realm-management `realm-admin` role. Core creates the group but not its members; add them in the console. Rename the realm with `identity.keycloak.realm`:
 
@@ -73,7 +73,7 @@ identity:
     realm: corp
 ```
 
-The import runs once. Later changes happen in the console, or by recreating the `KeycloakRealmImport`, not through Git. Adding a consumer that needs a new client, such as turning on Grafana SSO after the fact, re-imports the realm.
+Core applies the realm with [keycloak-config-cli](https://github.com/adorsys/keycloak-config-cli), from the `keycloak-realm` Job. Flux runs the Job again each time the realm definition or one of its values changes, so turning on Grafana SSO after the first install adds the `grafana` client. Each run updates the settings, groups, and clients that Git defines, and removes a client or group that it created before and Git no longer defines. Users and other changes made in the console stay in place.
 
 In dev mode the realm also has two sign-in users. See [Dev mode logins](#dev-mode-logins).
 
@@ -159,7 +159,7 @@ flowchart LR
     operator[Keycloak operator]
     keycloak_cr[Keycloak CR]
     keycloak_sts[Keycloak StatefulSet]
-    realm[KeycloakRealmImport]
+    realm[keycloak-realm Job<br/>keycloak-config-cli]
     pg[CNPG Cluster<br/>keycloak-db]
   end
 
@@ -168,7 +168,8 @@ flowchart LR
   flux ==> operator
   operator -->|reconciles| keycloak_cr
   keycloak_cr -->|creates| keycloak_sts
-  operator -->|applies| realm
+  flux ==> realm
+  realm -->|admin API| keycloak_sts
   keycloak_sts -->|JDBC over TLS| pg
   users -->|HTTPS| gateway
   gateway -->|HTTP| keycloak_sts

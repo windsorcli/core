@@ -1,5 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
-  - realm.yaml
-  - clients-sync.yaml
+  - job.yaml
+# Each clients/ and dev-user/ component merges its fragment into this ConfigMap.
+configMapGenerator:
+  - name: keycloak-realm
+    namespace: system-identity
+    files:
+      - fragments/realm.yaml

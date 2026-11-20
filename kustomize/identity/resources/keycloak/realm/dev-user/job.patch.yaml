@@ -1,0 +1,17 @@
+# The dev admin user's password is the bootstrap admin's.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-realm
+  namespace: system-identity
+spec:
+  template:
+    spec:
+      containers:
+        - name: import
+          env:
+            - name: DEV_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-bootstrap-admin
+                  key: password
