@@ -57,7 +57,7 @@ spec:
           registry: docker.io
           repository: longhornio/backing-image-manager
           # artifact: type=image name=docker.io/longhornio/backing-image-manager
-          tag: v1.11.1@sha256:dfd9f50eebc7e5e681f208bc3e2b218371ef67995c13427451ed60788777303f
+          tag: v1.13.0@sha256:49779b9a8ab535f1e86d224f8e2eb5c2c3713b8f1783403fe00612a75de2b3b8
         supportBundleKit:
           registry: docker.io
           repository: longhornio/support-bundle-kit
