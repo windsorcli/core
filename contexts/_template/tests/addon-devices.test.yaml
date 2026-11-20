@@ -182,6 +182,19 @@ cases:
             substitutions:
               generic_device_plugin_devices: '[{"groups": [{"paths": [{"mountPath": "/dev/ups","path": "/dev/serial/by-id/*UPS*"}]}],"name": "ups"},{"groups": [{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*Zigbee*"}]},{"paths": [{"mountPath": "/dev/zigbee","path": "/dev/serial/by-id/*ZBT-1*"}]}],"name": "zigbee"}]'
 
+  - name: devices.serial glob with whitespace fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      devices:
+        enabled: true
+        serial:
+          zigbee: ["*Zig  bee*"]
+    expectError: true
+
   - name: gpu drivers without devices.enabled fails composition
     values:
       platform: metal

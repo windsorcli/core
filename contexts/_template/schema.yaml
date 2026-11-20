@@ -2008,7 +2008,7 @@ properties:
           minItems: 1
           items:
             type: string
-            minLength: 1
+            pattern: '^\S+$'
         default: {}
         description: >-
           USB serial devices to expose, keyed by resource name. Each entry lists globs under /dev/serial/by-id/
