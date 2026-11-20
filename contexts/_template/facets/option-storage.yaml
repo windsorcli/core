@@ -41,21 +41,21 @@ config:
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: develop@sha256:d3ff474cdb26f56c1b61467d2bb4ce0075ebb3e8b87ae87cc8e060d54ff8bae6
+        agent_core: develop@sha256:b4466775a8b8085ab8548a07c355528d01dd8d3054d781950dd2a9d34c190990
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
-        agent_ha_cluster: develop@sha256:17a4c1d8e5e8bbf9a54fed428a08d10e82036eb4ea4665abeee5107931196254
+        agent_ha_cluster: develop@sha256:ad55be61a93d2d8c21be161d4d8e96780c3c3355226dce8220c951a358067909
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
-        agent_ha_node: develop@sha256:d244b0334dc74feab39542c15eee3f0c59d8bdf2bd539256290e3e38917aa456
+        agent_ha_node: develop@sha256:8a964f193dbfc34f10d5eaa3b0d3a9bf0e3320db2cf45eaa85835f94f23ea2c5
         # artifact: type=image name=docker.io/openebs/mayastor-api-rest
-        api_rest: develop@sha256:5d4ab910989670cfcb6b5c9ad458d740b3d5a5bd396cf32fb46e312e539765bc
+        api_rest: develop@sha256:c9ee2139d8f3bb06587faca54b3d438351464c6dc9c4f19cc19530eac139eec5
         # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
-        csi_controller: develop@sha256:5e61aa1b756e49f6c22218c603b4e576ca468e22565ee62ddb8d994615b734c7
+        csi_controller: develop@sha256:bd48d8c656ae80f8f3a2b508b3ef1e5c0beaf216bb2d9cb01c5d8fa5db78ebe3
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
-        csi_node: develop@sha256:be6e3717b03c018a66fd5bc3206fe27df35e7d57e6415b5a512079c8ab8632ae
+        csi_node: develop@sha256:26e026bf20f68cde8fe815ae70d55028820f465bb3d665b45d044fd018a959b0
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
         io_engine: develop@sha256:2a17d2c1ea0ff67d3ce3a506ca1c8cddb2164f581f878cc5b01e4862e3aa2db6
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
-        operator_diskpool: develop@sha256:aee161a6d7ebcedd53f82e55a10be85717792fec10b6e839b36d7a65b37b8f72
+        operator_diskpool: develop@sha256:51e4e471600df7218564f70c976cbed7f0c476c2d06b0f15dc035330ca88e459
 
   # DiskPool disks need a persistent devlink; Mayastor rejects /dev/sdb.
   # incus derives its QEMU by-id path here. Other platforms set
@@ -72,18 +72,18 @@ config:
             : #.device) + ' '))}
 
 # =============================================================================
-# Terraform — Talos extensions for CSI
+# Terraform — Talos extensions for CSI and devices
 # =============================================================================
-# Some CSI drivers need kernel/system tools missing from the stock Talos image
-# (Longhorn needs iscsi-tools + util-linux-tools). Installed via the
-# cluster/talos/extensions module, with Flux waiting until they're live.
+# talos_common.extensions holds the storage driver's and devices.gpu.drivers'
+# extensions. Installed via the cluster/talos/extensions module, with Flux
+# waiting until they're live.
 terraform:
 
   # cluster-extensions — apply Talos system extensions when the storage driver
-  # needs them (longhorn, mayastor). Waits for cni when Cilium is the CNI,
+  # or devices.gpu.drivers need them. Waits for cni when Cilium is the CNI,
   # since both write Talos machine config and must not run concurrently.
   - name: cluster-extensions
-    when: "(cluster.storage.driver ?? 'openebs') in ['longhorn', 'mayastor'] && cluster_provisioned"
+    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: cluster/talos/extensions
     dependsOn:
       - cluster
@@ -100,7 +100,7 @@ terraform:
 
   # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.
   - name: gitops
-    when: "(cluster.storage.driver ?? 'openebs') in ['longhorn', 'mayastor'] && cluster_provisioned"
+    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: gitops/flux
     dependsOn:
       - cluster-extensions

@@ -57,7 +57,7 @@ spec:
           registry: docker.io
           repository: longhornio/backing-image-manager
           # artifact: type=image name=docker.io/longhornio/backing-image-manager
-          tag: v1.11.1@sha256:dfd9f50eebc7e5e681f208bc3e2b218371ef67995c13427451ed60788777303f
+          tag: v1.13.0@sha256:49779b9a8ab535f1e86d224f8e2eb5c2c3713b8f1783403fe00612a75de2b3b8
         supportBundleKit:
           registry: docker.io
           repository: longhornio/support-bundle-kit
@@ -68,7 +68,7 @@ spec:
           registry: docker.io
           repository: longhornio/csi-attacher
           # artifact: type=image name=docker.io/longhornio/csi-attacher
-          tag: v4.11.0@sha256:f60ab9e4da75592299ece72b35ad68f4b932f183f28ea4e4042d22dca38b3ea5
+          tag: v4.13.0@sha256:fef34c2d823b78da7d6c29fdf0f80d236293b0ac06944d14e8c366add880a4c8
         provisioner:
           registry: docker.io
           repository: longhornio/csi-provisioner
@@ -78,12 +78,12 @@ spec:
           registry: docker.io
           repository: longhornio/csi-node-driver-registrar
           # artifact: type=image name=docker.io/longhornio/csi-node-driver-registrar
-          tag: v2.16.0@sha256:f3da8da8dfbb91ea43bdd4c44a7dd205f08153572fc5288a9a4a19c6daeaa69d
+          tag: v2.18.0@sha256:085f63e62fea391734f5668d9cbb20ac8788a8e7faea83ce2c994f0cc1834fce
         resizer:
           registry: docker.io
           repository: longhornio/csi-resizer
           # artifact: type=image name=docker.io/longhornio/csi-resizer
-          tag: v2.1.0@sha256:637ca89f08d1d39452cde190a05b91cf1cb7c2d56fd726624e4fd9149154a810
+          tag: v2.3.0@sha256:893d641494d809fe26688e2fbfe9e90d0061d6c111a1553e544c454aef5ccdb3
         snapshotter:
           registry: docker.io
           repository: longhornio/csi-snapshotter

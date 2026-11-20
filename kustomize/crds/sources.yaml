@@ -22,12 +22,12 @@
 vendors:
   - name: gateway-api-experimental
     # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-    version: 1.6.2
+    version: 1.6.3
     url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v${version}/experimental-install.yaml
 
   - name: envoy-gateway
     # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-    version: 1.9.2
+    version: 1.10.0
     url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
 
   - name: cert-manager
@@ -42,7 +42,7 @@ vendors:
 
   - name: aws-load-balancer-controller
     # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-    version: 3.6.0
+    version: 3.6.2
     helm:
       repo: https://aws.github.io/eks-charts
       chart: aws-load-balancer-controller
@@ -58,6 +58,14 @@ vendors:
       set:
         - fluentbit.crdsEnable=true
         - fluentd.crdsEnable=true
+
+  - name: node-feature-discovery
+    # renovate: datasource=docker depName=registry.k8s.io/nfd/charts/node-feature-discovery package=registry.k8s.io/nfd/charts/node-feature-discovery
+    version: 0.20.1
+    helm:
+      repo: oci://registry.k8s.io/nfd/charts
+      chart: node-feature-discovery
+      mode: crds
 
   - name: keycloak
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
@@ -81,7 +89,7 @@ manifests:
 
   - name: kubelet-csr-approver
     # renovate: datasource=helm depName=kubelet-csr-approver package=kubelet-csr-approver helmRepo=https://postfinance.github.io/kubelet-csr-approver
-    version: 1.2.15
+    version: 1.2.16
     helm:
       repo: https://postfinance.github.io/kubelet-csr-approver
       chart: kubelet-csr-approver
@@ -95,3 +103,9 @@ manifests:
           # artifact: type=image name=ghcr.io/postfinance/kubelet-csr-approver
           tag: v1.2.15@sha256:6469ef517d2b6d3cb108fce8a913483533a48b1cd78b5d4af307fa09e04a7818
     dest: contexts/_template/manifests/kubelet-csr-approver.yaml
+
+  - name: intel-gpu-plugin
+    # renovate: datasource=github-releases depName=intel/intel-device-plugins-for-kubernetes package=intel/intel-device-plugins-for-kubernetes
+    version: 0.37.1
+    url: https://raw.githubusercontent.com/intel/intel-device-plugins-for-kubernetes/v${version}/deployments/gpu_plugin/base/intel-gpu-plugin.yaml
+    dest: kustomize/devices/install/intel-gpu-plugin/daemonset.yaml

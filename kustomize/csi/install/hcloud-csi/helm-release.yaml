@@ -53,7 +53,7 @@ spec:
         hcloudCSIDriver:
           name: docker.io/hetznercloud/hcloud-csi-driver
           # artifact: type=image name=docker.io/hetznercloud/hcloud-csi-driver
-          tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+          tag: v2.24.2@sha256:c231060c9d24d485c8ac25eeb3dd445994ce1abb7417c5a49b88301931a9fe29
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -89,7 +89,7 @@ spec:
         hcloudCSIDriver:
           name: docker.io/hetznercloud/hcloud-csi-driver
           # artifact: type=image name=docker.io/hetznercloud/hcloud-csi-driver
-          tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+          tag: v2.24.2@sha256:c231060c9d24d485c8ac25eeb3dd445994ce1abb7417c5a49b88301931a9fe29
       tolerations:
         - key: CriticalAddonsOnly
           operator: Exists

@@ -153,6 +153,32 @@ cases:
           path: cluster/talos
           inputs:
             controlplane_config_patches: |-
+              cluster:
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
               machine:
                 nodeLabels:
                   node.kubernetes.io/exclude-from-external-load-balancers:
@@ -187,7 +213,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_config_patches: "machine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+            controlplane_config_patches: "cluster:\n  apiServer:\n    extraArgs:\n      oidc-ca-file: /etc/kubernetes/oidc-ca.crt\n      oidc-client-id: kubernetes\n      oidc-groups-claim: groups\n      oidc-issuer-url: https://keycloak.example.com/realms/windsor\n      oidc-username-claim: sub\n    extraVolumes:\n    - hostPath: /var/kubernetes/oidc-ca.crt\n      mountPath: /etc/kubernetes/oidc-ca.crt\n      readonly: true\n    resources:\n      requests:\n        cpu: 100m\n        memory: 128Mi\n  controllerManager:\n    extraArgs:\n      leader-elect: \"false\"\n    resources:\n      requests:\n        cpu: 50m\n        memory: 64Mi\n  etcd:\n    extraArgs:\n      auto-compaction-mode: revision\n      auto-compaction-retention: \"1000\"\n      max-snapshots: \"3\"\n      max-wals: \"3\"\n  scheduler:\n    extraArgs:\n      leader-elect: \"false\"\n    resources:\n      requests:\n        cpu: 50m\n        memory: 64Mi\nmachine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   # Flux controller concurrency scales above the floor of 4 for a large control
   # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.

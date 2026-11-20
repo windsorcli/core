@@ -124,11 +124,11 @@ cases:
             - <<: *gateway-resources-cilium-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
     exclude:
       crds:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -259,9 +259,9 @@ cases:
             - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   - name: envoy driver omits envoy/prometheus when the metrics pipeline is disabled
     values:
@@ -447,9 +447,9 @@ cases:
             - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -486,9 +486,9 @@ cases:
         - name: gateway
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.2
+        - gateway-api-experimental-1.6.3
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.9.2
+        - envoy-gateway-1.10.0
 
   # Gateway disabled: gitops is a resources-only system, so it composes to a
   # gitops-resources kustomization with the plain webhook (no webhook/gateway,
@@ -1254,6 +1254,50 @@ cases:
         public_domain: example.com
         private_domain: example.internal
     expectError: true
+
+  - name: internal tls.issuer acme composes in certificate-only mode
+    values:
+      platform: metal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.20"
+          end: "10.5.1.100"
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          volumes:
+            - /var/mnt/local
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+          tls:
+            issuer: acme
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: zone123
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
 
   # Envoy on Cilium: each gateway pins its address, and the internal gateway keeps the pool start.
   - name: envoy gateways pin their addresses under Cilium LBIPAM

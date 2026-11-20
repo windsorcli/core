@@ -109,7 +109,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+            controlplane_config_patches: "cluster:\n  apiServer:\n    extraArgs:\n      oidc-ca-file: /etc/kubernetes/oidc-ca.crt\n      oidc-client-id: kubernetes\n      oidc-groups-claim: groups\n      oidc-issuer-url: https://keycloak.example.com/realms/windsor\n      oidc-username-claim: sub\n    extraVolumes:\n    - hostPath: /var/kubernetes/oidc-ca.crt\n      mountPath: /etc/kubernetes/oidc-ca.crt\n      readonly: true\n    resources:\n      requests:\n        cpu: 100m\n        memory: 128Mi\n  controllerManager:\n    extraArgs:\n      leader-elect: \"false\"\n    resources:\n      requests:\n        cpu: 50m\n        memory: 64Mi\n  etcd:\n    extraArgs:\n      auto-compaction-mode: revision\n      auto-compaction-retention: \"1000\"\n      max-snapshots: \"3\"\n      max-wals: \"3\"\n  scheduler:\n    extraArgs:\n      leader-elect: \"false\"\n    resources:\n      requests:\n        cpu: 50m\n        memory: 64Mi\n---\nmachine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   # Minimal: workstation path — when workstation enabled, cluster depends on compute (workstation → compute → cluster from option-workstation + platform-docker)
   - name: minimal config creates workstation compute cluster chain with default CSI
@@ -265,6 +265,17 @@ cases:
           common_patch:
             cluster:
               allowSchedulingOnControlPlanes: true
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+          controlplane_patch:
+            cluster:
               controllerManager:
                 extraArgs:
                   leader-elect: "false"
@@ -274,18 +285,9 @@ cases:
                   auto-compaction-retention: "1000"
                   max-snapshots: "3"
                   max-wals: "3"
-              network:
-                cni:
-                  name: none
-              proxy:
-                disabled: true
               scheduler:
                 extraArgs:
                   leader-elect: "false"
-            machine:
-              kubelet:
-                extraArgs:
-                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
@@ -527,13 +529,13 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
-              version: "1.13.11"
+              version: "1.13.12"
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.11
+                image: ghcr.io/siderolabs/talos:v1.13.12
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.11"
+            talos_version: "1.13.12"
             kubernetes_version: "1.36.5"
 
   # docker and docker-desktop pin Talos below 1.14.
@@ -554,11 +556,11 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
-              version: "1.13.11"
+              version: "1.13.12"
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.11
+                image: ghcr.io/siderolabs/talos:v1.13.12
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.11"
+            talos_version: "1.13.12"
             kubernetes_version: "1.36.5"

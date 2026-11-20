@@ -112,6 +112,20 @@ config:
           ${string(cluster_resources_effective.workers.cpu) + "CPU-"
             + string(cluster_resources_effective.workers.memory * 1024) + "RAM"}
 
+  # Incus usb and pci devices per pool position, from each node's passthrough entries.
+  - name: incus_passthrough
+    value:
+      controlplanes: >-
+        ${map(cluster_node_entries.controlplanes, let pt = (# ?? {}).passthrough ?? [];
+          fromPairs(map(pt, ["passthrough-" + string(#index), #.type == "usb"
+            ? {"type": "usb", "properties": {"vendorid": split(#.id ?? ":", ":")[0], "productid": split(#.id ?? ":", ":")[1]}}
+            : {"type": "pci", "properties": {"address": #.id ?? ""}}])))}
+      workers: >-
+        ${map(cluster_node_entries.workers, let pt = (# ?? {}).passthrough ?? [];
+          fromPairs(map(pt, ["passthrough-" + string(#index), #.type == "usb"
+            ? {"type": "usb", "properties": {"vendorid": split(#.id ?? ":", ":")[0], "productid": split(#.id ?? ":", ":")[1]}}
+            : {"type": "pci", "properties": {"address": #.id ?? ""}}])))}
+
   # One instance per control plane, addressed from cluster.controlplanes.nodes or by bridge DHCP.
   - name: incus_controlplanes
     value:
@@ -135,6 +149,7 @@ config:
           ["root_disk_size", string(cluster.controlplanes.root_disk_size ?? 30) + "GB"],
           ["limits", incus_sizes.controlplanes.limits],
           ["disks", talos_common.controlplane_disks],
+          ["devices", incus_passthrough.controlplanes[# - 1]],
           ["config", {
             "user.hostname": (cluster_node_entries.controlplanes[# - 1] ?? {}).hostname
               ?? ("controlplane-" + string(#)),
@@ -166,6 +181,7 @@ config:
           ["root_disk_size", string(cluster.workers.root_disk_size ?? 50) + "GB"],
           ["limits", incus_sizes.workers.limits],
           ["disks", talos_common.worker_disks],
+          ["devices", incus_passthrough.workers[# - 1]],
           ["config", {
             "user.hostname": (cluster_node_entries.workers[# - 1] ?? {}).hostname
               ?? ("worker-" + string(#)),

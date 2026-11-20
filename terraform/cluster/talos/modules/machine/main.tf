@@ -51,7 +51,7 @@ locals {
 
   config_patches = concat(
     compact([local.machine_config_patch]),
-    [for patch in var.config_patches : patch]
+    flatten([for patch in var.config_patches : [for doc in split("\n---\n", patch) : doc if trimspace(doc) != ""]])
   )
 }
 

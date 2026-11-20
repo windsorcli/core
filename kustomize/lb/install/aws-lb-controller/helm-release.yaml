@@ -24,7 +24,7 @@ spec:
     spec:
       chart: aws-load-balancer-controller
       # artifact: type=chart name=aws-load-balancer-controller repo=https://aws.github.io/eks-charts
-      version: 3.6.0
+      version: 3.6.2
       sourceRef:
         kind: HelmRepository
         name: aws-load-balancer-controller
@@ -40,7 +40,7 @@ spec:
     image:
       repository: public.ecr.aws/eks/aws-load-balancer-controller
       # artifact: type=image name=public.ecr.aws/eks/aws-load-balancer-controller
-      tag: v3.6.0@sha256:337a9bf9a99bbac372c8da20afad7b059e0bc89034f1087e325455b28c7fd488
+      tag: v3.6.3@sha256:bc9bee8bc5b2b9f69fe914c06ed3ddb24ce9c94e234cf101dff1ec04693a6974
     serviceAccount:
       create: true
       name: aws-load-balancer-controller

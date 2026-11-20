@@ -159,6 +159,19 @@ run "config_patches_includes_extra" {
   }
 }
 
+run "config_patches_splits_multi_document_patch" {
+  variables {
+    disk_selector = null
+    config_patches = [
+      "cluster:\n  etcd: {}\n---\nmachine:\n  files: []"
+    ]
+  }
+  assert {
+    condition     = length(local.config_patches) == 2
+    error_message = "Should split a multi-document patch into one patch per document"
+  }
+}
+
 run "config_patches_with_disk_and_extra" {
   variables {
     disk_selector = {

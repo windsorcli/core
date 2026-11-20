@@ -60,7 +60,7 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Node, guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC and VM ID per control plane.
+  # Node, guest IPv4 (from cluster.controlplanes.nodes, null under DHCP), MAC, VM ID and passthrough per control plane.
   - name: proxmox_controlplanes
     value:
       nodes: >-
@@ -69,10 +69,11 @@ config:
           ["node_name", (cluster.controlplanes.nodes ?? {})["controlplane-" + string(#)]?.placement ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address],
-          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1],
+          ["passthrough", (cluster.controlplanes.nodes ?? {})["controlplane-" + string(#)]?.passthrough ?? []]
         ]))}
 
-  # Node, guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC and VM ID per worker.
+  # Node, guest IPv4 (from cluster.workers.nodes, null under DHCP), MAC, VM ID and passthrough per worker.
   - name: proxmox_workers
     value:
       nodes: >-
@@ -81,7 +82,8 @@ config:
           ["node_name", (cluster.workers.nodes ?? {})["worker-" + string(#)]?.placement ?? proxmox_effective.nodes[(# - 1) % len(proxmox_effective.nodes)]],
           ["ipv4", proxmox_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4],
           ["mac_address", cluster_node_addresses.workers[# - 1].mac_address],
-          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #],
+          ["passthrough", (cluster.workers.nodes ?? {})["worker-" + string(#)]?.passthrough ?? []]
         ]))}
 
   # Installs and upgrades use the nocloud installer for the qemu-guest-agent schematic.
@@ -194,7 +196,9 @@ terraform:
             ["cpu", cluster_resources_effective.controlplanes.cpu],
             ["memory", cluster_resources_effective.controlplanes.memory],
             ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
-            ["notes", "Talos control plane node"]
+            ["notes", "Talos control plane node"],
+            ["usb_mappings", map(filter(get(#, "passthrough"), #.type == "usb"), #.mapping)],
+            ["pci_mappings", map(filter(get(#, "passthrough"), #.type == "pci"), #.mapping)]
           ])),
           map(proxmox_workers.nodes, fromPairs([
             ["name", get(#, "name")],
@@ -208,7 +212,9 @@ terraform:
             ["cpu", cluster_resources_effective.workers.cpu],
             ["memory", cluster_resources_effective.workers.memory],
             ["root_disk_size", cluster.workers.root_disk_size ?? 50],
-            ["notes", "Talos worker node"]
+            ["notes", "Talos worker node"],
+            ["usb_mappings", map(filter(get(#, "passthrough"), #.type == "usb"), #.mapping)],
+            ["pci_mappings", map(filter(get(#, "passthrough"), #.type == "pci"), #.mapping)]
           ]))
         )}
 

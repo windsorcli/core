@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# daemonset.yaml is vendored by task crds; re-derive the digest when its version bumps:
+#   crane digest docker.io/intel/intel-gpu-plugin:<version>
+resources:
+  - daemonset.yaml
+patches:
+  - target:
+      kind: DaemonSet
+      name: intel-gpu-plugin
+    patch: |
+      - op: add
+        path: /metadata/namespace
+        value: system-devices
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        # artifact: type=image name=docker.io/intel/intel-gpu-plugin
+        value: docker.io/intel/intel-gpu-plugin:0.37.1@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33
+      - op: add
+        path: /spec/template/spec/containers/0/args
+        value:
+          - -shared-dev-num=10
+      - op: add
+        path: /spec/template/spec/nodeSelector/feature.node.kubernetes.io~1gpu-intel
+        value: "true"

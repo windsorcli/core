@@ -108,23 +108,23 @@ spec:
       alertmanagerSpec:
         priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/alertmanager package=prometheus/alertmanager
-        version: v0.34.2
+        version: v0.35.0
         image:
           registry: quay.io
           repository: prometheus/alertmanager
           # artifact: type=image name=quay.io/prometheus/alertmanager
-          tag: v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+          tag: v0.35.0@sha256:5f6e66c01bd610aef6dd671642a52eee775fd3a89bd8788ebada33efaf373d10
     nodeExporter:
       enabled: true
       replicas: 1
     prometheus-node-exporter:
       # renovate: datasource=github-releases depName=prometheus/node_exporter package=prometheus/node_exporter
-      version: v1.12.1
+      version: v1.13.1
       image:
         registry: quay.io
         repository: prometheus/node-exporter
         # artifact: type=image name=quay.io/prometheus/node-exporter
-        tag: v1.12.1@sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
+        tag: v1.13.1@sha256:011e2d12c5bff759b90804bda642664775d7b4b127bf5148539bb82d3f590bb7
         digest: ""
         # chart defaults this to true and would append `-distroless` to tag, breaking the digest pinning
         distroless: false
