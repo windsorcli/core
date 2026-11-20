@@ -328,7 +328,7 @@ spec:
       containers:
       - name: productpage
         # artifact: type=image name=docker.io/istio/examples-bookinfo-productpage-v1
-        image: docker.io/istio/examples-bookinfo-productpage-v1:1.19.1
+        image: docker.io/istio/examples-bookinfo-productpage-v1:1.20.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
