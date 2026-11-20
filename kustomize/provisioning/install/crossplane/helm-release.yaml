@@ -33,7 +33,7 @@ spec:
     image:
       repository: xpkg.crossplane.io/crossplane/crossplane
       # artifact: type=image name=xpkg.crossplane.io/crossplane/crossplane
-      tag: v2.4.2@sha256:cfa88491dca479686747ccd0f0d1888ec8a7d1ee34629f19d45f509d6995148b
+      tag: v2.4.3@sha256:1c66261d805a73cade46e2ac94b665c73aebd4a00844de5fcae4bcadaa2be638
     # Chart defaults already cover most of PSA restricted; these two close
     # the rest (capabilities drop-all, seccompProfile) for system-provisioning.
     securityContextCrossplane:
