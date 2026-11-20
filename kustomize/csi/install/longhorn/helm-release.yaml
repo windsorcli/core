@@ -78,7 +78,7 @@ spec:
           registry: docker.io
           repository: longhornio/csi-node-driver-registrar
           # artifact: type=image name=docker.io/longhornio/csi-node-driver-registrar
-          tag: v2.16.0@sha256:f3da8da8dfbb91ea43bdd4c44a7dd205f08153572fc5288a9a4a19c6daeaa69d
+          tag: v2.18.0@sha256:085f63e62fea391734f5668d9cbb20ac8788a8e7faea83ce2c994f0cc1834fce
         resizer:
           registry: docker.io
           repository: longhornio/csi-resizer
