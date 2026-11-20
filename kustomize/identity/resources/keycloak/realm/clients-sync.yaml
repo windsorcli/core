@@ -62,7 +62,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              set -eu
+              set -euo pipefail
               KC=http://keycloak-service.system-identity:8080
               token() {
                 curl -fsS -d grant_type=password -d client_id=admin-cli \
@@ -75,6 +75,7 @@ spec:
                 echo "waiting for realm $REALM"
                 sleep 10
               done
+              t=$(token)
               curl -fsS -X POST -H "Authorization: Bearer $t" -H 'Content-Type: application/json' \
                 -d @/tmp/clients.json "$KC/admin/realms/$REALM/partialImport" | jq -c '{added, skipped}'
           env:
