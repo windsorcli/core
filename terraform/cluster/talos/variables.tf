@@ -104,9 +104,9 @@ variable "vip_interface" {
 }
 
 variable "controlplanes" {
-  description = "A list of machine configuration details for control planes."
+  description = "A list of machine configuration details for control planes. endpoint defaults to node."
   type = list(object({
-    endpoint = string
+    endpoint = optional(string)
     node     = string
     disks = optional(list(object({
       name     = optional(string)
@@ -144,9 +144,9 @@ variable "controlplanes" {
 }
 
 variable "workers" {
-  description = "A list of machine configuration details"
+  description = "A list of machine configuration details. endpoint defaults to node."
   type = list(object({
-    endpoint = string
+    endpoint = optional(string)
     node     = string
     disks = optional(list(object({
       name     = optional(string)

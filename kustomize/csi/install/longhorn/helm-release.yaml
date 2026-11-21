@@ -32,32 +32,32 @@ spec:
           registry: docker.io
           repository: longhornio/longhorn-engine
           # artifact: type=image name=docker.io/longhornio/longhorn-engine
-          tag: v1.11.1@sha256:5ec00ddbc8f66911b2c8154f2c7ebf15342b4ee4508d6d2f5435aec2537e596f
+          tag: v1.13.0@sha256:b0cc5090889d57705acd69c5106492992e84560170ac3bec4a1cc8dd3fe83ca6
         manager:
           registry: docker.io
           repository: longhornio/longhorn-manager
           # artifact: type=image name=docker.io/longhornio/longhorn-manager
-          tag: v1.11.1@sha256:a4c0870e2b1d9aad9d7233a87ae13b962d807be803fd027e0b642753a80af122
+          tag: v1.13.0@sha256:7372f3c59239e9a67c0017b3af32fabdf08c4dcc0631140161da9a47e3b142f0
         ui:
           registry: docker.io
           repository: longhornio/longhorn-ui
           # artifact: type=image name=docker.io/longhornio/longhorn-ui
-          tag: v1.11.1@sha256:9008cce5be4752f7fcef2d0e008076ba5c0c8a6df8f57fb6ab0285b0f49634ab
+          tag: v1.13.0@sha256:f22fb0254ae50195c1635ce428dfae26375956b3d7bd39640fae8fe33a236023
         instanceManager:
           registry: docker.io
           repository: longhornio/longhorn-instance-manager
           # artifact: type=image name=docker.io/longhornio/longhorn-instance-manager
-          tag: v1.11.1@sha256:3ba59894a878a73273fd18cd85294e718f0c4d95981ef88b3ed71436ed1a06ac
+          tag: v1.13.0@sha256:fc9e1c15e81988b04c146866ce7010b6df3a70f88302809bf53e19b27d1658a3
         shareManager:
           registry: docker.io
           repository: longhornio/longhorn-share-manager
           # artifact: type=image name=docker.io/longhornio/longhorn-share-manager
-          tag: v1.11.1@sha256:8536e403137b50b60ed0cb3268de225c26cbbe7e1fdb9e01080d3db34c7ce4c0
+          tag: v1.13.0@sha256:53950f78b7af38b8a943c298cd3020622191a4661a13036f69d83c154cc8690d
         backingImageManager:
           registry: docker.io
           repository: longhornio/backing-image-manager
           # artifact: type=image name=docker.io/longhornio/backing-image-manager
-          tag: v1.11.1@sha256:dfd9f50eebc7e5e681f208bc3e2b218371ef67995c13427451ed60788777303f
+          tag: v1.13.0@sha256:49779b9a8ab535f1e86d224f8e2eb5c2c3713b8f1783403fe00612a75de2b3b8
         supportBundleKit:
           registry: docker.io
           repository: longhornio/support-bundle-kit
@@ -68,7 +68,7 @@ spec:
           registry: docker.io
           repository: longhornio/csi-attacher
           # artifact: type=image name=docker.io/longhornio/csi-attacher
-          tag: v4.11.0@sha256:f60ab9e4da75592299ece72b35ad68f4b932f183f28ea4e4042d22dca38b3ea5
+          tag: v4.13.0@sha256:fef34c2d823b78da7d6c29fdf0f80d236293b0ac06944d14e8c366add880a4c8
         provisioner:
           registry: docker.io
           repository: longhornio/csi-provisioner
@@ -78,22 +78,22 @@ spec:
           registry: docker.io
           repository: longhornio/csi-node-driver-registrar
           # artifact: type=image name=docker.io/longhornio/csi-node-driver-registrar
-          tag: v2.16.0@sha256:f3da8da8dfbb91ea43bdd4c44a7dd205f08153572fc5288a9a4a19c6daeaa69d
+          tag: v2.18.0@sha256:085f63e62fea391734f5668d9cbb20ac8788a8e7faea83ce2c994f0cc1834fce
         resizer:
           registry: docker.io
           repository: longhornio/csi-resizer
           # artifact: type=image name=docker.io/longhornio/csi-resizer
-          tag: v2.1.0@sha256:637ca89f08d1d39452cde190a05b91cf1cb7c2d56fd726624e4fd9149154a810
+          tag: v2.3.0@sha256:893d641494d809fe26688e2fbfe9e90d0061d6c111a1553e544c454aef5ccdb3
         snapshotter:
           registry: docker.io
           repository: longhornio/csi-snapshotter
           # artifact: type=image name=docker.io/longhornio/csi-snapshotter
-          tag: v8.5.0@sha256:223eaae797c6bc29a74182b53c166be9f42bce037d113404572c8f1d90e284a0
+          tag: v8.7.0@sha256:540c1e04e5e0206015f0552fc86efb1f9e292b1f9892b8439a6f091255857148
         livenessProbe:
           registry: docker.io
           repository: longhornio/livenessprobe
           # artifact: type=image name=docker.io/longhornio/livenessprobe
-          tag: v2.18.0@sha256:94964ab1fe4d62f14e6df321043eb19d03154a1fa4d4bb1a1ae796627790e6eb
+          tag: v2.20.0@sha256:d1199b77452bfc11cfc62feb8a266758fe8d72953e97faac8065941e3767f1a3
     defaultSettings:
       # /var/mnt/longhorn is where Talos UserVolumeConfig auto-mounts the dedicated disk (name: longhorn).
       # Multi-disk configurations require manual Longhorn Node CRD configuration.
