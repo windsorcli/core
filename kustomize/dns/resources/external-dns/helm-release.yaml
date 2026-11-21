@@ -18,7 +18,7 @@ spec:
     spec:
       chart: external-dns
       # artifact: type=chart name=external-dns repo=https://kubernetes-sigs.github.io/external-dns/
-      version: 1.23.0
+      version: 1.24.0
       sourceRef: 
         kind: HelmRepository
         name: ${external_dns_name}
