@@ -96,6 +96,7 @@ The facet sets `cloud_init_network` and boots the nocloud image when `incus.netw
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to cloud-init network-config. | `list(string)` | `[]` | no |
 | <a name="input_network_target"></a> [network\_target](#input\_network\_target) | Specify a target node in a cluster for the network | `string` | `null` | no |
 | <a name="input_network_type"></a> [network\_type](#input\_network\_type) | The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created | `string` | `"bridge"` | no |
+| <a name="input_node_health_check"></a> [node\_health\_check](#input\_node\_health\_check) | Run windsor check node-health against each instance after a limits change restarts it | `bool` | `false` | no |
 | <a name="input_project"></a> [project](#input\_project) | Name of the project where resources will be created | `string` | `null` | no |
 | <a name="input_remote"></a> [remote](#input\_remote) | Name of the Incus remote to use. If not set, uses provider default (usually 'local'). | `string` | `null` | no |
 | <a name="input_static_dhcp_leases"></a> [static\_dhcp\_leases](#input\_static\_dhcp\_leases) | Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs | `bool` | `true` | no |

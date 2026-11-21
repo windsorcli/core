@@ -222,6 +222,7 @@ terraform:
       attach_to_bridge: ${incus_effective.lan}
       static_dhcp_leases: ${!incus_effective.lan}
       default_storage_pool: "${incus_effective.storage_pool}"
+      node_health_check: true
       network_cidr: ${network.cidr_block}
       cloud_init_network: ${incus_effective.lan}
       network_gateway: "${incus_effective.lan ? incus_effective.gateway : null}"
