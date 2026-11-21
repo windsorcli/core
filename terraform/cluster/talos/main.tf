@@ -82,12 +82,14 @@ locals {
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
 
+  controlplanes = [for cp in var.controlplanes : merge(cp, { endpoint = coalesce(cp.endpoint, cp.node) })]
+  workers       = [for w in var.workers : merge(w, { endpoint = coalesce(w.endpoint, w.node) })]
 
-  cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
+  cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(local.controlplanes) > 0 ? "https://${split(":", local.controlplanes[0].endpoint)[0]}:6443" : "")
 
   # Shared control-plane VIP: the cluster_endpoint host when vip_interface is set and no control plane uses it.
   cluster_endpoint_host = try(regex("^https://([^:/]+)", local.cluster_endpoint)[0], "")
-  controlplane_hosts    = flatten([for cp in var.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
+  controlplane_hosts    = flatten([for cp in local.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
   vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
   vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
 
@@ -197,7 +199,7 @@ module "controlplane_bootstrap" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
-  endpoint                  = var.controlplanes[0].endpoint
+  endpoint                  = local.controlplanes[0].endpoint
   bootstrap                 = true // Bootstrap the first control plane node
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
@@ -223,7 +225,7 @@ module "controlplanes" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
-  endpoint                  = var.controlplanes[count.index + 1].endpoint
+  endpoint                  = local.controlplanes[count.index + 1].endpoint
   bootstrap                 = false // Do not bootstrap other control plane nodes
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
@@ -254,7 +256,7 @@ module "workers" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "worker"
-  endpoint                  = var.workers[count.index].endpoint
+  endpoint                  = local.workers[count.index].endpoint
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
   enable_health_check       = true
@@ -328,7 +330,7 @@ resource "terraform_data" "upgrade_worker" {
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = local.client_configuration
-  endpoints            = var.controlplanes.*.endpoint
+  endpoints            = local.controlplanes[*].endpoint
 }
 
 // Write Talos config to a local file. Content is updated when controlplane endpoints change (e.g. docker-desktop host-reachable 127.0.0.1).

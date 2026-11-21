@@ -806,3 +806,28 @@ run "upgrade_offline_timeout_rejects_bad_duration" {
 
   expect_failures = [var.upgrade_offline_timeout]
 }
+
+# A node without an endpoint dials its node address.
+run "endpoint_defaults_to_node" {
+  command = plan
+
+  variables {
+    context_path = "test"
+    controlplanes = [
+      { node = "192.168.1.10" },
+    ]
+    workers = [
+      { node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = module.controlplane_bootstrap.endpoint == "192.168.1.10"
+    error_message = "controlplane endpoint should default to node"
+  }
+
+  assert {
+    condition     = module.workers[0].endpoint == "192.168.1.20"
+    error_message = "worker endpoint should default to node"
+  }
+}
