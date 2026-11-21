@@ -171,6 +171,12 @@ variable "instances" {
   }
 }
 
+variable "node_health_check" {
+  description = "Run windsor check node-health against each instance after a limits change restarts it"
+  type        = bool
+  default     = false
+}
+
 variable "project" {
   description = "Name of the project where resources will be created"
   type        = string

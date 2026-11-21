@@ -593,5 +593,8 @@ module "instances" {
   ipv4_filtering_enabled = lookup(each.value, "ipv4_filtering_enabled", false)
   storage_pool           = lookup(each.value, "storage_pool", "default")
 
+  node_health_check = var.node_health_check
+  node_address      = lookup(each.value, "ipv4", null) != null ? split("/", each.value.ipv4)[0] : null
+
   depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_pool.pools, incus_storage_volume.disks, incus_image.local]
 }

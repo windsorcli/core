@@ -748,6 +748,7 @@ cases:
             attach_to_bridge: true
             static_dhcp_leases: false
             default_storage_pool: local
+            node_health_check: true
             instances:
               - name: controlplane-0
                 target: nuc-1
@@ -782,6 +783,7 @@ cases:
             create_network: true
             attach_to_bridge: false
             static_dhcp_leases: true
+            node_health_check: true
             cloud_init_network: false
             network_gateway: null
             network_nameservers: []

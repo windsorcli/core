@@ -144,6 +144,7 @@ locals {
 }
 
 # The incus_instance stays on the member it was created on when its target changes.
+# It sets limits only at create.
 resource "incus_instance" "this" {
   name        = var.name
   description = var.description
@@ -155,7 +156,7 @@ resource "incus_instance" "this" {
   ephemeral   = var.ephemeral
 
   lifecycle {
-    ignore_changes = [target]
+    ignore_changes = [target, config["limits.cpu"], config["limits.memory"]]
   }
 
   # Wait for network addresses on primary interface (eth0)
@@ -213,3 +214,48 @@ resource "incus_instance" "this" {
   profiles = var.profiles
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+# Limits Rollout
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  limits = var.limits == null ? {} : {
+    for key, value in {
+      "limits.cpu"    = var.limits.cpu
+      "limits.memory" = var.limits.memory
+    } : key => value if value != null
+  }
+
+  instance_ref   = var.remote != null ? "${var.remote}:${var.name}" : var.name
+  project_flag   = var.project != null ? " --project \"${var.project}\"" : ""
+  limits_changed = anytrue([for key, value in local.limits : try(incus_instance.this.config[key], null) != value])
+
+  health_check_node = try(coalesce(
+    var.node_address,
+    var.ipv4 != null ? split("/", var.ipv4)[0] : null,
+    incus_instance.this.ipv4_address
+  ), null)
+  health_check_enabled = var.node_health_check && local.health_check_node != null && local.limits_changed
+}
+
+# The terraform_data stops the instance, sets its new limits, and starts it again when they differ from the live config.
+# It then runs windsor check node-health when node_health_check is set.
+resource "terraform_data" "limits" {
+  triggers_replace = local.limits
+
+  provisioner "local-exec" {
+    command = local.limits_changed ? "incus stop \"${local.instance_ref}\"${local.project_flag} --timeout 300" : "echo 'Limits unchanged'"
+  }
+
+  provisioner "local-exec" {
+    command = local.limits_changed ? "incus config set \"${local.instance_ref}\"${local.project_flag} ${join(" ", [for key, value in local.limits : "\"${key}=${value}\""])}" : "echo 'Limits unchanged'"
+  }
+
+  provisioner "local-exec" {
+    command = local.limits_changed ? "incus start \"${local.instance_ref}\"${local.project_flag}" : "echo 'Limits unchanged'"
+  }
+
+  provisioner "local-exec" {
+    command = local.health_check_enabled ? "windsor check node-health --nodes \"${local.health_check_node}\" --timeout 5m --skip-services dashboard" : "echo 'Health check skipped'"
+  }
+}
