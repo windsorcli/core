@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://docker.io/envoyproxy}/gateway-helm
   ref:
     # artifact: type=chart name=gateway-helm repo=oci://docker.io/envoyproxy
-    tag: 1.9.3
+    tag: 1.10.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
