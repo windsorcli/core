@@ -144,7 +144,7 @@ locals {
 }
 
 # The incus_instance stays on the member it was created on when its target changes.
-# terraform_data.limits applies limits changes after create.
+# It sets limits only at create.
 resource "incus_instance" "this" {
   name        = var.name
   description = var.description
@@ -227,7 +227,7 @@ locals {
   }
 
   instance_ref   = var.remote != null ? "${var.remote}:${var.name}" : var.name
-  project_flag   = var.project != null ? " --project ${var.project}" : ""
+  project_flag   = var.project != null ? " --project \"${var.project}\"" : ""
   limits_changed = anytrue([for key, value in local.limits : try(incus_instance.this.config[key], null) != value])
 
   health_check_node = try(coalesce(
@@ -244,18 +244,18 @@ resource "terraform_data" "limits" {
   triggers_replace = local.limits
 
   provisioner "local-exec" {
-    command = local.limits_changed ? "incus stop ${local.instance_ref}${local.project_flag} --timeout 300" : "echo 'Limits unchanged'"
+    command = local.limits_changed ? "incus stop \"${local.instance_ref}\"${local.project_flag} --timeout 300" : "echo 'Limits unchanged'"
   }
 
   provisioner "local-exec" {
-    command = local.limits_changed ? "incus config set ${local.instance_ref}${local.project_flag} ${join(" ", [for key, value in local.limits : "${key}=${value}"])}" : "echo 'Limits unchanged'"
+    command = local.limits_changed ? "incus config set \"${local.instance_ref}\"${local.project_flag} ${join(" ", [for key, value in local.limits : "\"${key}=${value}\""])}" : "echo 'Limits unchanged'"
   }
 
   provisioner "local-exec" {
-    command = local.limits_changed ? "incus start ${local.instance_ref}${local.project_flag}" : "echo 'Limits unchanged'"
+    command = local.limits_changed ? "incus start \"${local.instance_ref}\"${local.project_flag}" : "echo 'Limits unchanged'"
   }
 
   provisioner "local-exec" {
-    command = local.health_check_enabled ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard" : "echo 'Health check skipped'"
+    command = local.health_check_enabled ? "windsor check node-health --nodes \"${local.health_check_node}\" --timeout 5m --skip-services dashboard" : "echo 'Health check skipped'"
   }
 }
