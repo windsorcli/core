@@ -753,15 +753,16 @@ flux:
   # there), not gateway-install.
   - name: gitops
     path: gitops
-    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.internal == true
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.private.name != ''
     dependsOn:
-      - gateway-resources-internal
+      - "${'gateway-resources-' + gateway_effective.private.name}"
     resources:
       - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          private_domain: ${dns.private_domain}
+          flux_ui_domain: "${gateway_effective.private.domain}"
+          flux_ui_gateway_name: "${gateway_effective.private.name}"
         timeout: 5m
         interval: 5m
 

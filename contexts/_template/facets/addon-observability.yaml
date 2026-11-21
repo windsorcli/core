@@ -18,11 +18,11 @@ config:
     value:
       dashboards: "${observability.dashboards ?? 'grafana'}"
 
-  # Grafana URL on the internal gateway (docker-desktop :8443, else :443).
+  # Grafana URL on the private route target (docker-desktop :8443, else :443).
   - name: grafana_effective
     value:
       url: >-
-        ${'https://grafana.' + (dns.private_domain ?? '') +
+        ${'https://grafana.' + gateway_effective.private.domain +
         (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
 
 requires:
@@ -140,18 +140,18 @@ flux:
         data:
           clientSecret: ${observability.grafana.client_secret}
 
-  # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
-  # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.
+  # Grafana route and Envoy dashboards on the private route target.
   - name: observability
-    when: observability.dashboards == 'grafana' && gateway.enabled == true && gateway_effective.internal == true
+    when: observability.dashboards == 'grafana' && gateway.enabled == true && gateway_effective.private.name != ''
     resources:
       - dependsOn:
-          - gateway-resources-internal
+          - "${'gateway-resources-' + gateway_effective.private.name}"
         components:
           - grafana/gateway
           - "${gateway.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
         substitutions:
-          private_domain: "${dns.private_domain ?? ''}"
+          grafana_domain: "${gateway_effective.private.domain}"
+          grafana_gateway_name: "${gateway_effective.private.name}"
 
   # =============================================================================
   # Log storage drivers — one block fires per logs_driver value
@@ -191,10 +191,10 @@ flux:
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
 
-  # Elasticsearch + Kibana, gated on the internal gateway.
+  # Elasticsearch + Kibana, gated on a private route target.
   # Install waits for csi (ES data PVCs).
   - name: observability
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.internal == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.private.name != ''
     dependsOn:
       - csi-install
     install:
@@ -207,13 +207,14 @@ flux:
         - "${chart_registry != '' ? 'kibana/chart-registry' : ''}"
     resources:
       - dependsOn:
-          - gateway-resources-internal
+          - "${'gateway-resources-' + gateway_effective.private.name}"
         timeout: 10m
         interval: 5m
         components:
           - kibana/gateway
         substitutions:
-          private_domain: "${dns.private_domain ?? ''}"
+          kibana_domain: "${gateway_effective.private.domain}"
+          kibana_gateway_name: "${gateway_effective.private.name}"
 
 # =============================================================================
 # Messages — post-run notes printed on bootstrap

@@ -118,24 +118,23 @@ flux:
           keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.8.2@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
-  # Login binds to the external gateway when a public domain is set, else the internal one.
-  # The admin console binds to the internal gateway.
+  # Login on the public route target, admin console on the internal gateway.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && ((dns.public_domain ?? '') != '' || gateway_effective.internal == true)
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && gateway_effective.public.name != ''
     resources:
       - dependsOn:
-          - "${(dns.public_domain ?? '') != '' ? 'gateway-resources-external' : ''}"
-          - "${gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
+          - "${'gateway-resources-' + gateway_effective.public.name}"
+          - "${gateway_effective.internal == true && gateway_effective.public.name != 'internal' ? 'gateway-resources-internal' : ''}"
         components:
           - keycloak/gateway
           # Login on the external gateway exposes only the paths a login needs.
-          - "${(dns.public_domain ?? '') != '' ? 'keycloak/gateway/public-paths' : ''}"
+          - "${gateway_effective.public.name == 'external' ? 'keycloak/gateway/public-paths' : ''}"
           - "${gateway_effective.internal == true ? 'keycloak/gateway-admin' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
-          keycloak_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
-          keycloak_gateway_name: "${(dns.public_domain ?? '') != '' ? 'external' : 'internal'}"
+          keycloak_domain: "${gateway_effective.public.domain}"
+          keycloak_gateway_name: "${gateway_effective.public.name}"
           private_domain: "${dns.private_domain ?? ''}"
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
