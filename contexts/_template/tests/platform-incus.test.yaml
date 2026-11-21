@@ -221,6 +221,30 @@ cases:
               - name: worker-1
                 ipv4: 10.5.0.21
 
+  # With neither count nor nodes, there is one control plane and no workers.
+  - name: no count and no nodes default to one control plane
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      incus:
+        network: nat
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                ipv4: null
+
   # Without DHCP, a pool with no declared addresses fails composition.
   - name: nodes omitted without dhcp fails composition
     values:
