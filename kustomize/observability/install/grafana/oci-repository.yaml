@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://ghcr.io/grafana-community/helm-charts}/grafana
   ref:
     # artifact: type=chart name=grafana repo=oci://ghcr.io/grafana-community/helm-charts
-    tag: 10.5.15
+    tag: 10.7.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
