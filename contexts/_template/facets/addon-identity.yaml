@@ -139,10 +139,10 @@ flux:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
   # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
-  # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator
-  # sequences it after the server is up. Consumers target this realm by name; each
-  # consumer's clients/ folder patches its client into the import (Grafana inferred
-  # on when Grafana is enabled).
+  # clients for enabled consumers. A keycloak-config-cli Job applies the realm after
+  # the server is up and again on each change. Consumers target this realm by name;
+  # each consumer's clients/ folder adds its client fragment (Grafana inferred on
+  # when Grafana is enabled).
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak'
     resources:
@@ -161,11 +161,11 @@ flux:
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
           keycloak_admin_group: "${identity_effective.admin_group}"
-          # Grafana client fields for the realm-client patch.
+          # Grafana client values for the realm Job env.
           grafana_url: "${grafana_effective.url ?? ''}"
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
-          # Dev SSO admin user password.
-          dev_admin_password: "${identity_effective.admin_password ?? ''}"
+          # Admin credentials the realm Job uses: the supplied bootstrap admin, else the operator's.
+          keycloak_admin_secret: "${(identity_effective.admin_password ?? '') != '' ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
 
   # Bootstrap admin, supplied case.
   - name: identity

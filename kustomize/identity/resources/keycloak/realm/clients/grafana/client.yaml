@@ -1,10 +1,6 @@
-# Kubernetes API-server OIDC client, appended to the realm import's clients
-# array. Public client (no secret); redirect URIs are kubectl OIDC login
-# plugin loopback ports.
-- op: add
-  path: /spec/realm/clients/-
-  value:
-    clientId: kubernetes
+# Grafana public PKCE client.
+clients:
+  - clientId: grafana
     enabled: true
     protocol: openid-connect
     publicClient: true
@@ -13,14 +9,16 @@
     attributes:
       pkce.code.challenge.method: S256
     redirectUris:
-      - http://localhost:8000
-      - http://localhost:18000
+      - $(env:GRAFANA_REDIRECT_URI)
+    webOrigins:
+      - $(env:GRAFANA_URL)
     defaultClientScopes:
+      - web-origins
+      - acr
       - profile
-      - email
       - roles
-    optionalClientScopes:
-      - offline_access
+      - email
+      - basic
     # groups claim for role mapping.
     protocolMappers:
       - name: groups

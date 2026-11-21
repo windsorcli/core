@@ -315,6 +315,10 @@ cases:
             - components:
                 - keycloak
                 - keycloak/admin
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_admin_secret: keycloak-bootstrap-admin
 
   # Custom realm name flows through to the realm import substitution.
   - name: custom realm name overrides the platform default
@@ -372,7 +376,7 @@ cases:
                 keycloak_admin_group: platform-admins
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
-                dev_admin_password: admin-password
+                keycloak_admin_secret: keycloak-bootstrap-admin
 
   # Outside dev, Grafana SSO needs no client secret: the client is public with PKCE.
   - name: grafana sso outside dev needs no client secret
@@ -397,6 +401,8 @@ cases:
             - components:
                 - keycloak/realm
                 - keycloak/realm/clients/grafana
+              substitutions:
+                keycloak_admin_secret: keycloak-initial-admin
     exclude:
       flux:
         - name: identity
@@ -452,7 +458,6 @@ cases:
                 - keycloak/realm/clients/grafana
                 - keycloak/realm/dev-user
               substitutions:
-                dev_admin_password: sup3r-secret-admin
 
   # API-server OIDC (cluster.oidc.enabled) registers the kubernetes realm client.
   - name: cluster oidc enabled patches the kubernetes client into the realm

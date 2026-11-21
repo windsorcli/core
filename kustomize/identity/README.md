@@ -141,7 +141,7 @@ identity:
 
 ### Platform realm
 
-Enabling Keycloak also imports a `platform` realm (apps never live in `master`).
+Enabling Keycloak also creates a `platform` realm (apps never live in `master`).
 It ships a security baseline: `sslRequired: external`, brute-force detection, a
 `length(12) and notUsername and notEmail` password policy, and short access-token
 plus bounded SSO-session lifetimes.
@@ -159,16 +159,21 @@ identity:
     realm: corp
 ```
 
-The import is one-shot: the operator applies the realm once via
-`KeycloakRealmImport`, so later edits happen in-console (or by recreating the CR),
-not by continuous reconciliation.
+The `keycloak-realm` Job applies the realm with
+[keycloak-config-cli](https://github.com/adorsys/keycloak-config-cli). It runs after the
+server is up, and Flux recreates it whenever the realm definition or one of its values
+changes. Each run brings Keycloak in line with git: it creates the realm on the first run,
+updates the settings, groups, and clients that git defines, and deletes a client or group
+that it created earlier and git no longer defines. Users and anything else created
+in-console stay in place. The run also takes over a realm that already exists, so a realm
+from an earlier import keeps its users.
 
 ### Grafana single sign-on
 
 Core infers SSO: with a cluster identity provider and Grafana both enabled, Grafana
-authenticates against the platform realm, with no per-app flag. Core patches a `grafana`
-client into the platform realm import as a public client that uses PKCE (S256), so no
-client secret exists anywhere. The client carries a mapper that puts the `platform-admins`
+authenticates against the platform realm, with no per-app flag. Core adds a `grafana`
+client to the platform realm as a public client that uses PKCE (S256), so no client
+secret exists anywhere. The client carries a mapper that puts the `platform-admins`
 group into the token, which Grafana maps to the Admin role.
 
 For an external OIDC provider (`identity.driver: oidc`), register Grafana at the provider
@@ -257,12 +262,20 @@ identity:
 
 ### Declarative clients
 
-Core patches an OIDC client into the platform realm import per opted-in consumer, from
-a per-consumer folder under `clients/` (Grafana, kubectl today; MinIO and gateway
-edge-auth to follow). This uses the stable v2beta1 `KeycloakRealmImport` — not the v2alpha1
-`KeycloakOIDCClient` CRDs, which need the preview `client-admin-api:v2` feature plus a
-manually bootstrapped admin service-account. The realm import is one-shot, so adding a
-client re-imports the realm.
+Core adds an OIDC client to the platform realm per opted-in consumer, from a
+per-consumer folder under `clients/` (Grafana, kubectl today). The realm is a set of YAML
+fragments in the `keycloak-realm` ConfigMap: `realm.yaml` from `keycloak/realm`, plus one
+`client-<name>.yaml` per enabled consumer. The Job's init container merges the fragments
+into one realm, appending their lists, and keycloak-config-cli applies the result.
+
+A fragment reads values such as the realm name or a redirect URI as `$(env:NAME)`, and
+the component sets `NAME` in the Job's env from a Flux variable. A changed value then
+changes the Job spec, so Flux recreates the Job. A Flux variable written straight into a
+fragment changes no hash and MUST NOT be used.
+
+The Job signs in as the master-realm bootstrap admin: `keycloak-bootstrap-admin` when
+`identity.keycloak.admin` is set or in dev, otherwise the operator's
+`keycloak-initial-admin`.
 
 ## Security
 
@@ -287,7 +300,8 @@ client re-imports the realm.
   external providers restrict or disallow public clients; for those, set
   `observability.grafana.client_secret` to use a confidential client.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
-  operator, server, and Postgres images are all digest-pinned.
+  operator, server, Postgres, and realm Job images are all digest-pinned. Core builds the
+  realm Job's keycloak-config-cli image from Wolfi packages (`images/keycloak-config-cli`).
 
 
 ## Components
@@ -308,25 +322,25 @@ The `Keycloak` server CR and its `keycloak-tls` serving certificate from the `pr
 
 _Enabled when `identity.driver == 'keycloak'`._
 
-One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name.
+The platform realm (name from `identity.keycloak.realm`, default `platform`) and the `keycloak-realm` Job that applies it with keycloak-config-cli: a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name.
 
 ### `keycloak/realm/clients/grafana`
 
 _Enabled when identity + Grafana both enabled (`grafana.sso != false`)._
 
-Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The client is public with PKCE (S256), so it has no secret. One folder per consumer under `realm/clients/`.
+Adds the `grafana` OIDC client fragment to the platform realm. The client is public with PKCE (S256), so it has no secret. One folder per consumer under `realm/clients/`.
 
 ### `keycloak/realm/clients/kubernetes`
 
 _Enabled when `cluster.oidc.enabled == true`._
 
-Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config.
+Adds the `kubernetes` OIDC client fragment (public, PKCE) to the platform realm for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config.
 
 ### `keycloak/realm/dev-user`
 
 _Enabled when `dev == true`._
 
-Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev.
+Dev-only fragment seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev.
 
 ### `keycloak/realm/clients/kubernetes/dev-rbac`
 

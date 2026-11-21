@@ -10,3 +10,11 @@ spec:
   ingress:
     - fromEntities:
         - ingress
+    # The realm Job calls the admin API over HTTP.
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: keycloak-realm
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
