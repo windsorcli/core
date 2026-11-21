@@ -57,6 +57,6 @@ spec:
         registry: ghcr.io
         repository: fluent/fluent-operator/fluent-bit
         # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-bit
-        tag: v5.1.5@sha256:d797e6be1c8dadcff67c50950f0800d228bb7d70e21bc6df2fdf807c2005dd71
+        tag: v5.2.0@sha256:0cd0bc8a1106eb73657f08253a08a81edeabec90496b0c351dfe218096e9e804
       enable: false
       crdsEnable: false
