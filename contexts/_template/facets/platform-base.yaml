@@ -613,14 +613,8 @@ flux:
             ${len(telemetry.alerts.slack.severity ?? ['warning', 'critical']) >= 2
               ? 'warning|critical'
               : (telemetry.alerts.slack.severity ?? ['warning', 'critical'])[0]}
-          # Base URL for the alert's Grafana links. Explicit override wins; else
-          # derive from the domain the Grafana route publishes on (public_domain
-          # when set, else private_domain).
-          grafana_base_url: >-
-            ${telemetry.alerts.grafana_url
-              ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
-                    ? (dns.private_domain ?? '')
-                    : dns.public_domain))}
+          # Grafana link base URL: grafana_url, else the Grafana route URL, else empty.
+          grafana_base_url: "${telemetry.alerts.grafana_url ?? grafana_effective.url ?? ''}"
 
   # Slack alert routing secret. Gated on a configured webhook so the bare
   # sensitive reference (the composer rejects a ?? fallback, the materializer
