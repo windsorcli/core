@@ -106,7 +106,7 @@ run "machine_config_patch_without_disk" {
   }
 }
 
-run "install_image_defaults_to_talos_version" {
+run "install_image_omitted_when_null" {
   variables {
     disk_selector = {
       busPath  = ""
@@ -121,8 +121,8 @@ run "install_image_defaults_to_talos_version" {
     }
   }
   assert {
-    condition     = strcontains(local.machine_config_patch, "\"image\": \"ghcr.io/siderolabs/installer:v1.10.1\"")
-    error_message = "Should default the install image to the installer at talos_version"
+    condition     = !strcontains(local.machine_config_patch, "image")
+    error_message = "Should leave the install image out of the patch when image is null"
   }
 }
 

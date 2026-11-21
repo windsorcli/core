@@ -27,6 +27,25 @@ x-defaults:
 
 
 cases:
+  - name: node without endpoint derives cluster_endpoint from node
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              node: 10.5.0.10
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+
   # Minimal: Test default behavior with required fields only
   - name: minimal config creates Talos cluster with Cilium L2 and default CSI
     values:
@@ -429,7 +448,7 @@ cases:
             worker-2:
               endpoint: 10.5.0.21:50000
               node: 10.5.0.21
-              install_image: ghcr.io/siderolabs/installer:v1.14.6
+              install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6
           volumes:
             - /var/mnt/local
     expect:
@@ -449,7 +468,7 @@ cases:
                   image: siderolabs/sbc-raspberrypi
               - endpoint: 10.5.0.21:50000
                 node: 10.5.0.21
-                install_image: ghcr.io/siderolabs/installer:v1.14.6
+                install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6
                 overlay:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi

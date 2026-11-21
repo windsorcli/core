@@ -7,6 +7,8 @@ metadata:
   name: ${database_instance_name}
 spec:
   deletionPolicy: Delete
+  # No Update: in-place settings updates restart the instance.
+  managementPolicies: [Create, Observe, Delete]
   forProvider:
     region: ${cloudsql_region}
     databaseVersion: POSTGRES_16

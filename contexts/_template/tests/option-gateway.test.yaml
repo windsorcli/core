@@ -774,7 +774,6 @@ cases:
         enabled: true
         driver: envoy
       network: *default-network
-      cluster: *default-cluster
     exclude:
       flux:
         - name: gateway
@@ -796,7 +795,6 @@ cases:
       dns:
         private_domain: example.com
       network: *default-network
-      cluster: *default-cluster
     expect:
       flux:
         - name: gateway
