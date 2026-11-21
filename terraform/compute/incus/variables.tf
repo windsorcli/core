@@ -36,6 +36,16 @@ variable "attach_to_bridge" {
   }
 }
 
+variable "bridges" {
+  description = "Host bridge per cluster member, keyed by member name. With attach_to_bridge, an instance on a listed member attaches to that bridge instead of network_name."
+  type        = map(string)
+  default     = {}
+  validation {
+    condition     = length(var.bridges) == 0 || var.attach_to_bridge
+    error_message = "bridges requires attach_to_bridge true"
+  }
+}
+
 variable "static_dhcp_leases" {
   description = "Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs"
   type        = bool

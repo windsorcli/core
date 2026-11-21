@@ -791,6 +791,55 @@ cases:
               - name: controlplane
                 image: windsor:talos/v1.14.6/amd64
 
+  # incus.bridges maps each member to its own host bridge.
+  - name: bridges set a host bridge per member
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 192.168.0.0/22
+      incus:
+        remote: home
+        bridges:
+          nuc-1: enp86s0
+          nuc-2: eno1
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: {endpoint: "192.168.3.21:50000", node: 192.168.3.21}
+        workers:
+          count: 1
+          nodes:
+            worker-1: {endpoint: "192.168.3.24:50000", node: 192.168.3.24}
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            network_name: lan
+            attach_to_bridge: true
+            bridges:
+              nuc-1: enp86s0
+              nuc-2: eno1
+
+  - name: bridges with network nat fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        dhcp: true
+      incus:
+        network: nat
+        bridges:
+          nuc-1: enp86s0
+      cluster:
+        driver: talos
+    expectError: true
+
   # A node's placement overrides its round-robin member.
   - name: placement overrides the round-robin target
     values:

@@ -364,6 +364,11 @@ locals {
     )
   }
 
+  # Network or host bridge for each instance's default NIC, from its member in bridges or else network_name.
+  instance_network_names = {
+    for instance in local.all_instances : instance.name => try(var.bridges[instance.target], local.network_name)
+  }
+
   # Cloud-init network-config v2 per virtual machine with a static ipv4.
   cloud_init_network_configs = {
     for instance in local.all_instances : instance.name => "version: 2\n${yamlencode({
@@ -569,7 +574,7 @@ module "instances" {
   target      = lookup(each.value, "target", null)
   ephemeral   = lookup(each.value, "ephemeral", false)
 
-  network_name     = local.network_name
+  network_name     = local.instance_network_names[each.value.name]
   attach_to_bridge = var.attach_to_bridge
   networks         = lookup(each.value, "networks", [])
   network_config   = lookup(each.value, "network_config", {})
