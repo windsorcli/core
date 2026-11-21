@@ -697,15 +697,11 @@ flux:
         data:
           hmac-key: ${pki.acme.eab.hmac_key}
 
-  # Central FluentD aggregator. Runs in the observability namespace (where
-  # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
-  # disabled entirely) or when logs_driver='elasticsearch' (filebeat → ES
-  # replaces the fluentbit→fluentd path; see the observability facet).
-  #
-  # The log-level filter is attached unless log_level='trace' (trace wants
-  # every log, unfiltered).
+  # Central FluentD aggregator, skipped when filebeat ships logs to Elasticsearch.
   - name: observability
-    when: telemetry.logs.driver == 'fluentd' && (observability.logs_driver ?? '') != 'elasticsearch'
+    when: >-
+      telemetry.logs.driver == 'fluentd' && !((observability.logs_driver ?? '') == 'elasticsearch' &&
+      gateway.enabled == true && gateway_effective.private.name != '')
     dependsOn:
       - telemetry-install
     install:

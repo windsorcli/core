@@ -53,7 +53,7 @@ flux:
   # When Elasticsearch is the log store, replace platform-base's telemetry system:
   # swap fluent-bit for filebeat (native ES shipper) and drop the fluentbit stack.
   - name: telemetry
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.private.name != ''
     strategy: replace
     install:
       components:
