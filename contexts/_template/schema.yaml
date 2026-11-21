@@ -631,6 +631,12 @@ properties:
           cluster.controlplanes.nodes or cluster.workers.nodes, reserved on the
           LAN's DHCP server. nat creates a NAT bridge from network.cidr_block
           instead.
+      bridges:
+        type: object
+        additionalProperties:
+          type: string
+          minLength: 1
+        description: Host bridge per cluster member, keyed by member name, for members whose bridge name differs from network. Not allowed with network nat.
       storage_pool:
         type: string
         minLength: 1

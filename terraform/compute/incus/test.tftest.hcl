@@ -850,3 +850,78 @@ run "single_server_leaves_target_unset" {
     error_message = "single-server instances must have no target"
   }
 }
+
+# With bridges, each instance attaches to its member's bridge, and members not listed fall back to network_name.
+run "bridges_set_parent_per_member" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = true
+      members = {
+        nuc1 = { status = "Online" }
+        nuc2 = { status = "Online" }
+        nuc3 = { status = "Online" }
+      }
+    }
+  }
+
+  variables {
+    context_id         = "test"
+    create_network     = false
+    attach_to_bridge   = true
+    static_dhcp_leases = false
+    network_name       = "lan"
+    bridges            = { nuc1 = "enp86s0", nuc2 = "eno1" }
+    instances = [
+      { name = "controlplane", count = 3, image = "ubuntu/22.04", type = "virtual-machine", wait_for_ipv4 = false },
+    ]
+  }
+
+  assert {
+    condition = local.instance_network_names == {
+      "controlplane-0" = "enp86s0"
+      "controlplane-1" = "eno1"
+      "controlplane-2" = "lan"
+    }
+    error_message = "Each instance MUST attach to its member's bridge, else to network_name"
+  }
+}
+
+# Without bridges, every instance attaches to network_name, including one with no target.
+run "no_bridges_uses_network_name" {
+  command = plan
+
+  override_data {
+    target = data.incus_cluster.main
+    values = {
+      is_clustered = false
+      members      = {}
+    }
+  }
+
+  variables {
+    context_id         = "test"
+    create_network     = false
+    attach_to_bridge   = true
+    static_dhcp_leases = false
+    network_name       = "lan"
+    instances          = [{ name = "controlplane", image = "ubuntu/22.04", type = "virtual-machine", wait_for_ipv4 = false }]
+  }
+
+  assert {
+    condition     = local.instance_network_names == { controlplane = "lan" }
+    error_message = "An instance MUST attach to network_name when bridges is empty"
+  }
+}
+
+run "rejects_bridges_without_attach_to_bridge" {
+  command = plan
+
+  variables {
+    bridges = { nuc1 = "enp86s0" }
+  }
+
+  expect_failures = [var.bridges]
+}

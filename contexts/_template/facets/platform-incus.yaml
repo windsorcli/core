@@ -12,6 +12,8 @@ when: "platform == 'incus' && cluster.driver == 'talos'"
 requires:
   - when: (workstation.runtime ?? '') == '' && incus.host == true && (incus.storage_pool ?? 'local') == 'local'
     message: With incus.host set to true, set incus.storage_pool to a pool other than local, such as nvme.
+  - when: (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') == 'nat' && len(incus.bridges ?? {}) > 0
+    message: Remove incus.bridges, or set incus.network to a host bridge instead of nat.
   - when: >-
       (workstation.runtime ?? '') == '' && (incus.network ?? 'lan') != 'nat'
       && cluster_node_addresses.controlplanes_missing
@@ -48,6 +50,7 @@ config:
       remote: ${incus.remote ?? null}
       targets: ${incus.targets ?? []}
       network: "${(incus.network ?? 'lan') == 'nat' ? '' : (incus.network ?? 'lan')}"
+      bridges: ${incus.bridges ?? {}}
       lan: ${(incus.network ?? 'lan') != 'nat'}
       storage_pool: "${incus.storage_pool ?? 'local'}"
       host: ${(workstation.runtime ?? '') == '' && incus.host == true}
@@ -220,6 +223,7 @@ terraform:
       network_name: "${incus_effective.network}"
       create_network: ${!incus_effective.lan}
       attach_to_bridge: ${incus_effective.lan}
+      bridges: ${incus_effective.bridges}
       static_dhcp_leases: ${!incus_effective.lan}
       default_storage_pool: "${incus_effective.storage_pool}"
       node_health_check: true
