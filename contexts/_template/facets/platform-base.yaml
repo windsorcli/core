@@ -81,12 +81,12 @@ config:
     value:
       controlplanes: >-
         ${map(
-          1..int(cluster.controlplanes.count ?? 1),
+          1..int(cluster_nodes_effective.controlplanes),
           get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
         )}
       workers: >-
         ${map(
-          1..int(cluster.workers.count ?? 0),
+          1..int(cluster_nodes_effective.workers),
           get(cluster.workers.nodes ?? {}, "worker-" + string(#))
         )}
 
@@ -543,12 +543,8 @@ flux:
             ${len(telemetry.alerts.slack.severity ?? ['warning', 'critical']) >= 2
               ? 'warning|critical'
               : (telemetry.alerts.slack.severity ?? ['warning', 'critical'])[0]}
-          # telemetry.alerts.grafana_url, else grafana.<public_domain>, else grafana.<private_domain>.
-          grafana_base_url: >-
-            ${telemetry.alerts.grafana_url
-              ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
-                    ? (dns.private_domain ?? '')
-                    : dns.public_domain))}
+          # telemetry.alerts.grafana_url, else the Grafana route URL, else empty.
+          grafana_base_url: "${telemetry.alerts.grafana_url ?? grafana_effective.url ?? ''}"
 
   - name: telemetry
     when: (telemetry.alerts.slack.webhook_url ?? '') != ''

@@ -29,7 +29,7 @@ A data disk's volume is created on the same member as its instance, because a vo
 
 With `create_network = false`, the instances attach to the existing network in `network_name`. On a cluster, that network MUST exist on every member that hosts an instance.
 
-With `attach_to_bridge = true`, each NIC is a bridged NIC on the host bridge that `network_name` names, such as a bridge that IncusOS creates for an interface with the `instances` role. That bridge MUST exist under the same name on every member that hosts an instance.
+With `attach_to_bridge = true`, each NIC is a bridged NIC on the host bridge that `network_name` names, such as a bridge that IncusOS creates for an interface with the `instances` role. That bridge MUST exist under that name on every member that hosts an instance. IncusOS names the bridge after the interface, so members with different NICs, such as `enp86s0` and `eno1`, have different bridge names. Map each such member to its bridge in `bridges`, and instances on that member attach to it instead. The facet sets `bridges` from `incus.bridges`.
 
 Incus serves DHCP only on a bridge it manages. On a macvlan network, or a bridge to the LAN, the LAN's DHCP server assigns addresses and Incus can't report them for a Talos guest. Set `static_dhcp_leases = false` and `wait_for_ipv4 = false` on each instance there. The module then leaves `ipv4` and `ipv6` off the NIC and reports them only in the outputs. Reserve each address on the LAN's DHCP server against the MAC set in `network_config.hwaddr`.
 
@@ -81,6 +81,7 @@ The facet sets `cloud_init_network` and boots the nocloud image when `incus.netw
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_attach_to_bridge"></a> [attach\_to\_bridge](#input\_attach\_to\_bridge) | Attach instance NICs to the existing host bridge named network\_name, instead of to a managed Incus network. | `bool` | `false` | no |
+| <a name="input_bridges"></a> [bridges](#input\_bridges) | Host bridge per cluster member, keyed by member name. With attach\_to\_bridge, an instance on a listed member attaches to that bridge instead of network\_name. | `map(string)` | `{}` | no |
 | <a name="input_cloud_init_network"></a> [cloud\_init\_network](#input\_cloud\_init\_network) | Give each virtual machine with an ipv4 a cloud-init network-config for eth0 with that address, network\_gateway, and network\_nameservers, on a cloud-init config drive. | `bool` | `false` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_create_network"></a> [create\_network](#input\_create\_network) | Whether to create the network. If false, network\_name must reference an existing network | `bool` | `true` | no |
@@ -96,6 +97,7 @@ The facet sets `cloud_init_network` and boots the nocloud image when `incus.netw
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to cloud-init network-config. | `list(string)` | `[]` | no |
 | <a name="input_network_target"></a> [network\_target](#input\_network\_target) | Specify a target node in a cluster for the network | `string` | `null` | no |
 | <a name="input_network_type"></a> [network\_type](#input\_network\_type) | The type of network to create. Can be one of: bridge, macvlan, sriov, ovn, or physical. If no type is specified, a bridge network is created | `string` | `"bridge"` | no |
+| <a name="input_node_health_check"></a> [node\_health\_check](#input\_node\_health\_check) | Run windsor check node-health against each instance after a limits change restarts it | `bool` | `false` | no |
 | <a name="input_project"></a> [project](#input\_project) | Name of the project where resources will be created | `string` | `null` | no |
 | <a name="input_remote"></a> [remote](#input\_remote) | Name of the Incus remote to use. If not set, uses provider default (usually 'local'). | `string` | `null` | no |
 | <a name="input_static_dhcp_leases"></a> [static\_dhcp\_leases](#input\_static\_dhcp\_leases) | Whether instance ipv4 and ipv6 addresses become static DHCP leases on the NIC. Set false on a network Incus serves no DHCP on, such as macvlan or a bridge to the LAN, where the addresses only feed the outputs | `bool` | `true` | no |
