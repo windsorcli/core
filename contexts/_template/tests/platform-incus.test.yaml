@@ -110,6 +110,141 @@ cases:
                 config:
                   user.hostname: worker-1
 
+  # Without count, each pool has one instance per nodes entry.
+  - name: nodes without count size the pools from the nodes map
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+            controlplane-2:
+              node: 10.5.0.11
+            controlplane-3:
+              node: 10.5.0.12
+        workers:
+          nodes:
+            worker-1:
+              node: 10.5.0.20
+            worker-2:
+              node: 10.5.0.21
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane-0
+                ipv4: 10.5.0.10
+              - name: controlplane-1
+                ipv4: 10.5.0.11
+              - name: controlplane-2
+                ipv4: 10.5.0.12
+              - name: worker-0
+                ipv4: 10.5.0.20
+              - name: worker-1
+                ipv4: 10.5.0.21
+
+  # Without nodes, count sizes each pool.
+  - name: count without nodes sizes the pools from count
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      incus:
+        network: nat
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+        workers:
+          count: 1
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane-0
+                ipv4: null
+              - name: controlplane-1
+                ipv4: null
+              - name: controlplane-2
+                ipv4: null
+              - name: worker
+                ipv4: null
+
+  # With both set, count sizes each pool.
+  - name: count takes precedence over the nodes map
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1: *cp1-node
+            controlplane-2:
+              node: 10.5.0.11
+        workers:
+          count: 2
+          nodes:
+            worker-1:
+              node: 10.5.0.20
+            worker-2:
+              node: 10.5.0.21
+            worker-3:
+              node: 10.5.0.22
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane
+                ipv4: 10.5.0.10
+              - name: worker-0
+                ipv4: 10.5.0.20
+              - name: worker-1
+                ipv4: 10.5.0.21
+
+  # With neither count nor nodes, there is one control plane and no workers.
+  - name: no count and no nodes default to one control plane
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      incus:
+        network: nat
+      network:
+        <<: *default-network
+        dhcp: true
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                ipv4: null
+
   # Without DHCP, a pool with no declared addresses fails composition.
   - name: nodes omitted without dhcp fails composition
     values:
