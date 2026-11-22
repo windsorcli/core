@@ -4,9 +4,10 @@ metadata:
   name: platform-base
   description: "Base infrastructure components for all platforms"
 
-# Skip the facet when no platform is selected (the "none" scaffolding context).
 when: (platform ?? 'none') != 'none'
 
+# Requires
+# =============================================================================
 requires:
   - when: "'*' in keys(registries ?? {}) && (get(registries['*'], 'endpoint') ?? '') == ''"
     message: The * entry in registries needs endpoint.
@@ -14,7 +15,6 @@ requires:
       any(values(registries ?? {}), (get(#, 'hostname') ?? '') != '' && (get(#, 'endpoint') ?? '') == '') &&
       !((platform == 'docker' || platform == 'incus') && (workstation.runtime ?? '') != '')
     message: An entry in registries that sets hostname needs endpoint on a context with no workstation.
-  # Split-horizon DNS on one domain is not supported.
   - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? '')
     message: dns.public_domain and dns.private_domain must differ; use a subdomain such as internal.<public_domain> for the private zone.
   - when: dns.private.driver == 'cloud' && platform != 'aws' && platform != 'azure' && platform != 'gcp'
@@ -48,22 +48,17 @@ requires:
       - network.loadbalancer_ips.end
     message: network.loadbalancer_driver metallb assigns LoadBalancer addresses only from network.loadbalancer_ips.
 
+# Config
 # =============================================================================
-# Config — effective values
-# =============================================================================
-# Single source of truth for every `_effective` value; downstream facets
-# consume these without re-deriving. Order matters — dependent values sit
-# below their dependencies (gateway reads cluster.cni.driver).
+# Platform facets and add-ons read the *_effective values defined here.
 config:
 
-  # Platform identity — fall back to 'none' for a non-null downstream value.
   - name: platform
     value: "${platform ?? 'none'}"
 
-  # Whether core provisions the state backend: cloud storage (managed) or the
-  # Kubernetes state namespace (kubernetes).
   - name: backend_effective
     value:
+      # Core provisions the state bucket or storage account on aws, azure and gcp unless set by terraform.backend.
       managed: >-
         ${platform == 'aws' ? ((terraform.backend.type ?? 's3') == 's3' && (terraform.backend.s3.bucket ?? '') == '')
         : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
@@ -71,24 +66,17 @@ config:
         : false))}
       kubernetes: "${(terraform.backend.type ?? '') == 'kubernetes'}"
 
-  # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? ''}"
 
-  # Effective node counts — the single source for topology, control-plane taints,
-  # and the node counts platform facets hand to terraform. A pool comes from an
-  # explicit count, a declared node map, or a platform default for nodes terraform
-  # provisions without the user declaring them (hetzner ships a worker). Platform
-  # defaults belong here, not in the platform facet: platform-base composes first,
-  # and these expressions read original user input, so a later facet's override is
-  # invisible to them. Control planes floor at 1.
   - name: cluster_nodes_effective
     value:
       controlplanes: "${max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))}"
+      # cluster.workers.count, else the size of cluster.workers.nodes. Hetzner defaults to 1 worker.
       workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
 
-  # Nodes-map entry per pool position, keyed controlplane-N and worker-N; null when undeclared.
+  # The nodes entry named controlplane-N or worker-N for each position, or null if undeclared.
   - name: cluster_node_entries
     value:
       controlplanes: >-
@@ -102,7 +90,7 @@ config:
           get(cluster.workers.nodes ?? {}, "worker-" + string(#))
         )}
 
-  # Declared guest IPv4 and MAC per pool position, and whether any position lacks an entry.
+  # IPv4 and MAC address of each position. The IPv4 is the node, else the endpoint host.
   - name: cluster_node_addresses
     value:
       controlplanes: >-
@@ -115,24 +103,20 @@ config:
           ["ipv4", # == null ? null : (#.node ?? split(#.endpoint, ":")[0])],
           ["mac_address", # == null ? null : #.mac_address]
         ]))}
+      # True when any position has no nodes entry.
       controlplanes_missing: "${any(cluster_node_entries.controlplanes, # == null)}"
       workers_missing: "${any(cluster_node_entries.workers, # == null)}"
 
-  # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
-  # azure→aks, gcp→gke); else talos. Talos defaults CNI to cilium; managed
-  # clouds leave it empty — gke's own Dataplane V2 is Google's managed Cilium
-  # integration, so Windsor's own cni/cilium layer must not also install.
-  # driver is re-derived inline since siblings see user input only.
   - name: cluster
     value:
+      # eks, aks or gke on aws, azure and gcp. talos on every other platform.
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))}"
+      # cilium on Talos. EKS, AKS and GKE keep the provider CNI.
+      # Duplicates the driver default above, since sibling keys read only user input.
       cni:
         driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))) == 'talos' ? 'cilium' : '')}"
-      # A single-controlplane, workerless cluster runs workloads on the control plane
-      # by default. An explicit cluster.controlplanes.schedulable still wins, and
-      # consumers keep reading it via `?? false`. The counts are spelled out rather
-      # than read from cluster_nodes_effective, which derives from `cluster` and
-      # would make this block circular. Keep the two in step.
+      # The control plane is schedulable with one control plane and no workers.
+      # Copies the cluster_nodes_effective counts to avoid a cycle.
       controlplanes:
         schedulable: >-
           ${cluster.controlplanes.schedulable
@@ -142,40 +126,30 @@ config:
                         : (platform == 'hetzner' ? 1 : 0))) == 0
                 && max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) == 1)}
 
-  # Docker Desktop: Cilium's eBPF bootstrap can't use its localhost-tunnel API
-  # server, so fall back to flannel. when:-gated (not inline) because
-  # option-workstation defers the workstation block past this one.
+  # flannel on Docker Desktop, where Cilium can't bootstrap through the localhost API tunnel.
   - name: cluster
     when: workstation.runtime == 'docker-desktop'
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
-  # Node CPU/memory defaults. The CLI leaves these nil when unset so facets own
-  # the defaults. Consumers read cluster_resources_effective
-  # rather than cluster.* because some platform facets replace cluster.controlplanes
-  # with a terraform list. A controlplane that runs workloads — flagged schedulable
-  # or in a workerless cluster — gets a larger memory baseline than a dedicated one
-  # (8Gi to leave etcd + kube-apiserver headroom). cpu stays flat: container platforms
-  # (docker) reject a cpus value above the host's real core count at creation time, so
-  # it can't scale with topology the way memory can without knowing the host's capacity.
+  # Platform facets read node sizes here, since some replace cluster.controlplanes.
   - name: cluster_resources_effective
     value:
       controlplanes:
+        # 4 by default, since docker rejects more CPUs than the host has.
         cpu: "${cluster.controlplanes.cpu ?? 4}"
+        # 12 when the control plane is schedulable or there are no workers, else 8.
         memory: "${cluster.controlplanes.memory ?? ((cluster_nodes_effective.workers == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
       workers:
         cpu: "${cluster.workers.cpu ?? 4}"
         memory: "${cluster.workers.memory ?? 8}"
 
-  # Gateway driver. First non-null wins: explicit gateway.driver; legacy
-  # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
-  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI. On
-  # hetzner the Cilium gateway's LoadBalancer Service is provisioned by the
-  # hcloud cloud-controller-manager (no LBIPAM; cilium/l2 is suppressed).
   - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
+      # gateway.driver, else the legacy ingress.driver with envoy-gateway and nginx mapped to envoy.
+      # Without either, envoy on Docker Desktop and aws, cilium with the Cilium CNI, else envoy.
       driver: |-
         ${gateway.driver
           ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx'
@@ -185,13 +159,13 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  # Service load balancer driver, defaulted from the CNI.
   - name: lb_effective
     value:
       driver: "${network.loadbalancer_driver ?? (cluster.cni.driver == 'cilium' ? 'cilium' : 'kube-vip')}"
       mode: loadbalancer
 
-  # enabled: kube-vip or MetalLB runs, by default on platforms without a managed load balancer.
+  # kube-vip or MetalLB, on for metal, vsphere, hyperv, incus and proxmox, or when set by
+  # network.loadbalancer_driver.
   - name: lb_effective
     value:
       enabled: >-
@@ -199,16 +173,16 @@ config:
         ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
         platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
 
-  # Docker Desktop has no routable node network, so LoadBalancer Services are unreachable.
+  # Off on Docker Desktop, which has no routable node network.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
 
-  # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
-  # A tunnel makes the external gateway ClusterIP.
   - name: gateway_exposure
     value:
+      # ClusterIP when tunnel.driver is set.
+      # gateway.service_type is the deprecated setting for both gateways.
       external: >-
         ${(tunnel.driver ?? '') != '' ? 'ClusterIP' :
         (gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer'))}
@@ -218,7 +192,6 @@ config:
       external_http_node_port: 30081
       internal_http_node_port: 30080
 
-  # nodeport: both gateways are NodePort.
   - name: gateway_exposure
     value:
       nodeport: ${gateway_exposure.external == 'NodePort' && gateway_exposure.internal == 'NodePort'}
@@ -227,7 +200,7 @@ config:
     value:
       mode: "${gateway_exposure.nodeport ? 'nodeport' : 'loadbalancer'}"
 
-  # Two NodePort gateways leave the in-cluster LB with no gateway address to serve.
+  # No in-cluster load balancer with both gateways on NodePort.
   - name: lb_effective
     when: >-
       (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
@@ -235,31 +208,27 @@ config:
     value:
       enabled: false
 
-  # True when an in-cluster LB controller (lb-install) is required: aws always
-  # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
-  # metal/incus/docker/hyperv/proxmox when lb_effective.enabled, azure never. Consumers
-  # dependsOn this so reverse-topo destroy keeps the controller alive to lift its
-  # finalizers before its Kustomization is torn down. Keep in sync if a new
-  # platform facet creates an lb-install.
+  # True where an lb-install controller runs: EKS, hetzner, or an enabled kube-vip or MetalLB.
+  # A platform facet that adds an lb-install MUST be added here.
   - name: lb_effective
     value:
       controller_required: "${(platform == 'aws' && (cluster.driver ?? 'eks') == 'eks') || platform == 'hetzner' || lb_effective.enabled == true}"
 
-  # DNS domains. public_domain: publicly-routable zone (external-dns, ACME SAN),
-  # set only by dns.public_domain. private_domain: in-cluster records (CoreDNS),
-  # falling back to the deprecated dns.domain. dev:true defaults domain/private_domain to 'test'.
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
+      # dns.domain is the deprecated name for dns.private_domain.
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
 
-  # Default dns.private.driver. A NodePort internal gateway outside a workstation defaults to none.
   - name: dns
     when: (dns.private.driver ?? '') == ''
     value:
       private:
+        # coredns when dns.private.enabled is true. none without dns.private_domain or on hetzner.
+        # cloud on EKS, azure and gcp. none when disabled, without a cluster, or for an internal
+        # NodePort gateway outside a workstation. coredns otherwise.
         driver: >-
           ${dns.private.enabled == true ? 'coredns' :
           ((dns.private_domain ?? '') == '' || platform == 'hetzner' ? 'none' :
@@ -267,22 +236,20 @@ config:
           (dns.private.enabled == false || cluster_provisioned != true ||
           ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
 
-  # CoreDNS serves the public zone only where no platform DNS zone does.
+  # CoreDNS serves the public zone on platforms without a cloud DNS zone.
   - name: dns_private_effective
     value:
       public_zone: >-
         ${(dns.public_domain ?? '') != '' && platform != 'aws' && platform != 'azure' && platform != 'gcp' && platform != 'hetzner'}
 
-  # dns_zone_effective.enabled: platforms provision the public zone, external-dns
-  # and the DNS-01 identity. dns.public_zone: false keeps public_domain as a hostname only.
+  # dns.public_zone false uses public_domain as a hostname with no zone.
   - name: dns_zone_effective
     value:
       enabled: "${(dns.public_domain ?? '') != '' && (dns.public_zone ?? true) == true}"
-  # driver: the server that holds the public zone. cloud is the platform's own zone service.
+  # cloud is the platform's own DNS service.
   - name: dns_zone_effective
     value:
       driver: "${dns.public.driver ?? (platform in ['aws', 'azure', 'gcp', 'hetzner'] ? 'cloud' : 'none')}"
-  # certificate_only: the cloudflare driver without dns.public_domain.
   - name: dns_zone_effective
     value:
       certificate_only: "${dns_zone_effective.driver == 'cloudflare' && (dns.public_domain ?? '') == ''}"
@@ -291,16 +258,18 @@ config:
       cloud: "${dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloud'}"
       cloudflare: "${(dns_zone_effective.enabled == true && dns_zone_effective.driver == 'cloudflare') || dns_zone_effective.certificate_only == true}"
 
-  # ClusterIssuer each gateway certificate uses, inferred unless gateway.<name>.tls.issuer overrides it.
   - name: tls_effective
     value:
       public_zone_writable: "${dns_zone_effective.cloud == true || dns_zone_effective.cloudflare == true}"
       private_subdomain: "${(dns.public_domain ?? '') != '' && hasSuffix(dns.private_domain ?? '', '.' + dns.public_domain)}"
       internal_acme: "${(pki.acme.server ?? '') != ''}"
+      # gateway.<name>.tls.issuer overrides the inferred issuer.
       external_override: "${gateway.external.tls.issuer ?? ((pki.public_issuer ?? '') == 'selfsigned' ? 'selfsigned' : '')}"
       internal_override: "${gateway.internal.tls.issuer ?? ''}"
   - name: tls_effective
     value:
+      # Resolves to the override, else public-acme with a writable zone, else private-acme,
+      # else private behind a tunnel, else public-selfsigned.
       external_issuer: >-
         ${tls_effective.external_override == 'selfsigned' ? 'public-selfsigned' :
         (tls_effective.external_override == 'ca' ? 'private' :
@@ -308,6 +277,8 @@ config:
         (tls_effective.internal_acme == true ? 'private-acme' :
         (tls_effective.external_override == 'acme' ? 'public-acme' :
         ((tunnel.driver ?? '') != '' ? 'private' : 'public-selfsigned')))))}
+      # Resolves to the override, else private-acme, else public-acme for a subdomain of a cloud
+      # zone or with certificate_only, else private.
       internal_issuer: >-
         ${tls_effective.internal_override == 'selfsigned' ? 'public-selfsigned' :
         (tls_effective.internal_override == 'ca' ? 'private' :
@@ -315,7 +286,7 @@ config:
         (tls_effective.private_subdomain == true && dns_zone_effective.cloud == true ? 'public-acme' :
         (dns_zone_effective.certificate_only == true ? 'public-acme' :
         (tls_effective.internal_override == 'acme' ? 'public-acme' : 'private')))))}
-  # Which ClusterIssuers some gateway domain needs.
+  # Issuers that at least one gateway domain uses.
   - name: tls_effective
     value:
       public_acme: >-
@@ -328,17 +299,15 @@ config:
         ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-selfsigned') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-selfsigned')}
 
-  # Resolvers for cert-manager DNS-01 propagation checks; empty keeps the cluster resolver.
+  # pki.dns01_resolvers, else public resolvers when public-acme serves dns.private_domain or a
+  # workstation. Empty uses the cluster resolver.
   - name: dns01_resolvers_effective
     value: >-
       ${pki.dns01_resolvers != null ? join(pki.dns01_resolvers, ',') :
       (((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme') ||
       (tls_effective.public_acme == true && workstation.runtime != '') ? '1.1.1.1:53,8.8.8.8:53' : '')}
 
-  # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
-  # on docker only when a workstation runtime is set (bare `platform: docker`
-  # is a test scaffold). talos_enabled/eks_enabled: driver-specific gates.
-  # talos_provisioned: talos_enabled and actually provisioned.
+  # False with cluster.enabled false, and on docker without a workstation runtime.
   - name: cluster_provisioned
     value: "${(cluster.enabled ?? true) && (platform != 'docker' || (workstation.runtime != null && workstation.runtime != ''))}"
   - name: talos_enabled
@@ -348,8 +317,7 @@ config:
   - name: eks_enabled
     value: "${cluster.driver == 'eks' && (cluster.enabled ?? true)}"
 
-  # Resolve `topology` to a concrete value. Explicit wins; else from
-  # cluster_nodes_effective: 1 node → single-node, 3+ CPs → ha, else multi-node.
+  # single-node for one node, ha with 3 or more control planes, else multi-node.
   - name: topology
     value: >-
       ${
@@ -361,30 +329,22 @@ config:
         )
       }
 
-  # Network defaults for downstream facets. Each entry is when:-guarded rather
-  # than self-referencing `${network.X ?? default}`: unevaluated block bodies
-  # can leak the literal template to an earlier-evaluating facet, so the
-  # when-form avoids the self-reference while still computing over other inputs.
+  # Set with when: since a self-referencing default leaks the raw template to other facets.
   - name: network
     when: (network.cidr_block ?? '') == ''
     value:
       cidr_block: '10.5.0.0/16'
 
-  # Telemetry driver. metrics/logs: independent gates, both default on.
-  # observability forces both on. logs.driver: 'fluentd' (default),
-  # 'none' (shipper only, no aggregator), or 'elasticsearch' (via
-  # the observability facet); coerced to 'none' when the logs pipeline is off.
   - name: telemetry
     value:
       metrics:
         enabled: ${telemetry.metrics.enabled ?? true}
       logs:
         enabled: ${telemetry.logs.enabled ?? true}
+        # fluentd by default. none runs fluent-bit with no aggregator.
         driver: "${telemetry.logs.driver ?? 'fluentd'}"
 
-  # Single source of truth for the alerts resources.components list, so
-  # addon-observability's telemetry override doesn't duplicate it. One line
-  # per system, same convention as the resources.components lists below.
+  # Prometheus alert rule components. addon-observability reuses this list.
   - name: telemetry
     when: (telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true)
     value:
@@ -400,15 +360,13 @@ config:
         - "${database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
         - "${database.postgres.cloud.enabled == true && (database_effective.cloud_driver == 'rds' || database_effective.cloud_driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
 
-  # No logs pipeline → nothing to aggregate.
   - name: telemetry
     when: telemetry.logs.enabled == false
     value:
       logs:
         driver: none
 
-  # metrics-server, default-on. Managed-K8s platforms that ship it built-in
-  # (AKS, future GKE) override to false to avoid two instances on one APIService.
+  # Platforms with a built-in metrics-server set this to false.
   - name: telemetry
     value:
       metrics_server_enabled: true
@@ -417,39 +375,30 @@ config:
   - name: chart_registry
     value: "${(charts.registry ?? '') != '' ? 'oci://' + trimSuffix(trimPrefix(trimPrefix(charts.registry, 'oci://'), 'http://'), '/') : ''}"
 
-  # True when the chart registry serves plain HTTP: an http:// scheme or a workstation registry.
+  # True for an http:// registry or the workstation registry, which serves plain HTTP.
   - name: chart_registry_insecure
     value: "${(charts.registry ?? '') startsWith 'http://' || (workstation_chart_registry.key ?? '') != ''}"
 
-  # chart_registry for the Terraform-installed charts, empty for a plain-HTTP registry.
+  # Terraform uses the vendor chart URLs when the registry is insecure.
   - name: terraform_chart_registry
     value: "${chart_registry_insecure ? '' : chart_registry}"
 
+# Substitutions
 # =============================================================================
-# Global substitutions
-# =============================================================================
-# Variables exposed to every kustomization's postBuild via Flux substitution.
-# Declared here because they're consumed cross-cutting (HTTPRoutes, certs,
-# external-dns). Add only truly cross-cutting values; else per-kustomization.
+# Single-use values go on the kustomization instead.
 substitutions:
-  # FQDN suffix for cluster-local resources (grafana.test), resolved by CoreDNS.
   private_domain: ${dns.private_domain}
 
-  # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
 
-  # Empty without charts.registry, so each chart source keeps its vendor URL.
+  # Empty means each chart source uses its vendor URL.
   chart_registry: "${chart_registry}"
 
-  # Chart sources skip TLS when the chart registry serves plain HTTP.
   chart_registry_insecure: "${chart_registry_insecure}"
 
+# CRDs
 # =============================================================================
-# CRDs — vendored, applied ahead of the controller
-# =============================================================================
-# cert-manager, prometheus-operator, fluent-operator CRDs vendored under
-# kustomize/crds/, applied before the controllers (charts run CRD-install off).
-# Every kustomization auto-depends on this layer.
+# Vendored under kustomize/crds. The charts install with CRDs off.
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
   - cert-manager-1.21.3
@@ -458,33 +407,23 @@ crds:
   # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
   - "${telemetry.logs.enabled ? 'fluent-operator-4.3.0' : ''}"
 
+# Terraform
 # =============================================================================
-# Kustomize — base cluster resources
-# =============================================================================
-# =============================================================================
-# Terraform — shared gitops inputs
-# =============================================================================
-# Each platform facet declares its own `gitops` block; Windsor merges inputs,
-# so setting mode here applies everywhere. Pull mode drops notification-
-# controller and the webhook token secret.
 terraform:
   - name: gitops
     path: gitops/flux
     inputs:
       mode: ${gitops.mode ?? 'push'}
-      # topology: ha runs a standby replica of each default controller so
-      # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
       chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
-  # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
+  # Cluster CA for workload certificates and Talos apiserver OIDC trust.
   - name: pki
     path: pki/ca
     inputs:
       cert: ${pki.ca.cert ?? pki.private_ca.cert ?? ''}
       key: ${pki.ca.key ?? pki.private_ca.key ?? ''}
 
-  # Kubernetes backend state namespace, after the cluster that holds it.
   - name: backend
     path: backend/kubernetes
     when: backend_effective.kubernetes == true
@@ -495,14 +434,8 @@ terraform:
       config_path: "${terraform.backend.kubernetes.config_path ?? ''}"
       config_context: "${terraform.backend.kubernetes.config_context ?? ''}"
 
+# Flux
 # =============================================================================
-# Flux systems — policy, telemetry, pki (install/resources tier split)
-# =============================================================================
-# resources implicitly dependsOn install. policy: Kyverno controller + cluster
-# policies (globalDependency — every workload implicitly waits on its resources
-# tier; toggle via policies.*). telemetry: operators + metrics-server/
-# scrape/filters; addon-observability replaces it for the Elasticsearch driver.
-# pki: cert-manager; resources empty here (platform/addon facets add issuers).
 flux:
   - name: policy
     when: (policies.enabled ?? true) == true
@@ -531,7 +464,7 @@ flux:
         interval: 5m
         retryInterval: 1m
 
-  # kube-vip or MetalLB, excluded on docker-desktop, which has no routable node network.
+  # In-cluster load balancer, kube-vip or MetalLB.
   - name: lb
     when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
     install:
@@ -549,10 +482,12 @@ flux:
     resources:
       - components:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          # MetalLB address for the internal gateway when it has a fixed IP.
           - >-
             ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal_enabled == true &&
             gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
+          # MetalLB address for the external gateway when it has a fixed IP.
           - >-
             ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.external_enabled == true &&
             gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
@@ -564,10 +499,11 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # csi-install before telemetry-install: Prometheus's PVC needs a live storage
-  # driver, both to bind on install and to release its finalizer on destroy.
+  # Prometheus, fluent-bit and metrics-server.
+  # addon-observability replaces this system for the elasticsearch driver.
   - name: telemetry
     when: telemetry.metrics.enabled || telemetry.logs.enabled
+    # Prometheus's PVC requires the CSI driver on Talos with openebs or longhorn.
     dependsOn:
       - "${cluster.driver == 'talos' && (talos_common.storage_driver == 'openebs' || talos_common.storage_driver == 'longhorn') ? 'csi-install' : ''}"
     install:
@@ -596,35 +532,24 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # Slack alert routing substitutions, present only with the Slack component.
   - name: telemetry
     when: (telemetry.metrics.enabled ?? true) && (telemetry.alerts.slack.webhook_url ?? '') != ''
     resources:
       - substitutions:
-          # Only two severities exist in the enum, so "2 or more selected"
-          # and "both" are equivalent -- no join() needed for this bounded case.
-          #
-          # slack_channel bakes in its own quotes: kustomize strips
-          # "unnecessary" quotes around a bare ${token}, and an unquoted
-          # value starting with "#" gets parsed as a YAML comment after
-          # Flux's substitution.
+          # Quoted, since kustomize strips the quotes and a bare # channel parses as a YAML comment.
           slack_channel: "\"${telemetry.alerts.slack.channel ?? '#alerts'}\""
+          # warning|critical for both severities, else the one listed.
           severity_regex: >-
             ${len(telemetry.alerts.slack.severity ?? ['warning', 'critical']) >= 2
               ? 'warning|critical'
               : (telemetry.alerts.slack.severity ?? ['warning', 'critical'])[0]}
-          # Base URL for the alert's Grafana links. Explicit override wins; else
-          # derive from the domain the Grafana route publishes on (public_domain
-          # when set, else private_domain).
+          # telemetry.alerts.grafana_url, else grafana.<public_domain>, else grafana.<private_domain>.
           grafana_base_url: >-
             ${telemetry.alerts.grafana_url
               ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
                     ? (dns.private_domain ?? '')
                     : dns.public_domain))}
 
-  # Slack alert routing secret. Gated on a configured webhook so the bare
-  # sensitive reference (the composer rejects a ?? fallback, the materializer
-  # rejects an empty non-optional value) always resolves against a real value.
   - name: telemetry
     when: (telemetry.alerts.slack.webhook_url ?? '') != ''
     secrets:
@@ -632,9 +557,8 @@ flux:
         data:
           url: ${telemetry.alerts.slack.webhook_url}
 
-  # Depends on telemetry-install so cert-manager's ServiceMonitor has a
-  # working Prometheus target from the moment it's created.
   - name: pki
+    # cert-manager's ServiceMonitor requires Prometheus.
     dependsOn:
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
@@ -655,14 +579,12 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # Resolver list, present only with the cert-manager/public-resolvers component.
   - name: pki
     when: dns01_resolvers_effective != ''
     install:
       substitutions:
         dns01_resolvers: "${dns01_resolvers_effective}"
 
-  # Private ACME issuer settings, present only with the private-issuer/acme component.
   - name: pki
     when: tls_effective.private_acme == true
     resources:
@@ -670,25 +592,22 @@ flux:
           private_acme_server: "${pki.acme.server ?? ''}"
           private_acme_email: "${email ?? ''}"
 
-  # EAB key ID, present only with the private-issuer/acme/eab component.
   - name: pki
     when: tls_effective.private_acme == true && (pki.acme.eab.key_id ?? '') != ''
     resources:
       - substitutions:
           private_acme_eab_key_id: "${pki.acme.eab.key_id}"
 
-  # CA bundle, present only with the private-issuer/acme/ca-bundle component.
   - name: pki
     when: tls_effective.private_acme == true && (pki.acme.ca_bundle ?? '') != ''
     resources:
       - substitutions:
-          # An expression value such as secret() is wrapped in toBase64 and resolved at apply.
+          # Base64 of pki.acme.ca_bundle. A ${...} value such as secret() is wrapped in toBase64.
           private_acme_ca_bundle: >-
             ${hasPrefix(pki.acme.ca_bundle, '${') && hasSuffix(pki.acme.ca_bundle, '}') ?
             '${toBase64(' + pki.acme.ca_bundle[2:len(pki.acme.ca_bundle) - 1] + ')}' :
             toBase64(pki.acme.ca_bundle)}
 
-  # EAB HMAC key for the private-acme ClusterIssuer.
   - name: pki
     when: tls_effective.private_acme == true && (pki.acme.eab.hmac_key ?? '') != ''
     secrets:
@@ -697,13 +616,8 @@ flux:
         data:
           hmac-key: ${pki.acme.eab.hmac_key}
 
-  # Central FluentD aggregator. Runs in the observability namespace (where
-  # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
-  # disabled entirely) or when logs_driver='elasticsearch' (filebeat → ES
-  # replaces the fluentbit→fluentd path; see the observability facet).
-  #
-  # The log-level filter is attached unless log_level='trace' (trace wants
-  # every log, unfiltered).
+  # fluentd log aggregator, in the observability namespace where fluent-operator has RBAC.
+  # Off with observability.logs_driver elasticsearch, which uses filebeat.
   - name: observability
     when: telemetry.logs.driver == 'fluentd' && (observability.logs_driver ?? '') != 'elasticsearch'
     dependsOn:
@@ -711,7 +625,7 @@ flux:
     install:
       components:
         - fluentd
-        # RBAC for the Kyverno mutation fluentd's ClusterPolicy needs; skip when policies are off.
+        # RBAC for the Kyverno mutation in fluentd's ClusterPolicy.
         - "${(policies.enabled ?? true) == true ? 'fluentd/kyverno-inject' : ''}"
       timeout: 15m
       interval: 10m
@@ -723,20 +637,16 @@ flux:
           - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
           - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
-  # GitOps webhook — push-driven Flux reconciliation, resources-only (onto the
-  # terraform-bootstrapped Flux). With a gateway, adds the port-80 HTTPRoute and
-  # waits for gateway-resources, since the HTTPRoute parents to the Gateway
-  # object created there, not the controller in gateway-install. push emits,
-  # pull skips the system.
+  # Flux receiver webhook for push mode.
   - name: gitops
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
+    # The webhook HTTPRoute attaches to the internal Gateway.
     dependsOn:
       - "${gateway.enabled == true && gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
     resources:
       - components:
           - webhook
-          # The webhook route binds to the internal gateway.
           - "${gateway.enabled == true && gateway_effective.internal == true ? 'webhook/gateway' : ''}"
           - "${gateway.enabled == true && gateway_effective.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
@@ -744,13 +654,7 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # Flux Operator web UI — opt-in (gitops.web_ui) HTTPRoute at flux.<domain>
-  # when a gateway is present. Merges into the gitops system above (same
-  # path, own when:) rather than its own name, so the two share one
-  # gitops-resources Kustomization instead of two both watching gitops/.
-  # Resources-only; cilium adds a gateway-reach CNP. Waits for
-  # gateway-resources (the HTTPRoute parents to the Gateway object created
-  # there), not gateway-install.
+  # Flux web UI on the private gateway.
   - name: gitops
     path: gitops
     when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.private.name != ''
@@ -766,11 +670,10 @@ flux:
         timeout: 5m
         interval: 5m
 
-# =============================================================================
-# Messages — post-run notes printed on bootstrap
+# Messages
 # =============================================================================
 messages:
-  # Only the cloud platforms provision a dns-zone to delegate.
+  # NS records to delegate, on platforms that provision a dns-zone.
   - when: >-
       dns_zone_effective.enabled == true &&
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&

@@ -4,9 +4,10 @@ metadata:
   name: hyperv
   description: Hyper-V compute platform infrastructure
 
-# Talos-only. Connection details come from HYPERV_* env vars; no workstation overlay.
 when: "platform == 'hyperv' && cluster.driver == 'talos'"
 
+# Requires
+# =============================================================================
 requires:
   - when: cluster.vip == true && (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     message: With both Hyper-V gateways on NodePort, the API is reached through the host's address, so cluster.vip does not apply.
@@ -27,23 +28,17 @@ requires:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
-# =============================================================================
-# Config — Hyper-V-specific Talos values
+# Config
 # =============================================================================
 config:
 
-  # nat: both gateways are NodePort, which puts the VMs behind a NAT switch.
+  # True with both gateways on NodePort, which puts the VMs behind a NAT switch.
   - name: hyperv_effective
     value:
       nat: >-
         ${(gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
         (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'}
 
-  # nocloud CIDATA schematic. hyperv-guest-agent runs hv_kvp_daemon so the guest
-  # reports its IP through integration services; DHCP discovery needs it.
-  # Recompute: curl -X POST -H 'Content-Type: application/yaml' \
-  #   -d $'customization:\n  extraKernelArgs:\n    - talos.platform=nocloud\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/hyperv-guest-agent\n' \
-  #   https://factory.talos.dev/schematics
   - name: hyperv_effective
     value:
       switch_type: "${len(hyperv.net_adapter ?? []) > 0 ? 'External' : 'Internal'}"
@@ -51,20 +46,19 @@ config:
       name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       vhd_dir: "${(hyperv.base_dir ?? 'C:/hyperv') + '/vhds'}"
       images_dir: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images'}"
+      # nocloud schematic with hyperv-guest-agent, whose hv_kvp_daemon reports the guest IP for DHCP.
+      # Recompute: curl -X POST -H 'Content-Type: application/yaml' \
+      #   -d $'customization:\n  extraKernelArgs:\n    - talos.platform=nocloud\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/hyperv-guest-agent\n' \
+      #   https://factory.talos.dev/schematics
       talos_schematic_id: "a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b"
       image_destination: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images/talos-' + talos.talos_version + '-metal-amd64' + ((id ?? '') != '' ? '-' + id : '') + '.iso'}"
       image_url: "${'https://factory.talos.dev/image/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b/v' + talos.talos_version + '/metal-amd64.iso'}"
       dhcp: ${network.dhcp == true && hyperv_effective.nat != true}
-      # True when the compute step signs machineconfigs into the CIDATA seed.
+      # The machine config is baked into the seed unless the VM uses DHCP without cluster.endpoint.
       bake_machineconfig: ${(cluster.endpoint ?? '') != '' || network.dhcp != true || hyperv_effective.nat == true}
 
-  # Network gateway and nameserver defaults for the CIDATA seed. Written only
-  # when unset; see platform-base.yaml "Network defaults" for the pattern.
-  #
-  # Every network.cidr_block read below repeats `?? '10.5.0.0/16'`: neither the
-  # schema default nor platform-base's when:-gated default reaches these
-  # expressions yet, so an unguarded read fails composition with
-  # "cidrhost() ... got <nil>" whenever cidr_block is unset.
+  # Static addressing defaults to the .1 gateway and public nameservers.
+  # Each cidr_block read repeats ?? '10.5.0.0/16', since the base default isn't visible to these expressions.
   - name: network
     when: (network.gateway ?? '') == '' && hyperv_effective.dhcp != true
     value:
@@ -74,17 +68,13 @@ config:
     value:
       nameservers: ['1.1.1.1', '8.8.8.8']
 
-  # Default the CNI to Talos's built-in flannel (platform-base would default
-  # talos to cilium). Operators can still opt into cilium via cluster.cni.driver.
+  # flannel unless set by cluster.cni.driver.
   - name: cluster
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
-  # NodePort mode: move VMs onto a private NetNat subnet and publish cluster
-  # ports on the bench LAN IP (kernel forwards into the VM). CIDR/gateway are
-  # overridden to the NAT-internal subnet so per-node static IPs line up.
-  # bench_ip derives from cluster.endpoint, required in NodePort mode.
+  # In NAT mode, the VMs sit on a private NetNat subnet and ports publish on the bench IP.
   - name: hyperv_effective
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     requires:
@@ -94,39 +84,32 @@ config:
     value:
       switch_type: NAT
       nat_name: "windsor-${id ?? 'hyperv'}"
-      # Derived from network.cidr_block, interpreted here as the NAT private
-      # subnet. Override via values.yaml if it conflicts with another bench subnet.
+      # In NAT mode, network.cidr_block is the NAT private subnet.
       nat_internal_prefix: "${network.cidr_block ?? '10.5.0.0/16'}"
       nat_prefix_length: "${split(network.cidr_block ?? '10.5.0.0/16', '/')[1]}"
       nat_host_address: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+      # The host of cluster.endpoint.
       bench_ip: "${(cluster.endpoint ?? '') != '' ? split(split(cluster.endpoint, '://')[1], ':')[0] : ''}"
 
-  # Point each node's default route at the NAT host vNIC (the only address
-  # reachable from inside the NAT subnet), overriding any bench-LAN gateway.
+  # The VMs' gateway is the NAT host vNIC at .1.
   - name: network
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
 
-  # Per-VM derivation lists (NodePort): each node is individually addressable
-  # via a distinct bench-side port forward, all derived from count.
-  # NAT-subnet IPs: controlplane-N → .(10+N-1), worker-N → .(20+N-1).
-  # Talos API forwards: cp-N → bench:(40000+N-1), worker-N → bench:(40100+N-1),
-  # both → :50000 in-VM. Base 40000 stays below Windows' 49152 dynamic-port
-  # floor (Add-NetNatStaticMapping rejects above it); disjoint 100-port ranges
-  # keep growing one role from renumbering the other's saved NAT mappings.
-  # Each entry has two forms: for_config {hostname,node,address} bakes the
-  # static IP into CIDATA seeds; for_cluster {hostname,node,endpoint} gives
-  # talosctl a bench-side host:port to reach each node.
+  # In NAT mode, control planes are at .10+ and workers at .20+.
   - name: hyperv_controlplanes
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
+      # Addresses for the CIDATA seed.
       for_config: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["hostname", "controlplane-" + string(#)],
           ["node", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #)],
           ["address", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #) + "/" + hyperv_effective.nat_prefix_length]
         ]))}
+      # Endpoints for talosctl at bench:40000+, each forwarded to :50000 in the VM.
+      # 40000 stays below the Windows dynamic port range, which Add-NetNatStaticMapping rejects.
       for_cluster: >-
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["hostname", "controlplane-" + string(#)],
@@ -137,12 +120,14 @@ config:
   - name: hyperv_workers
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
+      # Addresses for the CIDATA seed.
       for_config: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count ?? 0), fromPairs([
           ["hostname", "worker-" + string(#)],
           ["node", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #)],
           ["address", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #) + "/" + hyperv_effective.nat_prefix_length]
         ]))}
+      # Endpoints at bench:40100+, so a new worker doesn't renumber the control plane forwards.
       for_cluster: >-
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count ?? 0), fromPairs([
           ["hostname", "worker-" + string(#)],
@@ -150,29 +135,31 @@ config:
           ["endpoint", hyperv_effective.bench_ip + ":" + string(40099 + #)]
         ]))}
 
-  # Inputs to the NAT forward maps: the VMs, and the in-cluster ports published as-is.
+  # In NAT mode, the node endpoints and the gateway NodePorts to publish on the bench IP.
   - name: nat_effective
     when: >-
       (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
       (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       nodes: ${concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster)}
-      # Each envoy gateway's HTTP and HTTPS node ports, when its domain is set.
+      # Internal gateway NodePorts, with Envoy and dns.private_domain.
       internal_ports: >-
         ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
         (dns.private_domain ?? "") != "" ?
         [gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port] : []}
+      # External gateway NodePorts, with Envoy and dns.public_domain.
       external_ports: >-
         ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
         (dns.public_domain ?? "") != "" ?
         [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port] : []}
 
-  # Bench listen port to in-VM port. Each node's Talos API forward targets that node.
   - name: nat_effective
     when: >-
       (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
       (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
+      # Host forwards for 6443, the 30292 webhook in push mode, the gateway NodePorts,
+      # and each node's Talos API port to :50000.
       tcp_forwards: >-
         ${fromPairs(concat(
           map(concat(
@@ -183,12 +170,11 @@ config:
           ), [string(#), #]),
           map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], 50000])
         ))}
+      # Each Talos API forward port, mapped to its node's NAT IP.
       talos_api_targets: >-
         ${fromPairs(map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], get(#, "node")]))}
 
-  # Flat compute instance list, one entry per VM (count=1). Needed because
-  # cidata_iso_path is per-VM, so the module's count expansion (shared ISO)
-  # can't be used. cpu/memory/root_disk_size still come from cluster.* pools.
+  # One compute instance per VM, since each VM has its own CIDATA seed ISO.
   - name: hyperv_compute_instances
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
@@ -226,9 +212,8 @@ config:
           ]))
         )}
 
-  # Guest IPv4 and MAC per LAN control plane from cluster.controlplanes.nodes.
-  # The name comes from the pool position, never nodes[].hostname:
-  # it keys the VM, its VHDX and its seed, which renaming would replace.
+  # In switch mode, nodes are named by pool position, with static IPs unless DHCP.
+  # The name keys the VM, its VHDX and its seed.
   - name: hyperv_controlplanes
     when: "!((gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort')"
     value:
@@ -239,8 +224,6 @@ config:
           ["mac_address", cluster_node_addresses.controlplanes[# - 1].mac_address]
         ]))}
 
-  # Guest IPv4 and MAC per LAN worker from cluster.workers.nodes.
-  # Named by pool position, like the control planes.
   - name: hyperv_workers
     when: "!((gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort')"
     value:
@@ -251,6 +234,7 @@ config:
           ["mac_address", cluster_node_addresses.workers[# - 1].mac_address]
         ]))}
 
+  # One compute instance per switch-mode node.
   - name: hyperv_compute_instances
     when: "!((gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort')"
     value:
@@ -290,8 +274,7 @@ config:
           ]))
         )}
 
-  # Talos installs from the stock installer unless told otherwise, dropping the
-  # schematic's hv_kvp_daemon once the node boots from disk.
+  # The installer image from the same schematic, so hv_kvp_daemon survives the boot from disk.
   - name: talos_common
     value:
       common_patch:
@@ -299,9 +282,7 @@ config:
           install:
             image: "${'factory.talos.dev/installer/' + hyperv_effective.talos_schematic_id + ':v' + talos.talos_version}"
 
-  # NodePort certSANs: workstations reach both APIs at the bench external IP,
-  # but Talos auto-derives SANs only from NAT-internal addresses. Add the bench
-  # IP to both certSANs lists so talosctl + kubectl pass TLS verification.
+  # In NAT mode, the bench IP is added to the Talos and apiserver certSANs.
   - name: talos_common
     when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
@@ -314,10 +295,7 @@ config:
             certSANs:
               - "${hyperv_effective.bench_ip}"
 
-  # dns.private_domain default — the gateway cert needs a non-empty SAN or
-  # cert-manager rejects it. Ordered fallback written only when unset (guards
-  # mutually exclusive): dns.domain when set, else '<id>.local'. Empty-string
-  # check because platform-base may have already resolved it to ''.
+  # dns.private_domain falls back to dns.domain, then <id>.local, since the gateway certificate requires a SAN.
   - name: dns
     when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') != ''
     value:
@@ -327,8 +305,7 @@ config:
     value:
       private_domain: "${(id ?? 'windsor') + '.local'}"
 
-  # Derive the endpoint from compute's controlplane output once Hyper-V surfaces
-  # a guest IP; empty until then (callers fall back to explicit cluster.endpoint).
+  # https://<first compute control plane host>:6443, or empty until Hyper-V reports a guest IP.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -339,6 +316,8 @@ config:
             : ""
         }
 
+  # Compute's nodes, else the NAT endpoints, else declared nodes unless DHCP.
+  # Reduced to the node and endpoint fields.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -357,19 +336,14 @@ config:
                 : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : []))),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
+# Terraform
 # =============================================================================
-# Terraform — compute → cluster → gitops
-# =============================================================================
-# No workstation overlays on Hyper-V, so this facet owns the full chain.
 terraform:
 
-  # compute — Talos VMs on a Hyper-V virtual switch. Each VM gets a fresh
-  # dynamic VHDX, the metal-amd64.iso on DVD slot 1, and its CIDATA seed on
-  # slot 2. Boot is HDD-first: UEFI falls through to the ISO on a fresh disk,
-  # then boots from disk once installed. CIDATA stays attached (NoCloud reader
-  # is idempotent). Machine secrets and per-node machineconfigs are generated
-  # inside this module; it exports machine_secrets and client_configuration
-  # for the cluster step.
+  # Each VM has a dynamic VHDX, metal-amd64.iso on DVD slot 1, and its CIDATA seed on slot 2.
+  # Boot is HDD-first, so a fresh disk falls through to the ISO.
+  # The module generates machine secrets and per-node machineconfigs.
+  # Connects to Hyper-V through the HYPERV_* environment variables.
   - name: compute
     path: compute/hyperv
     dependsOn:
@@ -380,24 +354,22 @@ terraform:
       switch_type: ${hyperv_effective.switch_type}
       net_adapter_names: ${hyperv_effective.net_adapter}
       force_management_os_migration: ${hyperv.force_management_os_migration ?? false}
-      # NAT-only inputs — null otherwise (compute ignores them when not NAT).
       nat_name: "${hyperv_effective.switch_type == 'NAT' ? hyperv_effective.nat_name : null}"
       nat_internal_address_prefix: "${hyperv_effective.switch_type == 'NAT' ? hyperv_effective.nat_internal_prefix : null}"
       nat_host_address: "${hyperv_effective.switch_type == 'NAT' ? hyperv_effective.nat_host_address : null}"
-      # nat_effective.tcp_forwards is the always-on baseline (k8s/Talos APIs,
-      # gateway NodePorts); gateway.publish_ports layers operator-pinned ports.
       port_forwards: "${hyperv_effective.nat == true ? nat_effective.tcp_forwards : {}}"
       extra_port_forwards: "${hyperv_effective.nat == true ? (gateway.publish_ports ?? {}) : {}}"
-      # Default target = cp-1; per-port overrides redirect each Talos API
-      # forward (40000+i) to its own node.
+      # Forwards target controlplane-1 at .10 unless overridden per port below.
       port_forward_target_ip: "${hyperv_effective.nat == true ? cidrhost(hyperv_effective.nat_internal_prefix, 10) : null}"
       port_forward_target_overrides: "${hyperv_effective.nat == true ? nat_effective.talos_api_targets : {}}"
-      # 0.0.0.0 = any host NIC. Pinning a bench IP would need
-      # Add-NetNatExternalAddress first; identical on a single-LAN-NIC bench.
+      # 0.0.0.0 binds every host NIC.
+      # Pinning an IP requires Add-NetNatExternalAddress.
       port_forward_external_ip: "0.0.0.0"
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       cluster_name: talos
+      # cluster.endpoint, else the first control plane: .10 in NAT mode, its static IP otherwise.
+      # Empty with DHCP.
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (hyperv_effective.dhcp ? '' : ('https://' + (hyperv_effective.nat == true ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) : hyperv_controlplanes.nodes[0].ipv4) + ':6443'))}"
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
@@ -428,16 +400,11 @@ terraform:
       - compute
     parallelism: 1
     inputs:
-      # Prefer the schema-declared cluster.endpoint; the compute-derived
-      # fallback carries the leased IP once the guest reports it.
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
-      # Length-check compute output (empty until the guest reports an IP) and
-      # fall through to schema-declared nodes.
-      # In NodePort+NAT, compute's NAT-internal endpoints are unreachable from
-      # the runner, so use for_cluster (bench-side host:port routing to each VM).
+      # The bench IP endpoints in NAT mode. Otherwise compute's nodes, else declared nodes unless DHCP.
       controlplanes: "${hyperv_effective.nat == true ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null)))}"
       workers: "${hyperv_effective.nat == true ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])))}"
       common_config_patches: ${talos_common.common_config_patches}
@@ -445,11 +412,8 @@ terraform:
       worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-      # Shared identity from compute. skip_machine_config_apply follows
-      # bake_machineconfig rather than machine_secrets presence, since DHCP
-      # guests get an identity but no baked config until cluster/talos applies
-      # one. Bootstrap, kubeconfig download, and health-check still run here.
       machine_secrets: ${terraform_output("compute", "machine_secrets")}
+      # True when compute baked the machine config into the seed.
       skip_machine_config_apply: ${hyperv_effective.bake_machineconfig}
       client_configuration: ${terraform_output("compute", "client_configuration")}
 
@@ -458,5 +422,6 @@ terraform:
     dependsOn:
       - cluster
     inputs:
+      # Half the smaller of control plane CPU and memory, clamped to 4-10.
       concurrency: ${max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
     destroy: false

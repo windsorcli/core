@@ -6,14 +6,13 @@ metadata:
 
 when: object_store.enabled == true
 
+# Flux
 # =============================================================================
-# Flux systems — object storage driver (MinIO)
-# =============================================================================
-# `object_store.driver` selects the backend; only MinIO is wired up.
-# Operator manages Tenant CRs but creates none (see kustomize/object-store/README.md).
+# object_store.driver selects the backend. Only MinIO is wired up.
+# The operator manages Tenant CRs but creates none.
 flux:
 
-  # MinIO depends on csi for PVC-backed storage.
+  # MinIO operator. Its PVCs require the CSI driver.
   - name: object-store
     when: object_store.driver == 'minio'
     dependsOn:
