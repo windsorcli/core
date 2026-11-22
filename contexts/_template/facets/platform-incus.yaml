@@ -4,11 +4,10 @@ metadata:
   name: incus
   description: Incus compute platform infrastructure
 
-# Incus requires Talos. Without workstation, this facet owns the full terraform
-# chain; with workstation, option-workstation owns compute/cluster and this
-# facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
+# Requires
+# =============================================================================
 requires:
   - when: (workstation.runtime ?? '') == '' && incus.host == true && (incus.storage_pool ?? 'local') == 'local'
     message: With incus.host set to true, set incus.storage_pool to a pool other than local, such as nvme.
@@ -39,37 +38,34 @@ requires:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
-# =============================================================================
-# Config — Incus-specific Talos values
+# Config
 # =============================================================================
 config:
 
-  # Remote, cluster members, LAN bridge, shared pool, and LAN guest network for the standalone compute step.
   - name: incus_effective
     value:
       remote: ${incus.remote ?? null}
       targets: ${incus.targets ?? []}
+      # Empty in nat mode, where compute creates its own network.
       network: "${(incus.network ?? 'lan') == 'nat' ? '' : (incus.network ?? 'lan')}"
       bridges: ${incus.bridges ?? {}}
       lan: ${(incus.network ?? 'lan') != 'nat'}
       storage_pool: "${incus.storage_pool ?? 'local'}"
       host: ${(workstation.runtime ?? '') == '' && incus.host == true}
+      # /nocloud images in LAN mode, which configure the network through cloud-init.
       image_suffix: "${(incus.network ?? 'lan') != 'nat' ? '/nocloud' : ''}"
       gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
       nameservers: "${network.nameservers ?? ['1.1.1.1', '8.8.8.8']}"
 
-  # openebs is the default storage: Incus's Talos image has no extensions mechanism
-  # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
-  # be met here.
   - name: talos_common
     value:
+      # openebs by default, since the Incus Talos image has no iscsi-tools extension for longhorn.
       storage_driver: "${cluster.storage.driver ?? 'openebs'}"
       longhorn_default_disk:
         - name: longhorn
           size: 30
 
-  # Derivable only from compute output; empty string otherwise, so the caller
-  # falls back to an explicit cluster.endpoint.
+  # https://<first compute control plane host>:6443, or empty before compute has outputs.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -80,8 +76,7 @@ config:
             : ""
         }
 
-  # Node targets for post-cluster steps (e.g. extensions), using the same
-  # compute-output-or-fallback resolution as the `cluster` step.
+  # Compute's nodes, else declared nodes, reduced to the node and endpoint fields.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -97,7 +92,7 @@ config:
             : (cluster_nodes_effective.workers > 0 ? filter(cluster_node_entries.workers, # != null) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
-  # Incus limits and Talos SKU label per pool.
+  # Incus limits and the TALOSSKU string per role.
   - name: incus_sizes
     value:
       controlplanes:
@@ -115,7 +110,7 @@ config:
           ${string(cluster_resources_effective.workers.cpu) + "CPU-"
             + string(cluster_resources_effective.workers.memory * 1024) + "RAM"}
 
-  # Incus usb and pci devices per pool position, from each node's passthrough entries.
+  # Incus devices for each node's passthrough entries, USB by vendor:product or PCI by address.
   - name: incus_passthrough
     value:
       controlplanes: >-
@@ -129,7 +124,8 @@ config:
             ? {"type": "usb", "properties": {"vendorid": split(#.id ?? ":", ":")[0], "productid": split(#.id ?? ":", ":")[1]}}
             : {"type": "pci", "properties": {"address": #.id ?? ""}}])))}
 
-  # One instance per control plane, addressed from cluster.controlplanes.nodes or by bridge DHCP.
+  # One Incus VM per control plane, placed on its placement, else round-robin over incus.targets.
+  # The IPv4 comes from cluster.controlplanes.nodes, or bridge DHCP.
   - name: incus_controlplanes
     value:
       instances: >-
@@ -161,7 +157,7 @@ config:
           }]
         ]))}
 
-  # One instance per worker, addressed from cluster.workers.nodes or by bridge DHCP.
+  # One Incus VM per worker, placed and addressed like the control planes.
   - name: incus_workers
     value:
       instances: >-
@@ -193,14 +189,12 @@ config:
           }]
         ]))}
 
+# Terraform
 # =============================================================================
-# Terraform — standalone incus (no workstation)
-# =============================================================================
-# With workstation.runtime unset, this facet owns compute → cluster → gitops.
-# With workstation set, option-workstation owns the chain and these are gated off.
+# Compute, cluster and gitops apply without a workstation. With one, option-workstation provides them.
 terraform:
 
-  # Storage pool that every context on the cluster shares.
+  # The storage pool every context on the Incus host shares.
   - name: host
     when: incus_effective.host
     path: host/incus
@@ -209,14 +203,12 @@ terraform:
       storage_pool_name: "${incus_effective.storage_pool}"
     destroy: false
 
-  # Talos VMs on the host bridge in incus.network, or a NAT bridge, with disks on incus.storage_pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
     dependsOn:
       - "${incus_effective.host ? 'host' : ''}"
-    # Serialized: concurrent instance creation triggers concurrent Talos image
-    # fetches, and images.windsorcli.dev rate-limits those (429).
+    # Serial, since images.windsorcli.dev rate-limits concurrent image fetches.
     parallelism: 1
     inputs:
       remote: ${incus_effective.remote}
@@ -236,7 +228,6 @@ terraform:
           driver: null
       instances: ${concat(incus_controlplanes.instances, incus_workers.instances)}
 
-  # Talos bootstrap/apply. Uses compute output when available, else user-supplied nodes.
   - name: cluster
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: cluster/talos
@@ -246,13 +237,15 @@ terraform:
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
-      # LAN guests take their addresses from cloud-init, NAT guests from static DHCP leases.
+      # The VIP interface uses DHCP in nat mode, where guests take static DHCP leases.
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: !incus_effective.lan} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       powercycle_reboot: true
+      # Compute's control planes, else declared nodes.
       controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
+      # Compute's workers, else declared nodes.
       workers: "${terraform_output(\"compute\", \"workers\") ?? (cluster_nodes_effective.workers > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: ${talos_common.controlplane_config_patches}
@@ -260,14 +253,14 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # Flux. destroy: false — cluster teardown removes it; we don't uninstall on `windsor destroy`.
   - name: gitops
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: gitops/flux
     dependsOn:
       - cluster
     inputs:
-      # Floor stays 2 here (other platforms use 4): incus runs the cluster in a
-      # nested VM with slower vCPUs, so higher concurrency floods the apiserver.
+      # Half the smaller of control plane CPU and memory, clamped to 2-10.
+      # The floor is 2, since nested VMs have slow vCPUs.
       concurrency: ${max(2, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
+    # Skipped on destroy, since deleting the cluster removes Flux.
     destroy: false

@@ -6,45 +6,38 @@ metadata:
 
 when: topology == 'single-node'
 
+# Terraform
 # =============================================================================
-# Single-node control-plane hardening
-# =============================================================================
-# On single-node clusters every leader-electing controller elects against
-# itself, each lease a PUT to etcd every ~2s. This disables leader election on
-# the workload controllers whose charts expose a toggle (cert-manager,
-# trust-manager, openebs, cloudnative-pg); kube-controller-manager/scheduler are
-# already handled in config-talos.yaml and Flux via the gitops input below.
+# On a single node, each leader-electing controller renews its lease against itself every ~2s.
+# Leader election is off where a chart or controller allows it.
+# config-talos covers kube-controller-manager and kube-scheduler.
 terraform:
 
-  # Layers onto each platform facet's `gitops` entry; false appends
-  # --enable-leader-election=false to every Flux controller.
+  # Turns off leader election on every Flux controller.
   - name: gitops
     path: gitops/flux
     inputs:
       leader_election: false
 
+# Flux
 # =============================================================================
-# Flux systems — pki install overlay
-# =============================================================================
-# Single-node leader-election toggles per chart; openebs only on that driver,
-# database only when enabled.
 flux:
 
+  # cert-manager and trust-manager without leader election.
   - name: pki
     install:
       components:
         - cert-manager/single-node
         - trust-manager/single-node
 
-  # openebs only; longhorn has its own single-node component in option-storage.
+  # openebs only. option-storage has longhorn's single-node component.
   - name: csi
     when: talos_common.storage_driver == 'openebs'
     install:
       components:
         - openebs/single-node
 
-  # Guard on `enabled`: this is a patch-only component, so without the base
-  # HelmRelease from addon-database flux errors on "no matches for Id".
+  # Only with database.postgres.enabled, since the component patches addon-database's HelmRelease.
   - name: database
     when: database.postgres.enabled == true
     install:

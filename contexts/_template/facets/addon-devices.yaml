@@ -4,6 +4,8 @@ metadata:
   name: devices
   description: Node Feature Discovery labels and device plugins for USB serial devices and Intel GPUs
 
+# Requires
+# =============================================================================
 requires:
   - when: len(devices.gpu.drivers ?? []) > 0 && devices.enabled != true
     message: "devices.gpu.drivers needs devices.enabled: true"
@@ -20,14 +22,18 @@ requires:
   - when: platform == 'incus' && any(devices_effective.passthrough ?? [], (#.id ?? '') == '')
     message: On platform incus, set id on each passthrough entry instead of mapping.
 
+# Config
+# =============================================================================
 config:
   - name: devices_effective
     value:
       gpu_drivers: "${devices.enabled == true ? (devices.gpu.drivers ?? []) : []}"
+      # Passthrough entries from every node in cluster.controlplanes.nodes and cluster.workers.nodes.
       passthrough: >-
         ${flatten(map(concat(values(cluster.controlplanes.nodes ?? {}), values(cluster.workers.nodes ?? {})),
           #.passthrough ?? []))}
-      # generic-device-plugin --device specs, one per devices.serial name.
+      # One generic-device-plugin --device spec per devices.serial name, mounting
+      # /dev/serial/by-id/<id> at /dev/<name>.
       plugin_device_list: >-
         ${map(sort(keys(devices.serial ?? {})), let name = #; ({"name": name, "groups": map((devices.serial ?? {})[name],
           ({"paths": [{"path": "/dev/serial/by-id/" + #, "mountPath": "/dev/" + name}]}))}))}
@@ -37,11 +43,16 @@ config:
     value:
       plugin_devices: ${replace(replace(toJSON(devices_effective.plugin_device_list), "\n", ""), "  ", "")}
 
+# CRDs
+# =============================================================================
 crds:
   # renovate: datasource=docker depName=registry.k8s.io/nfd/charts/node-feature-discovery package=registry.k8s.io/nfd/charts/node-feature-discovery
   - "${devices.enabled == true ? 'node-feature-discovery-0.20.1' : ''}"
 
+# Flux
+# =============================================================================
 flux:
+  # Node Feature Discovery, the generic device plugin for serial devices, and the Intel GPU plugin.
   - name: devices
     when: devices.enabled == true
     install:

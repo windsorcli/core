@@ -4,6 +4,8 @@ metadata:
   name: gateway
   description: Configurable cluster traffic entrypoint
 
+# Requires
+# =============================================================================
 requires:
   - when: >-
       ((gateway.external.ip ?? '') != '' && gateway_exposure.external == 'NodePort') ||
@@ -113,8 +115,7 @@ requires:
       (gateway.internal.https ?? true) == true && (gateway.internal.tls.cert ?? '') == ''))
     message: A gateway without a domain needs gateway.<name>.tls.cert, or gateway.<name>.https set to false.
 
-# =============================================================================
-# Config — derived values consumed by this facet
+# Config
 # =============================================================================
 config:
 
@@ -125,10 +126,11 @@ config:
       internal_ip: "${gateway.internal.ip ?? ''}"
       external_ip: "${gateway.external.ip ?? ''}"
       internal_mode: "${gateway_exposure.internal == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
+      # nodeport, clusterip or loadbalancer, from gateway_exposure.external.
       external_mode: >-
         ${gateway_exposure.external == 'NodePort' ? 'nodeport' :
         (gateway_exposure.external == 'ClusterIP' ? 'clusterip' : 'loadbalancer')}
-      # Hetzner is public only and gets no internal gateway.
+      # Hetzner is public only and has no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
       # A gateway exists with its domain, or without one when gateway.<name>.enabled is true.
       external_enabled: "${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true}"
@@ -174,32 +176,27 @@ config:
         "port": int(#), "targetPort": int(#) < 1024 ? int(#) + 10000 : int(#),
         "nodePort": (gateway.internal.node_ports ?? {})[#]}))), "\n", ""), "  ", "")}
 
+# CRDs
 # =============================================================================
-# CRDs — vendored, applied ahead of the controller
-# =============================================================================
-# Gateway API CRDs ship whenever the gateway is enabled (both drivers use them);
-# Envoy Gateway's own CRDs ship only on the envoy path.
+# Gateway API CRDs with the gateway enabled. Envoy Gateway CRDs with the envoy driver only.
 crds:
   # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
   - "${gateway.enabled == true ? 'gateway-api-experimental-1.6.3' : ''}"
   # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
   - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.10.0' : ''}"
 
+# Flux
 # =============================================================================
-# Flux systems — Gateway API controller + external/internal Gateway resources
-# =============================================================================
-# gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
-# canonical names gateway-install / gateway-resources regardless of driver.
-# Two optional gateways: external from dns.public_domain, internal from dns.private_domain.
+# gateway.driver is envoy or cilium. Both emit gateway-install and gateway-resources.
+# The external gateway comes from dns.public_domain and the internal from dns.private_domain.
 # Either also exists without its domain when gateway.<name>.enabled is true.
-# Resources components take ${gateway_name}, so both gateways share one tree.
+# Both gateways share one component tree, parameterized by ${gateway_name}.
 flux:
 
-  # Envoy installs Envoy Gateway; Cilium installs only the GatewayClass.
+  # Envoy Gateway with the envoy driver, or only the GatewayClass with cilium.
   - name: gateway
     when: gateway.enabled == true
-    # dependsOn telemetry-install: keeps destroy order in sync with
-    # envoy-gateway's HelmRelease dependsOn on kube-prometheus-stack.
+    # Envoy Gateway's HelmRelease depends on kube-prometheus-stack.
     dependsOn:
       - "${gateway.driver == 'envoy' && telemetry.metrics.enabled ? 'telemetry-install' : ''}"
     install:
@@ -214,7 +211,7 @@ flux:
         dependsOn:
           - pki-resources
         components:
-          # Cilium LBIPAM patch, skipped when a cloud LB controller owns the address.
+          # Cilium LBIPAM patch, skipped when an lb-install controller owns the address.
           - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
@@ -244,9 +241,9 @@ flux:
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
             len(gateway.external.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
-          # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
+          # Points the Gateway at its EnvoyProxy, for the Envoy data-plane Service config.
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
-          # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
+          # Catch-all 404 for unmatched HTTPRoutes, Envoy only.
           - "${gateway.driver != 'cilium' && gateway_effective.external_https == true ? 'envoy/default-404' : ''}"
           - >-
             ${gateway.driver != 'cilium' && gateway_effective.external_https == true && (dns.public_domain ?? '') != '' &&
@@ -265,7 +262,7 @@ flux:
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.external_mode == 'loadbalancer' ?
             gateway_effective.external_ip : ''}
           gateway_dns_target: "${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' ? gateway_effective.external_ip : ''}"
-          # docker-desktop forwards to a host port; everywhere else uses :443.
+          # 8444 on docker-desktop, which forwards to a host port, else 443.
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.external_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.external_node_port}

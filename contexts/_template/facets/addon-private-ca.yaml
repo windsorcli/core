@@ -4,42 +4,31 @@ metadata:
   name: private-ca
   description: Cluster Certificate Authority with trust-manager integration
 
+# Requires
+# =============================================================================
 requires:
   - when: (pki.ca.key ?? pki.private_ca.key ?? '') != '' && (pki.ca.cert ?? pki.private_ca.cert ?? '') == ''
     paths:
       - pki.ca.cert
     message: A CA private key needs its certificate.
 
+# Flux
 # =============================================================================
-# Flux systems — pki (trust-manager + private CA issuer)
-# =============================================================================
-#
-# Layers trust-manager (install) and the private-issuer/ca ClusterIssuer
-# (resources) onto the pki tiers from platform-base. The issuer signs every
-# workload certificate. The CA cert/key come from the pki/ca
-# terraform step (generated or BYO), no in-cluster minting or sync job
-# involved. Placed via `secrets:` (never rendered in the Kustomization
-# spec), not a plain Flux substitution: a substituted multi-line PEM value
-# loses its line breaks, which trust-manager's PEM decoder silently treats
-# as "no certificates found" rather than an error. Two separate Secrets,
-# not one replicated across namespaces: private-ca-keypair (cert+key) stays
-# system-pki-only for the ClusterIssuer to sign against; private-ca-trust-cert
-# (cert only, no key) goes to system-pki-trust for trust-manager's Bundle —
-# trust-manager only ever needs the public half, so the private key never
-# lands anywhere outside the namespace that actually signs with it. Named
-# distinctly from private-ca-cert (cert-manager's self-signed, type
-# kubernetes.io/tls, Secret): Secret type is immutable, so this name can't
-# be reused for an Opaque cert-only Secret.
-#
+# trust-manager and the private-issuer/ca ClusterIssuer, which signs workload certificates.
+# The CA cert and key come from the pki terraform stack.
 flux:
 
   - name: pki
+    # Secrets, since a substituted multi-line PEM loses its line breaks.
     secrets:
+      # Cert and key, in system-pki only, for the ClusterIssuer.
       private-ca-keypair:
         namespaces: [system-pki]
         data:
           tls.crt: ${terraform_output('pki', 'cert')}
           tls.key: ${terraform_output('pki', 'key')}
+      # Cert only, for the trust-manager Bundle.
+      # The private-ca-cert name belongs to a kubernetes.io/tls Secret, and Secret type is immutable.
       private-ca-trust-cert:
         namespaces: [system-pki-trust]
         data:
@@ -52,7 +41,7 @@ flux:
         interval: 5m
         components:
           - private-issuer/ca
-          # CA auto-injection is a Kyverno mutation; skip it when policies are off.
+          # CA auto-injection, a Kyverno mutation, only with policies enabled.
           - "${(policies.enabled ?? true) == true ? 'private-issuer/ca/kyverno-inject' : ''}"
 
   # Adds the pki.trusted_cas roots to the trust bundle.

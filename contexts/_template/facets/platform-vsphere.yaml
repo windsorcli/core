@@ -4,16 +4,10 @@ metadata:
   name: vsphere
   description: VMware vSphere compute platform infrastructure
 
-# vSphere is supported only with Talos. Connection credentials (server, user,
-# password) are read from VSPHERE_* env vars by the provider — no workstation-
-# overlay path here. All four vSphere inventory pointers (datacenter, cluster,
-# datastore, network) are required in the vsphere.* schema block.
 when: "platform == 'vsphere' && cluster.driver == 'talos'"
 
-# =============================================================================
 # Requires
 # =============================================================================
-#
 requires:
   - paths:
       - vsphere.datacenter
@@ -40,35 +34,10 @@ requires:
       - cluster.workers.nodes.worker-N
     message: Set network.dhcp to true, or give each worker an address in cluster.workers.nodes under worker-1 to worker-N.
 
+# Config
 # =============================================================================
-# Config — vSphere-specific Talos values
-# =============================================================================
-#
 config:
 
-  # ---------------------------------------------------------------------------
-  # vsphere_effective — inventory pointers / image source
-  # ---------------------------------------------------------------------------
-  #
-  # Resolves the schema's `vsphere.*` block into a concrete shape the terraform
-  # inputs consume. The Talos image URL is fully derivable from
-  # talos.talos_version (renovate-pinned) plus the schematic ID below.
-  #
-  # The schematic bakes siderolabs/vmtoolsd-guest-agent into the Talos OVA.
-  # vmtoolsd-guest-agent provides the open-vm-tools equivalent for Talos — it
-  # runs the VMware Tools daemon that reports guest IPs, hostname, and heartbeat
-  # back to vCenter. Without it, Terraform cannot discover the VM's IP after
-  # boot, and vSphere's graceful-shutdown integration will not work.
-  #
-  # Schematic derivation (recompute when the extension list changes):
-  #   curl -sX POST -H 'Content-Type: application/yaml' \
-  #     -d $'customization:\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/vmtoolsd-guest-agent\n' \
-  #     https://factory.talos.dev/schematics
-  #
-  # vSphere is always amd64 in production industrial deployments; arch is
-  # hardcoded. The vmware-amd64.ova artifact embeds the vmware platform driver
-  # which reads guestinfo (for machineconfig delivery) natively — no nocloud
-  # kernel arg override needed.
   - name: vsphere_effective
     value:
       datacenter: "${vsphere.datacenter}"
@@ -79,11 +48,17 @@ config:
       name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       resource_pool: "${vsphere.resource_pool ?? ''}"
       host_system: "${vsphere.host_system ?? ''}"
+      # Schematic with vmtoolsd-guest-agent, which reports guest IPs to vCenter and handles graceful shutdown.
+      # Recompute when the extension list changes:
+      #   curl -sX POST -H 'Content-Type: application/yaml' \
+      #     -d $'customization:\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/vmtoolsd-guest-agent\n' \
+      #     https://factory.talos.dev/schematics
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
+      # vmware-amd64.ova reads the machine config from guestinfo.
       image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
       dhcp: ${network.dhcp == true}
 
-  # Guest IPv4 per control plane from cluster.controlplanes.nodes, null under DHCP.
+  # One VM per control plane, with a static IP unless DHCP.
   - name: vsphere_controlplanes
     value:
       nodes: >-
@@ -92,7 +67,7 @@ config:
           ["ipv4", vsphere_effective.dhcp ? null : cluster_node_addresses.controlplanes[# - 1].ipv4]
         ]))}
 
-  # Guest IPv4 per worker from cluster.workers.nodes, null under DHCP.
+  # One VM per worker, addressed like the control planes.
   - name: vsphere_workers
     value:
       nodes: >-
@@ -101,16 +76,8 @@ config:
           ["ipv4", vsphere_effective.dhcp ? null : cluster_node_addresses.workers[# - 1].ipv4]
         ]))}
 
-  # ---------------------------------------------------------------------------
-  # Network gateway and nameservers — delivered to each node via guestinfo
-  # ---------------------------------------------------------------------------
-  #
-  # Default gateway and nameservers for static guests.
-  #
-  # gateway lives under network_effective, not network: a same-block
-  # cidrhost() call on network.cidr_block never converges (composer treats a
-  # function argument referencing the block's own name as derived and leaves
-  # it unevaluated). Consumers read network_effective.gateway instead.
+  # Static addressing defaults to the .1 gateway and public nameservers.
+  # network_effective holds the gateway, since cidrhost() on network's own name doesn't evaluate.
   - name: network_effective
     value:
       gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
@@ -119,12 +86,7 @@ config:
     value:
       nameservers: ['1.1.1.1', '8.8.8.8']
 
-  # ---------------------------------------------------------------------------
-  # cluster_endpoint_fallback
-  # ---------------------------------------------------------------------------
-  #
-  # Once vmtoolsd reports guest IPs, compute's controlplanes output has real
-  # endpoints. The cluster step uses this when cluster.endpoint is unset.
+  # https://<first compute control plane host>:6443, or empty until vmtoolsd reports guest IPs.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -135,9 +97,7 @@ config:
             : ""
         }
 
-  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Same
-  # node list the `cluster` step receives, projected to the {node, endpoint}
-  # shape the extensions module accepts.
+  # Compute's nodes, else declared nodes unless DHCP, reduced to the node and endpoint fields.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -154,16 +114,7 @@ config:
               : ((cluster.workers.count ?? 0) > 0 ? filter(cluster_node_entries.workers, # != null) : [])),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
-  # ---------------------------------------------------------------------------
-  # dns.private_domain default — gateway cert needs a non-empty SAN
-  # ---------------------------------------------------------------------------
-  #
-  # vSphere deployments in industrial facilities are typically LAN-only with
-  # no public DNS. The gateway cert (kustomize/gateway/resources/certificate.yaml)
-  # substitutes gateway_domain into spec.dnsNames; if empty cert-manager rejects
-  # the Certificate as invalid. Default private_domain to '<id>.local' so the
-  # cert validates out of the box. Operators can override via dns.domain or
-  # dns.private_domain.
+  # dns.private_domain falls back to dns.domain, then <id>.local, since the gateway certificate requires a SAN.
   - name: dns
     when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') != ''
     value:
@@ -173,26 +124,14 @@ config:
     value:
       private_domain: "${(id ?? 'windsor') + '.local'}"
 
+# Terraform
 # =============================================================================
-# Terraform — compute → cluster → gitops
-# =============================================================================
-#
-# Machine secrets and per-node machineconfigs are generated inside the compute
-# module. This is possible because guestinfo delivery happens at VM-creation
-# time — no pre-boot ISO staging required. compute outputs machine_secrets and
-# client_configuration directly for the cluster step.
-#
+# Compute generates the machine secrets and machine configs, since guestinfo is set at VM creation.
 terraform:
 
-  # ---------------------------------------------------------------------------
-  # compute — Talos VMs on a vSphere cluster
-  # ---------------------------------------------------------------------------
-  #
-  # Deploys VMs from the Talos vmware OVA. GuestInfo machineconfig is baked
-  # when cluster.endpoint is set; otherwise compute waits for vmtoolsd and
-  # cluster/talos applies using the leased control-plane IP.
-  #
-  # Guest IPv4 from vsphere_controlplanes / vsphere_workers, or DHCP.
+  # The guestinfo machine config is baked when cluster.endpoint is set.
+  # Otherwise compute waits for vmtoolsd and cluster/talos applies to the leased IP.
+  # Connects to vSphere through the VSPHERE_* environment variables.
   - name: compute
     path: compute/vsphere
     inputs:
@@ -205,6 +144,7 @@ terraform:
       resource_pool: "${vsphere_effective.resource_pool}"
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
+      # cluster.endpoint, else the first control plane's static IP. Empty with DHCP.
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (vsphere_effective.dhcp ? '' : ('https://' + vsphere_controlplanes.nodes[0].ipv4 + ':6443'))}"
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
@@ -215,6 +155,7 @@ terraform:
       worker_volumes: ${talos_common.worker_volumes ?? []}
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
+      # A network patch per node: DHCP on the physical interface, or its static IP with a default route.
       per_node_config_patches: >-
         ${fromPairs(concat(
           map(vsphere_controlplanes.nodes, [
@@ -255,6 +196,7 @@ terraform:
       images:
         talos:
           url: ${vsphere_effective.image_url}
+      # One compute instance per node.
       instances: >-
         ${concat(
           map(vsphere_controlplanes.nodes, fromPairs([
@@ -292,13 +234,12 @@ terraform:
       cluster_name: talos
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
-      # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
-      # node map. Fall through to the node map when compute hasn't run yet or
-      # vmtoolsd hasn't reported an IP (e.g. during initial plan).
+      # Compute's control planes, else declared nodes unless DHCP.
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? terraform_output("compute", "controlplanes")
           : (vsphere_effective.dhcp ? [] : filter(cluster_node_entries.controlplanes, # != null))}
+      # Compute's workers, else declared nodes unless DHCP.
       workers: >-
         ${len(terraform_output("compute", "workers") ?? []) > 0
           ? terraform_output("compute", "workers")
@@ -309,9 +250,7 @@ terraform:
       worker_config_patches: ${talos_common.worker_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-      # Shared cluster identity from compute — cluster/talos's
-      # talos_machine_configuration_apply is skipped when these are non-null
-      # (machineconfig was already delivered via guestinfo at VM creation).
+      # From compute, which already delivered the machine config through guestinfo.
       machine_secrets: ${terraform_output("compute", "machine_secrets")}
       client_configuration: ${terraform_output("compute", "client_configuration")}
 
@@ -320,23 +259,16 @@ terraform:
     dependsOn:
       - cluster
     inputs:
+      # Half the smaller of control plane CPU and memory, clamped to 2-10.
       concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 8) / 2), 10))}
     destroy: false
 
+# Flux
 # =============================================================================
-# Flux systems — PKI + load balancer
-# =============================================================================
-#
-# vSphere VMs have real routed IPs, so in-cluster LB announcements work.
-#
+# vSphere VMs have routed IPs, so in-cluster LB announcements work.
 flux:
 
-  # install ships the driver's controller HelmRelease. kube-vip/arp builds here
-  # too — a patch on the kube-vip HelmRelease, not a separate CR — and
-  # loadbalancer_ip_range is set here because the kube-vip cloud-provider
-  # HelmRelease reads it directly. resources ships metallb/arp or metallb/layer2,
-  # the IPAddressPool / L2Advertisement CRs metallb consumes; kube-vip has
-  # nothing left to configure once install has run.
+  # In-cluster load balancer, kube-vip or MetalLB.
   - name: lb
     when: lb_effective.enabled
     dependsOn:
@@ -344,21 +276,26 @@ flux:
     install:
       components:
         - ${lb_effective.driver}
+        # kube-vip/<mode> patches the kube-vip HelmRelease.
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
         - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
         - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
+      # The kube-vip cloud-provider reads loadbalancer_ip_range.
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
+    # The MetalLB IPAddressPool and L2Advertisement.
     resources:
       - components:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          # MetalLB address for the internal gateway when it has a fixed IP.
           - >-
             ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal_enabled == true &&
             gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
+          # MetalLB address for the external gateway when it has a fixed IP.
           - >-
             ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.external_enabled == true &&
             gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?

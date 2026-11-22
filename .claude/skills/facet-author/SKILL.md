@@ -62,6 +62,102 @@ kustomize:
   destroyOnly: false               # true for cleanup kustomizations only
 ```
 
+## Comment and layout standard
+
+Every facet follows this standard. The comment rules in the repo `CLAUDE.md`
+also apply.
+
+### Comments
+
+Read top to bottom, a facet's comments describe what it builds. Where a value
+or condition changes the result, the comment says what you get in each case.
+A reader holding a set of values in their head can follow along and see which
+entries apply.
+
+Beyond that, comment only what the YAML doesn't make obvious: why a default is
+what it is, an upstream bug, or an ordering constraint. Write each comment as a
+technical statement, in the terse register of a maintainer's note. Use precise
+verbs such as requires, provisions and resolves to, in place of needs, gets or
+wants. Lead with the thing being described and trail the condition: "Core
+provisions the S3 state bucket unless specified by terraform.backend." A
+fragment is fine where it reads naturally: "Nodes in a single AZ unless
+topology is ha."
+
+- A comment MUST be one line. Several lines MAY sit above one entry when each
+  line states a separate fact.
+- A multi-line expression, or one built from map, filter, reduce or nested
+  ternaries, MUST have a one-line comment above it that says what it computes.
+  A comment above the entry covers it when the entry holds only that expression.
+- A comment MUST sit directly above the line it explains. A comment about one
+  input goes above that input, not above the whole entry.
+- A comment MUST NOT repeat the YAML, a `when:` expression, or a `requires`
+  message. A comment that only names what the key below it holds is a repeat.
+- A comment MUST name the exact field, value or resource it refers to. Vague
+  references such as "selected in config", "once applied", "steps such as" or
+  "used by X only" MUST be replaced with the name or deleted.
+- A comment on a module input MUST describe what this line computes. It MUST
+  NOT describe what the module does with the value.
+- A comment MUST NOT summarize what a later section states. A facet-level
+  `when:` takes no comment.
+- A comment MUST NOT use em-dashes or "not X, but Y" contrasts.
+- A comment MUST NOT say "always" or "never" unless it is literally true.
+- A comment MUST describe this facet. It MUST NOT explain how the CLI composes,
+  merges, orders or destroys facets in general.
+- If an old comment carries a fact the YAML doesn't show, shorten it. Don't
+  delete it.
+
+```yaml
+# Terraform
+# =============================================================================
+terraform:
+  - name: cluster
+    inputs:
+      # Nodes in a single AZ unless topology is ha.
+      node_subnet_ids: "${topology == 'ha' ? subnets : [subnets[0]]}"
+
+  # Public Route53 zone, created when dns.public_domain is set. A separate stack
+  # keeps the zone and its NS delegation independent of the cluster.
+  - name: dns-zone
+```
+
+### Section headers
+
+Each top-level block after `when:` MUST start with a section header: the
+block name, then a line of 77 `=` characters. Lines that apply to the whole
+block MAY follow the rule, directly above the key. No other comment uses
+`=` or `-` rule lines.
+
+```yaml
+# Flux
+# =============================================================================
+# EKS only from here. Talos on AWS uses just the base flux systems.
+flux:
+```
+
+### Block order
+
+Top-level blocks MUST appear in this order. Leave out the blocks a facet
+doesn't use.
+
+`kind`, `apiVersion`, `metadata`, `ordinal`, `when`, `requires`, `config`,
+`substitutions`, `backend`, `crds`, `terraform`, `flux`, `kustomize`,
+`messages`
+
+One blank line separates top-level blocks. Nothing goes above `kind`.
+Entries inside a list MUST keep their order, since the composer reads them
+in order.
+
+### Machine annotations
+
+Tools read these comments. They MUST stay exactly as written, in place.
+
+- `# artifact:` tags, read by Renovate and the CLI artifact scanner. A tag
+  applies to the next line that isn't blank or a comment.
+- `# renovate:` annotations. Renovate reads the line directly below, so
+  nothing can go between them.
+- `# BEGIN talos_images` and `# END talos_images` in `config-talos.yaml`,
+  which `task talos:images` rewrites between.
+
 ## Expression syntax
 
 Windsor uses a CEL-like expression language in `${...}` blocks and `when:` fields.
