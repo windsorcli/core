@@ -1,9 +1,9 @@
 locals {
-  # Per-node patches: kubelet provider-id (hcloud://<server-id>) and a static HostnameConfig set to the server name.
+  # Per-node patches: kubelet provider-id (hcloud://<server-id>) and a HostnameConfig that sets the server name and deletes `auto`.
   node_patches = {
     for k, s in hcloud_server.this : k => join("\n---\n", [
       yamlencode({ machine = { kubelet = { extraArgs = { "provider-id" = "hcloud://${s.id}" } } } }),
-      yamlencode({ apiVersion = "v1alpha1", kind = "HostnameConfig", hostname = s.name }),
+      yamlencode({ apiVersion = "v1alpha1", kind = "HostnameConfig", auto = { "$patch" = "delete" }, hostname = s.name }),
     ])
   }
 
