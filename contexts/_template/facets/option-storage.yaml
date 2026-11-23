@@ -4,18 +4,13 @@ metadata:
   name: storage
   description: Kubernetes storage (CSI) driver configuration
 
-# Storage driver handling is Talos-specific (requires Talos extensions).
-# Managed clusters (EKS, AKS) use cloud CSI drivers installed by their
-# platform-* facet directly.
 when: cluster.driver == 'talos'
 
+# Config
 # =============================================================================
-# Config — Mayastor image tags
-# =============================================================================
-# Mayastor has no arm64 build on a released tag (openebs/mayastor#1107).
-# arm64 workstations override to the develop tag.
 config:
 
+  # Mayastor image tags. Mayastor has no arm64 build on a released tag.
   - name: mayastor_images
     value:
       tags:
@@ -36,52 +31,47 @@ config:
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
         operator_diskpool: v2.11.1@sha256:231020f43edb57a31d3fc9626f67251f8bd7e356d362aeddbcd675eee7adc417
 
+  # arm64 workstations use the develop tags.
   - name: mayastor_images
     when: talos_common.storage_driver == 'mayastor' && (workstation.arch ?? 'amd64') == 'arm64'
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: develop@sha256:b4466775a8b8085ab8548a07c355528d01dd8d3054d781950dd2a9d34c190990
+        agent_core: develop@sha256:ac26bfcddf3f2da254b58d779175acf0ef534036f19ba12b643a6cb00347ca64
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
-        agent_ha_cluster: develop@sha256:ad55be61a93d2d8c21be161d4d8e96780c3c3355226dce8220c951a358067909
+        agent_ha_cluster: develop@sha256:586235398fd8f0d87a4de43acc3ef45465ad7cc79c43b68f618d0a2c9c2603c8
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
-        agent_ha_node: develop@sha256:8a964f193dbfc34f10d5eaa3b0d3a9bf0e3320db2cf45eaa85835f94f23ea2c5
+        agent_ha_node: develop@sha256:3713a27795c2092d2aeb6cab52bab16929d43c5d0aa259215a650a1a14ccf677
         # artifact: type=image name=docker.io/openebs/mayastor-api-rest
-        api_rest: develop@sha256:c9ee2139d8f3bb06587faca54b3d438351464c6dc9c4f19cc19530eac139eec5
+        api_rest: develop@sha256:67e90441e43e48d1686f901781be7c1932597131bdaaf186d1b9d571705c9e73
         # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
-        csi_controller: develop@sha256:bd48d8c656ae80f8f3a2b508b3ef1e5c0beaf216bb2d9cb01c5d8fa5db78ebe3
+        csi_controller: develop@sha256:5b5aca0443c8353b00bf80ca3fc9d939275ee59a6b91c0267e13460b2317c013
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
-        csi_node: develop@sha256:26e026bf20f68cde8fe815ae70d55028820f465bb3d665b45d044fd018a959b0
+        csi_node: develop@sha256:7c9760fb0cfeb5d072ccdf8d10b8dad5f091ee917abf775a68c4a58ff71ea0a1
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
-        io_engine: develop@sha256:2a17d2c1ea0ff67d3ce3a506ca1c8cddb2164f581f878cc5b01e4862e3aa2db6
+        io_engine: develop@sha256:32e684716dff54bfb0e8e56d89d9a9368fa5328a5642e8a0f18336e34c6bc1c9
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
-        operator_diskpool: develop@sha256:51e4e471600df7218564f70c976cbed7f0c476c2d06b0f15dc035330ca88e459
+        operator_diskpool: develop@sha256:8a97be9950c0cfc28305f4d33d5617bc4cf236e27eb0a61fac3ff98a91be44cf
 
-  # DiskPool disks need a persistent devlink; Mayastor rejects /dev/sdb.
-  # incus derives its QEMU by-id path here. Other platforms set
-  # disks[].device to a real by-id path directly.
+  # DiskPool disks require a persistent devlink, since Mayastor rejects /dev/sdb.
+  # On incus, this derives the QEMU by-id path. Other platforms set disks[].device to a by-id path.
   - name: mayastor_pool
     when: talos_common.storage_driver == 'mayastor'
     value:
-      # name:device pairs, one per configured disk, space-separated for the
-      # registrar DaemonSet to loop over. One pool per disk per node.
+      # name:device pairs, one per worker disk, space-separated for the registrar DaemonSet.
       devices: >-
         ${join(map(cluster.workers.disks ?? [], #.name + ':' +
           (platform == 'incus'
             ? '/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_' + #.name
             : #.device) + ' '))}
 
+# Terraform
 # =============================================================================
-# Terraform — Talos extensions for CSI and devices
-# =============================================================================
-# talos_common.extensions holds the storage driver's and devices.gpu.drivers'
-# extensions. Installed via the cluster/talos/extensions module, with Flux
-# waiting until they're live.
+# Talos extensions for the storage driver and devices.gpu.drivers.
 terraform:
 
-  # cluster-extensions — apply Talos system extensions when the storage driver
-  # or devices.gpu.drivers need them. Waits for cni when Cilium is the CNI,
-  # since both write Talos machine config and must not run concurrently.
+  # Applies the extensions in talos_common.extensions. Waits on cni with Cilium, since both write
+  # Talos machine config.
   - name: cluster-extensions
     when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: cluster/talos/extensions
@@ -98,21 +88,19 @@ terraform:
       installer: "${talos_common.installer ?? 'installer'}"
       powercycle_reboot: ${platform == 'incus'}
 
-  # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.
+  # Flux waits on the extensions, so CSI DaemonSets find their kernel modules.
   - name: gitops
     when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
     path: gitops/flux
     dependsOn:
       - cluster-extensions
 
+# Flux
 # =============================================================================
-# Kustomize — CSI driver Helm releases
-# =============================================================================
-# One kustomization per storage driver; exactly one fires based on
-# talos_common.storage_driver (openebs on metal/docker, longhorn on incus).
+# One csi entry per talos_common.storage_driver.
 flux:
 
-  # OpenEBS — hostPath local volumes; the default for platforms without dedicated block devices.
+  # OpenEBS hostPath local volumes, for platforms without dedicated block devices.
   - name: csi
     when: talos_common.storage_driver == 'openebs'
     install:
@@ -121,11 +109,12 @@ flux:
         - openebs/dynamic-localpv
       substitutions:
         local_volume_path: ${talos_common.csi_local_volume_path}
+        # cluster.storage.quota, else on outside docker.
         local_volume_quota: "${string(cluster.storage.quota ?? (platform != 'docker'))}"
       timeout: 20m
       interval: 5m
 
-  # Longhorn — distributed block storage.
+  # Longhorn distributed block storage.
   - name: csi
     when: talos_common.storage_driver == 'longhorn'
     install:
@@ -144,7 +133,7 @@ flux:
         components:
           - "${observability.enabled == true && telemetry.metrics.enabled ? 'longhorn/prometheus' : ''}"
 
-  # Mayastor — replicated NVMe-oF block storage across the disk each worker carries.
+  # Mayastor replicated NVMe-oF block storage on each worker's disk.
   - name: csi
     when: talos_common.storage_driver == 'mayastor'
     install:
@@ -152,11 +141,9 @@ flux:
         - openebs
         - openebs/mayastor
       substitutions:
-        # incus runs Talos as a nested guest with no IOMMU passthrough; bare
-        # metal keeps SPDK's default (va).
+        # pa on incus, a nested guest without IOMMU passthrough. va elsewhere, SPDK's default.
         mayastor_iova_mode: "${platform == 'incus' ? 'pa' : 'va'}"
-        # Reactor cores taper with worker_factor: 1 core at or below the
-        # worker threshold, 2 cores once workers are double it or more.
+        # 1 reactor core at or below the worker threshold, 2 once workers are double it or more.
         mayastor_io_engine_cpu: "${string(int(2 - talos_common.worker_factor + 0.5))}"
         local_volume_path: ${talos_common.csi_local_volume_path}
         local_volume_quota: "${string(cluster.storage.quota ?? (platform != 'docker'))}"
@@ -171,8 +158,8 @@ flux:
       timeout: 20m
       interval: 5m
 
-  # A DaemonSet registers one DiskPool per node matching the mayastor
-  # node label; the operator has no auto-discovery.
+  # A DaemonSet registers one DiskPool per node with the mayastor label, since the operator has
+  # no auto-discovery.
   - name: csi
     when: talos_common.storage_driver == 'mayastor'
     resources:
@@ -182,9 +169,7 @@ flux:
         substitutions:
           mayastor_pool_devices: ${mayastor_pool.devices}
 
-  # Grafana dashboard patch: inject the Longhorn dashboard into observability-resources
-  # when Longhorn is active and observability is on; the driver gate is required
-  # since the dashboard is meaningless without longhorn metrics.
+  # Longhorn Grafana dashboard, with observability on.
   - name: observability
     when: talos_common.storage_driver == 'longhorn' && observability.enabled == true
     resources:

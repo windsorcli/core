@@ -6,6 +6,8 @@ metadata:
 
 when: (dns.public.driver ?? '') != ''
 
+# Requires
+# =============================================================================
 requires:
   - when: dns.public.driver == 'cloud'
     paths:
@@ -51,12 +53,12 @@ requires:
       - email
     message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
 
-# =============================================================================
 # Terraform
 # =============================================================================
 terraform:
 
-  # Independent of the cluster; the zone must exist before external-dns and cert-manager run.
+  # Cloudflare zone for dns.public.cloudflare.zone_name, else dns.public_domain.
+  # Created only with dns.public.cloudflare.create_zone.
   - name: dns-zone
     path: dns/zone/cloudflare
     when: dns_zone_effective.cloudflare == true
@@ -66,11 +68,11 @@ terraform:
       create_zone: ${dns.public.cloudflare.create_zone ?? false}
       account_id: "${dns.public.cloudflare.account_id ?? ''}"
 
-# =============================================================================
 # Flux
 # =============================================================================
 flux:
 
+  # external-dns for the Cloudflare zone, off with certificate_only.
   - name: dns
     when: dns_zone_effective.cloudflare == true && dns_zone_effective.certificate_only != true
     secrets:
@@ -112,7 +114,7 @@ flux:
         data:
           api-token: ${dns.public.cloudflare.api_token}
 
-  # DNS-01 solver on the public-acme issuer. dev == true uses staging, else prod.
+  # Public ACME issuer solving DNS-01 in Cloudflare, on Let's Encrypt staging with dev.
   - name: pki
     when: dns_zone_effective.cloudflare == true && tls_effective.public_acme == true
     resources:
@@ -121,6 +123,7 @@ flux:
         substitutions:
           acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
           acme_email: "${email ?? ''}"
+          # dns.private_domain with certificate_only, else dns.public_domain.
           acme_dns_zone: "${dns_zone_effective.certificate_only == true ? dns.private_domain : (dns.public_domain ?? '')}"
         timeout: 5m
         interval: 5m

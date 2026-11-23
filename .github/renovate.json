@@ -159,6 +159,26 @@
       "groupName": "node-exporter"
     },
     {
+      "description": "Update the kubelet-csr-approver chart and image tag in one PR",
+      "matchDepNames": ["kubelet-csr-approver", "ghcr.io/postfinance/kubelet-csr-approver"],
+      "groupName": "kubelet-csr-approver"
+    },
+    {
+      "description": "Update the apko version and the apko tool in one PR",
+      "matchDepNames": ["apko", "chainguard-dev/apko"],
+      "groupName": "apko"
+    },
+    {
+      "description": "Update omni and omnictl in one PR",
+      "matchDepNames": ["siderolabs/omni/omni", "siderolabs/omni/omnictl"],
+      "groupName": "omni"
+    },
+    {
+      "description": "Update the Keycloak and Keycloak operator image digests in one PR",
+      "matchDepNames": ["quay.io/keycloak/keycloak", "quay.io/keycloak/keycloak-operator"],
+      "groupName": "keycloak"
+    },
+    {
       "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
       "matchPackageNames": ["ghcr.io/distribution/distribution"],
       "enabled": false
@@ -402,8 +422,8 @@
       "depNameTemplate": "{{depName}}"
     }
   ],
-  "prConcurrentLimit": 50,
-  "prHourlyLimit": 10,
+  "prConcurrentLimit": 20,
+  "prHourlyLimit": 5,
   "platformAutomerge": true,
   "rebaseWhen": "conflicted",
   "addLabels": [

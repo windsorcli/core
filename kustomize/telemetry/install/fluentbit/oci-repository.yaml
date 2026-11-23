@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry:=oci://ghcr.io/fluent/helm-charts}/fluent-operator
   ref:
     # artifact: type=chart name=fluent-operator repo=oci://ghcr.io/fluent/helm-charts
-    tag: 4.3.0
+    tag: 4.4.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip

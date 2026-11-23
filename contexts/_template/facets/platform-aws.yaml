@@ -6,11 +6,8 @@ metadata:
 
 when: platform == 'aws'
 
-# =============================================================================
 # Requires
 # =============================================================================
-# aws.region has no default; lb-controller, external-dns, and the ACME issuer
-# all need it. Public DNS also requires an operator email for TLS registration.
 requires:
   - paths:
       - aws.region
@@ -20,64 +17,123 @@ requires:
     paths:
       - email
     message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
+  - when: cluster.driver == 'talos'
+    paths:
+      - cluster.controlplanes.instance_type
+    message: Talos on AWS needs cluster.controlplanes.instance_type.
+  - when: cluster.driver == 'talos' && len(cluster.pools ?? {}) > 0
+    message: Talos on AWS does not support cluster.pools; use cluster.workers.
+  - when: cluster.driver == 'talos' && (dns.public_domain ?? '') != ''
+    message: Talos on AWS has no public DNS zone; unset dns.public_domain.
+  - when: cluster.driver == 'talos' && dns.private.driver == 'cloud'
+    message: Talos on AWS has no cloud private DNS; set dns.private.driver to coredns or none.
+  - when: >-
+      cluster.driver == 'talos' && gateway.enabled == true &&
+      (gateway_exposure.external == 'LoadBalancer' || gateway_exposure.internal == 'LoadBalancer')
+    message: Talos on AWS has no cloud load balancer; set gateway.service_type to NodePort or disable the gateway.
 
-# =============================================================================
 # Config
 # =============================================================================
 config:
 
-  # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor, then ACME/route53 once a gateway uses the public-acme issuer.
+  # The public issuer is selfsigned by default.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
+
+  # The public issuer is ACME with Route53 DNS-01 when a gateway domain uses public-acme
+  # and Route53 hosts the public zone.
   - name: pki_effective
     when: >-
       tls_effective.public_acme == true && dns_zone_effective.cloud == true
     value:
       issuer_component: public-issuer/acme/route53
 
+  # Talos only from here to the end of config.
+  # Talos nodes come from cluster.*.nodes, or are generated as controlplane-N and
+  # worker-N per pool count.
+  - name: aws_talos_nodes
+    when: cluster.driver == 'talos'
+    value:
+      controlplanes: >-
+        ${len(cluster.controlplanes.nodes ?? {}) > 0
+          ? map(values(cluster.controlplanes.nodes), fromPairs([
+              ["hostname", #.hostname],
+              ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
+            ]))
+          : map(1..int(cluster_nodes_effective.controlplanes), fromPairs([
+              ["hostname", "controlplane-" + string(#)],
+              ["node", nil]
+            ]))}
+      workers: >-
+        ${cluster_nodes_effective.workers == 0
+          ? []
+          : (len(cluster.workers.nodes ?? {}) > 0
+            ? map(values(cluster.workers.nodes), fromPairs([
+                ["hostname", #.hostname],
+                ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
+              ]))
+            : map(1..int(cluster_nodes_effective.workers), fromPairs([
+                ["hostname", "worker-" + string(#)],
+                ["node", nil]
+              ])))}
+
+  # https://<first control plane host>:6443, or empty before compute has outputs.
+  - name: cluster_endpoint_fallback
+    when: cluster.driver == 'talos'
+    value:
+      endpoint: >-
+        ${
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : ""
+        }
+
+  # Each compute instance, reduced to its node and endpoint fields.
+  - name: talos_node_targets
+    when: cluster.driver == 'talos'
+    value:
+      controlplanes: >-
+        ${map(terraform_output("compute", "controlplanes") ?? [],
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(terraform_output("compute", "workers") ?? [],
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
+  # No in-cluster load balancer unless set by network.loadbalancer_driver.
+  - name: lb_effective
+    when: cluster.driver == 'talos'
+    value:
+      driver: "${network.loadbalancer_driver ?? 'none'}"
+
+# CRDs
 # =============================================================================
-# CRDs — vendored, applied ahead of the controller
-# =============================================================================
-# LB Controller CRDs vendored here (chart-installed CRDs never upgrade); the
-# chart's own CRD install is skipped.
+# AWS Load Balancer Controller CRDs for EKS, vendored since Helm doesn't upgrade
+# CRDs installed from a chart.
 crds:
   # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-  - aws-load-balancer-controller-3.6.0
+  - "${cluster.driver == 'eks' ? 'aws-load-balancer-controller-3.6.2' : ''}"
 
+# Terraform
 # =============================================================================
-# Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
-# =============================================================================
-# Dependency chain:
-#   backend (S3) → network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
-# database (KMS key) and crossplane-identity (IAM/Pod Identity) also branch
-# off network and cluster, declared in addon-database.yaml instead.
-# Reverse-order teardown lets dependent stacks empty their state before the
-# backend bucket is removed. Cilium (optional) bootstraps before Flux.
 terraform:
 
-  # S3 + optional DynamoDB remote state; force_destroy flips on for destroy so
-  # the bucket tears down with its contents.
+  # Core provisions the S3 state bucket unless specified by terraform.backend.
   - name: backend
     path: backend/s3
     when: backend_effective.managed == true
 
-  # VPC with the requested CIDR. domain_name feeds the private VPC-scoped
-  # Route53 zone (from dns.private_domain); the public zone lives in dns-zone.
   - name: network
     path: network/aws-vpc
     dependsOn:
       - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       cidr_block: ${network.cidr_block}
-      domain_name: ${dns.private_domain ?? ""}
-      # Cheap default runs a single shared NAT gateway; topology: ha lights up
-      # one NAT per AZ. The subnet footprint stays multi-AZ either way.
+      # On EKS, the VPC also provisions the private Route53 zone.
+      domain_name: "${cluster.driver == 'eks' ? (dns.private_domain ?? '') : ''}"
       single_nat_gateway: "${topology != 'ha'}"
 
-  # Public Route53 zone when dns_zone_effective.cloud is true. Own stack so its
-  # lifecycle (and NS delegation) is independent of the cluster's.
+  # Public Route53 zone for dns.public_domain.
   - name: dns-zone
     path: dns/zone/route53
     when: "dns_zone_effective.cloud == true"
@@ -86,122 +142,130 @@ terraform:
     inputs:
       domain_name: ${dns.public_domain}
 
-  # EKS cluster. cert-manager IAM role + Pod Identity only when ACME is on
-  # (public_domain set); cert_manager_hosted_zone_ids scopes Route53 writes to
-  # just the dns-zone, empty when ACME is off.
   - name: cluster
     path: cluster/aws-eks
+    when: cluster.driver == 'eks'
     dependsOn:
       - network
     inputs:
-      # vpc_id and private_subnet_ids come from the network module's outputs,
-      # passed explicitly so the dependency is visible in the input contract.
       vpc_id: ${terraform_output('network', 'vpc_id')}
+      # EKS requires control plane subnets in at least 2 AZs.
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
-      # Cheap default places node groups in a single AZ (first private subnet);
-      # topology: ha spreads them across all private subnets. The control plane
-      # always uses the full private_subnet_ids set (EKS needs >=2 AZs).
+      # Nodes in a single AZ unless topology is ha.
       node_subnet_ids: "${topology == 'ha' ? terraform_output('network', 'private_subnet_ids') : [terraform_output('network', 'private_subnet_ids')[0]]}"
-      # topology: ha doubles the always-on system pool so a leader-election
-      # standby survives a single node loss; no quorum is needed here.
       system_node_pool:
         desired_size: "${topology == 'ha' ? 2 : 1}"
       manage_log_group: ${!(ephemeral ?? false)}
+      # Route53 role for cert-manager, only when Route53 hosts the public zone.
       create_cert_manager_role: "${dns_zone_effective.cloud == true}"
+      # The role's access is limited to the public zone.
       cert_manager_hosted_zone_ids: "${dns_zone_effective.cloud == true ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      # Portable user pools alongside the module's always-on system pool;
-      # defaults to one general pool. Declaring cluster.pools replaces this.
+      # One general pool unless set by cluster.pools.
       pools: >-
         ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
 
-  # Dependency-edge only: with ACME on, cluster must wait for dns-zone so
-  # zone_id resolves before the cert-manager policy renders — else it falls
-  # back to the wildcard hostedzone/* scope.
+  # Adds dns-zone to the cluster's dependsOn when Route53 hosts the public zone.
   - name: cluster
     when: "dns_zone_effective.cloud == true"
     dependsOn:
       - dns-zone
 
-  # destroy: false — IAM/IRSA/aws-auth entries; the cluster delete takes them.
   - name: cluster-additions
     path: cluster/aws-eks/additions
+    when: cluster.driver == 'eks'
     dependsOn:
       - cluster
+    # Skipped on destroy, since deleting the EKS cluster removes these resources.
     destroy: false
 
-  # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
-  # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
   - name: cni
     when: "cluster.cni.driver == 'cilium'"
     path: cni/cilium
     dependsOn:
       - cluster
     inputs:
-      # Endpoint exists only after cluster applies; pull from output by default.
-      # Explicit cluster.endpoint still wins (proxied / air-gapped).
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
       chart_repository: "${terraform_chart_registry != '' ? terraform_chart_registry : null}"
 
-  # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
-  # With Cilium: wait for the `cni` step so pod networking is healthy first.
+  - name: compute
+    path: compute/aws-ec2
+    when: cluster.driver == 'talos'
+    dependsOn:
+      - "${backend_effective.managed == true ? 'backend' : ''}"
+      - network
+    inputs:
+      region: ${aws.region}
+      subnet_id: ${terraform_output('network', 'private_subnet_ids')[0]}
+      talos_version: ${talos.talos_version}
+      controlplanes: ${aws_talos_nodes.controlplanes}
+      workers: ${aws_talos_nodes.workers}
+      controlplane_instance_type: ${cluster.controlplanes.instance_type}
+      worker_instance_type: ${cluster.workers.instance_type ?? ''}
+      controlplane_root_volume:
+        size: ${cluster.controlplanes.root_disk_size ?? 100}
+      worker_root_volume:
+        size: ${cluster.workers.root_disk_size ?? 100}
+      ephemeral: ${ephemeral ?? false}
+
+  - name: cluster
+    path: cluster/talos
+    when: cluster.driver == 'talos'
+    parallelism: 1
+    dependsOn:
+      - compute
+      - pki
+    inputs:
+      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      controlplanes: ${terraform_output("compute", "controlplanes") ?? []}
+      workers: ${terraform_output("compute", "workers") ?? []}
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+
   - name: gitops
-    when: "cluster.cni.driver != 'cilium'"
     path: gitops/flux
     dependsOn:
       - cluster
+      - "${cluster.cni.driver == 'cilium' ? 'cni' : ''}"
     inputs:
-      concurrency: 5
+      # On Talos, half the smaller of control plane CPU and memory, clamped to 4-10. 5 on EKS.
+      concurrency: "${cluster.driver == 'talos' ? max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10)) : 5}"
     destroy: false
 
-  - name: gitops
-    when: "cluster.cni.driver == 'cilium'"
-    path: gitops/flux
-    dependsOn:
-      - cluster
-      - cni
-    inputs:
-      concurrency: 5
-    destroy: false
-
+# Flux
 # =============================================================================
-# Flux systems — pki resources overlay
-# =============================================================================
-# pki-resources always renders. The gateway cert needs a ClusterIssuer.
-# Two modes: selfsigned by default, or ACME when dns.public_domain is set.
-# ACME runs DNS-01 against the Route53 zone through the cluster module's
-# IAM role. dev == true selects the ACME staging server.
+# EKS only from here. Talos on AWS uses just the base flux systems.
 flux:
 
+  # Public ClusterIssuer from pki_effective.issuer_component.
   - name: pki
+    when: cluster.driver == 'eks'
     resources:
       - components:
-          # acme_hosted_zone_id defers terraform_output until dns-zone applies.
-          # An eager lookup panics on first bootstrap.
           - "${pki_effective.issuer_component}"
         timeout: 5m
         interval: 5m
         substitutions:
-          # ACME-only. Selfsigned doesn't reference these. acme_hosted_zone_id
-          # gates on public_domain. dns-zone doesn't exist in selfsigned mode.
           acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_region: "${aws.region ?? 'us-east-1'}"
+          # The public zone ID from dns-zone, or empty without a Route53 public zone.
           acme_hosted_zone_id: "${dns_zone_effective.cloud == true ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
 
-  # Gateway install merge. Adds envoy/loadbalancer/aws-nlb (NLB annotations)
-  # when Envoy runs in loadbalancer mode. Provisions an NLB, not an ALB: Envoy
-  # already terminates L7 traffic. ALB stays available per-Ingress via the
-  # alb ingress class.
-  #
-  # dependsOn lb-install: the Service these annotations create is finalized
-  # by aws-load-balancer-controller. Ordering the controller to tear down
-  # after the Service avoids stuck finalizers on destroy.
+  # NLBs for the Envoy gateway Services, one external and one internal.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    when: "cluster.driver == 'eks' && gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     resources:
       - name: external
         when: (dns.public_domain ?? '') != '' && gateway_exposure.external == 'LoadBalancer'
+        # aws-load-balancer-controller finalizes the NLB Service.
         dependsOn:
           - lb-install
         components:
@@ -213,13 +277,9 @@ flux:
         components:
           - envoy/loadbalancer/aws-nlb
 
-  # AWS Load Balancer Controller. Provisions NLB/ALB through the EKS API.
-  # The in-tree CCM makes classic ELBs instead. Always rendered.
-  #
-  # IAM comes from the cluster module (create_aws_lb_controller_role, Pod
-  # Identity in system-lb). vpc_id and aws_region pass explicitly: worker
-  # hop-limit 1 blocks pod-network IMDS. aws_region has no default.
+  # AWS Load Balancer Controller, with its IAM role from the cluster module.
   - name: lb
+    when: cluster.driver == 'eks'
     install:
       components:
         - aws-lb-controller
@@ -228,13 +288,13 @@ flux:
       interval: 5m
       substitutions:
         cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+        # The controller can't read vpc_id from IMDS at a hop limit of 1.
         vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
-  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods.
-  # Discovers groups via the k8s.io/cluster-autoscaler tags the aws-eks module
-  # applies; authenticates through its Pod Identity association.
+  # cluster-autoscaler for the node groups, discovered by their k8s.io/cluster-autoscaler tags.
   - name: compute
+    when: cluster.driver == 'eks'
     install:
       components:
         - cluster-autoscaler
@@ -245,9 +305,9 @@ flux:
         cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
-  # CSI — AWS EBS, default block storage on EKS. single_storage_type sets the
-  # StorageClass volumeType (gp3 recommended).
+  # EBS CSI driver for the default StorageClass.
   - name: csi
+    when: cluster.driver == 'eks'
     install:
       components:
         - aws-ebs
@@ -256,14 +316,13 @@ flux:
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
 
-  # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute resources, one instance per zone.
-  # IAM comes from the cluster module (create_external_dns_role, Pod Identity in system-dns).
+  # external-dns, one instance per Route53 zone: public when dns.public_domain is set,
+  # private when dns.private.driver is cloud. IAM role comes from the cluster module.
   - name: dns
-    when: "dns_zone_effective.cloud == true || dns.private.driver == 'cloud'"
+    when: "cluster.driver == 'eks' && (dns_zone_effective.cloud == true || dns.private.driver == 'cloud')"
     install:
       timeout: 5m
       interval: 5m
-    # One instance per zone. The HTTPRoute source needs the gateway CRDs.
     resources:
       - name: account
         components:

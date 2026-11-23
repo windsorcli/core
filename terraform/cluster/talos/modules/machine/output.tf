@@ -24,5 +24,5 @@ output "health_check_id" {
 
 output "install_image" {
   description = "The Talos installer image for installs and upgrades."
-  value       = local.install_image
+  value       = var.image
 }

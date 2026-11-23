@@ -22,7 +22,7 @@ spec:
         registry: ghcr.io
         repository: fluent/fluent-operator/fluent-operator
         # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-operator
-        tag: 3.10.1@sha256:be978534f9fc1b998dc822c5eaa95b4e88e6a853a9739fd84fe10b44fcb9a97b
+        tag: 3.11.0@sha256:13af2f68887c442fcca787ad86d066d7403d43744dcebcc9dfd65830fdb8b55a
       initcontainer:
         image:
           # artifact: type=image name=docker.io/library/docker
@@ -57,6 +57,6 @@ spec:
         registry: ghcr.io
         repository: fluent/fluent-operator/fluent-bit
         # artifact: type=image name=ghcr.io/fluent/fluent-operator/fluent-bit
-        tag: v5.1.5@sha256:d797e6be1c8dadcff67c50950f0800d228bb7d70e21bc6df2fdf807c2005dd71
+        tag: v5.2.0@sha256:0cd0bc8a1106eb73657f08253a08a81edeabec90496b0c351dfe218096e9e804
       enable: false
       crdsEnable: false

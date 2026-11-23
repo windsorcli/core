@@ -31,22 +31,19 @@ resource "terraform_data" "instance_replace_trigger" {
 
 locals {
 
-  install_image = coalesce(var.image, "ghcr.io/siderolabs/installer:v${var.talos_version}")
-
   # Install block is patched when a disk_selector or an image is provided. Hostname is not patched:
   # Talos 1.12+ auto-derives machine.network.hostname from the runtime (Docker container name,
   # VM hostname, DHCP, etc.) and rejects an explicit override with "static hostname is already set".
   machine_config_patch = var.disk_selector != null ? yamlencode({
     machine = {
-      install = {
+      install = merge({
         diskSelector    = var.disk_selector
         wipe            = var.wipe_disk
         extraKernelArgs = var.extra_kernel_args
-        image           = local.install_image
-      }
+      }, var.image != null ? { image = var.image } : {})
     }
     }) : var.image != null ? yamlencode({
-    machine = { install = { image = local.install_image } }
+    machine = { install = { image = var.image } }
   }) : ""
 
   config_patches = concat(

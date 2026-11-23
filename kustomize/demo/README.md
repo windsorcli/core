@@ -162,7 +162,7 @@ A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_St
 
 _Enabled when `demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'`._
 
-A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only) plus a `Database` CR `demo` — just the database definition, no provider wiring. `privateNetwork` and any customer-managed key both come from `kustomize/database`'s own Kyverno defaulting policies, same as any third-party chart gets them. `kustomize/provisioning`'s `crossplane/gcp-cloudsql` component's `WatchOperation` reacts to this CR directly, generating the admin password, applying it onto the instance's own admin `User`, and provisioning the connection config and monitoring role without this facet's involvement.
+A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, create-only: no in-place updates) plus a `Database` CR `demo` — just the database definition, no provider wiring. `privateNetwork` and any customer-managed key both come from `kustomize/database`'s own Kyverno defaulting policies, same as any third-party chart gets them. `kustomize/provisioning`'s `crossplane/gcp-cloudsql` component's `WatchOperation` reacts to this CR directly, generating the admin password, applying it onto the instance's own admin `User`, and provisioning the connection config and monitoring role without this facet's involvement.
 
 ### `static`
 

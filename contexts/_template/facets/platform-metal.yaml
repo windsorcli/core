@@ -4,11 +4,8 @@ metadata:
   name: metal
   description: "Metal provider basic infrastructure"
 
-# Bare metal: operator supplies fully-provisioned nodes; we run Talos apply
-# against them. No compute terraform, no network creation.
 when: platform == 'metal'
 
-# =============================================================================
 # Requires
 # =============================================================================
 requires:
@@ -16,20 +13,17 @@ requires:
       - cluster.controlplanes.nodes
     message: Metal provisions no machines; list the existing control planes in cluster.controlplanes.nodes.
 
-# =============================================================================
 # Config
 # =============================================================================
 config:
 
-  # Always at least one controlplane with a concrete endpoint, so the fallback
-  # is always derivable (unlike incus/docker).
+  # cluster.endpoint, else https://<host>:6443 of the first control plane in cluster.controlplanes.nodes.
   - name: cluster_endpoint_fallback
     value:
-      endpoint: "${cluster.endpoint ?? ('https://' + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint, ':')[0] + ':6443')}"
+      endpoint: "${cluster.endpoint ?? ('https://' + split((let n = map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0]; n.endpoint ?? n.node), ':')[0] + ':6443')}"
 
-  # Talos Image Factory official overlays by board name, with the overlay image that carries each
-  # board's firmware and bootloader. Source: factory.talos.dev/version/<talos version>/overlays/official.
-  # The keys MUST match the talosBoard enum in schema.yaml, which rejects other boards.
+  # Image Factory official overlays by board, from factory.talos.dev/version/<talos version>/overlays/official.
+  # The keys MUST match the talosBoard enum in schema.yaml.
   - name: metal_overlays
     value:
       bananapi_m64: siderolabs/sbc-allwinner
@@ -62,8 +56,8 @@ config:
       turingrk1: siderolabs/sbc-rockchip
       friendlyelec-cm3588-nas: siderolabs/sbc-rockchip
 
-  # User-supplied nodes with the node's or pool's board overlay and disks, and config_patches as YAML
-  # documents. A node's install_image wins over the overlay.
+  # Each node sorted by name, with board, disks and config_patches from the node or its pool.
+  # A node's install_image wins over the board overlay.
   - name: metal_nodes
     value:
       controlplanes: >-
@@ -91,7 +85,7 @@ config:
                   len(patches) > 0 ? [["config_patches", join(map(patches, string(#)), '\n---\n')]] : []))))
           : []}
 
-  # Node targets for post-cluster steps (e.g. extensions), from metal_nodes.
+  # Each node reduced to its node, endpoint, install_image and overlay fields.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -99,11 +93,9 @@ config:
       workers: >-
         ${map(metal_nodes.workers, fromPairs(filter(toPairs(#), get(#, 0) in ["node", "endpoint", "install_image", "overlay"])))}
 
+# Terraform
 # =============================================================================
-# Terraform — cluster/talos + gitops
-# =============================================================================
-# No compute step: metal nodes exist externally. Straight from the user-supplied
-# node list to Talos bootstrap/apply.
+# Talos is applied to machines provisioned outside Windsor.
 terraform:
 
   - name: cluster
@@ -112,8 +104,9 @@ terraform:
     dependsOn:
       - pki
     inputs:
-      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].endpoint, ":")[0] + ":6443")}
-      # Bare-metal nodes normally lease addresses, so the VIP interface keeps DHCP unless network.dhcp is false.
+      # The same endpoint as cluster_endpoint_fallback.
+      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split((let n = map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0]; n.endpoint ?? n.node), ":")[0] + ":6443")}
+      # The VIP interface uses DHCP unless network.dhcp is false.
       vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: network.dhcp != false} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
@@ -126,11 +119,12 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # destroy: false — Flux is tied to cluster lifetime; teardown takes it along.
   - name: gitops
     path: gitops/flux
     dependsOn:
       - cluster
     inputs:
+      # Half the smaller of control plane CPU and memory, clamped to 4-10.
       concurrency: ${max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
+    # Skipped on destroy, since deleting the cluster removes Flux.
     destroy: false

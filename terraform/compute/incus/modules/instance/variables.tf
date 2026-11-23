@@ -205,3 +205,15 @@ variable "ipv4_filtering_enabled" {
   default     = false
 }
 
+
+variable "node_health_check" {
+  description = "Run windsor check node-health against the instance after a limits change restarts it"
+  type        = bool
+  default     = false
+}
+
+variable "node_address" {
+  description = "IPv4 address the node health check targets. Defaults to ipv4, then to the address Incus reports"
+  type        = string
+  default     = null
+}

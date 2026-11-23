@@ -82,12 +82,14 @@ locals {
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
 
+  controlplanes = [for cp in var.controlplanes : merge(cp, { endpoint = coalesce(cp.endpoint, cp.node) })]
+  workers       = [for w in var.workers : merge(w, { endpoint = coalesce(w.endpoint, w.node) })]
 
-  cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
+  cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(local.controlplanes) > 0 ? "https://${split(":", local.controlplanes[0].endpoint)[0]}:6443" : "")
 
   # Shared control-plane VIP: the cluster_endpoint host when vip_interface is set and no control plane uses it.
   cluster_endpoint_host = try(regex("^https://([^:/]+)", local.cluster_endpoint)[0], "")
-  controlplane_hosts    = flatten([for cp in var.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
+  controlplane_hosts    = flatten([for cp in local.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
   vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
   vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
 
@@ -171,11 +173,11 @@ resource "talos_image_factory_schematic" "overlay" {
 locals {
   controlplane_install_images = [for n in var.controlplanes :
     n.install_image != null ? n.install_image :
-    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : local.stock_installer
   ]
   worker_install_images = [for n in var.workers :
     n.install_image != null ? n.install_image :
-    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : null
+    n.overlay != null ? "factory.talos.dev/metal-installer/${talos_image_factory_schematic.overlay[n.overlay.name].id}:v${var.talos_version}" : local.stock_installer
   ]
 }
 
@@ -197,7 +199,7 @@ module "controlplane_bootstrap" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
-  endpoint                  = var.controlplanes[0].endpoint
+  endpoint                  = local.controlplanes[0].endpoint
   bootstrap                 = true // Bootstrap the first control plane node
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
@@ -223,7 +225,7 @@ module "controlplanes" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "controlplane"
-  endpoint                  = var.controlplanes[count.index + 1].endpoint
+  endpoint                  = local.controlplanes[count.index + 1].endpoint
   bootstrap                 = false // Do not bootstrap other control plane nodes
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
@@ -254,7 +256,7 @@ module "workers" {
   kubernetes_version        = trimprefix(var.kubernetes_version, "v")
   talos_version             = var.talos_version
   machine_type              = "worker"
-  endpoint                  = var.workers[count.index].endpoint
+  endpoint                  = local.workers[count.index].endpoint
   talosconfig_path          = local.talosconfig_path
   kubeconfig_path           = local.kubeconfig_path
   enable_health_check       = true
@@ -272,20 +274,18 @@ module "workers" {
 # Order: bootstrap control plane, other control planes, workers. The step MUST run with parallelism 1 so nodes in a group upgrade one at a time.
 
 locals {
-  stock_installer             = "ghcr.io/siderolabs/installer:v${var.talos_version}"
-  controlplane_upgrade_images = [for image in local.controlplane_install_images : coalesce(image, local.stock_installer)]
-  upgrade_flags               = "${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}${var.upgrade_offline_timeout != "" ? " --offline-timeout ${var.upgrade_offline_timeout}" : ""}"
-  worker_upgrade_images       = [for image in local.worker_install_images : coalesce(image, local.stock_installer)]
+  stock_installer = "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v${var.talos_version}"
+  upgrade_flags   = "${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}${var.upgrade_offline_timeout != "" ? " --offline-timeout ${var.upgrade_offline_timeout}" : ""}"
 }
 
 resource "terraform_data" "upgrade_bootstrap" {
   count      = var.upgrade_nodes && length(var.controlplanes) > 0 ? 1 : 0
   depends_on = [module.controlplane_bootstrap, module.controlplanes, module.workers]
 
-  triggers_replace = [local.controlplane_upgrade_images[0]]
+  triggers_replace = [local.controlplane_install_images[0]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_upgrade_images[0]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[0].node} --image ${local.controlplane_install_images[0]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -297,10 +297,10 @@ resource "terraform_data" "upgrade_controlplane" {
   count      = var.upgrade_nodes ? max(length(var.controlplanes) - 1, 0) : 0
   depends_on = [terraform_data.upgrade_bootstrap]
 
-  triggers_replace = [local.controlplane_upgrade_images[count.index + 1]]
+  triggers_replace = [local.controlplane_install_images[count.index + 1]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_upgrade_images[count.index + 1]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.controlplanes[count.index + 1].node} --image ${local.controlplane_install_images[count.index + 1]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -312,10 +312,10 @@ resource "terraform_data" "upgrade_worker" {
   count      = var.upgrade_nodes ? length(var.workers) : 0
   depends_on = [terraform_data.upgrade_bootstrap, terraform_data.upgrade_controlplane]
 
-  triggers_replace = [local.worker_upgrade_images[count.index]]
+  triggers_replace = [local.worker_install_images[count.index]]
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_upgrade_images[count.index]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
+    command = "windsor upgrade node --node ${var.workers[count.index].node} --image ${local.worker_install_images[count.index]} --skip-if-current --timeout ${var.upgrade_timeout}${local.upgrade_flags}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -330,7 +330,7 @@ resource "terraform_data" "upgrade_worker" {
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = local.client_configuration
-  endpoints            = var.controlplanes.*.endpoint
+  endpoints            = local.controlplanes[*].endpoint
 }
 
 // Write Talos config to a local file. Content is updated when controlplane endpoints change (e.g. docker-desktop host-reachable 127.0.0.1).

@@ -6,7 +6,6 @@ metadata:
 
 when: platform == 'azure'
 
-# =============================================================================
 # Requires
 # =============================================================================
 requires:
@@ -16,45 +15,37 @@ requires:
       - email
     message: ACME certificates for dns.public_domain or gateway.<name>.tls.issuer acme need email as the account contact.
 
+# Config
 # =============================================================================
-# Config — platform-specific overrides
-# =============================================================================
-# AKS ships metrics-server as a built-in add-on; suppress the platform-base copy
-# to avoid two instances fighting on the same APIService.
 config:
 
+  # AKS ships metrics-server as an add-on.
   - name: telemetry
     value:
       metrics_server_enabled: false
 
-  # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor, then ACME (azuredns) once a gateway uses the public-acme issuer.
+  # The public issuer is selfsigned by default.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
+
+  # The public issuer is ACME with Azure DNS-01 when a gateway domain uses public-acme
+  # and Azure DNS hosts the public zone.
   - name: pki_effective
     when: >-
       tls_effective.public_acme == true && dns_zone_effective.cloud == true
     value:
       issuer_component: public-issuer/acme/azuredns
 
+# Terraform
 # =============================================================================
-# Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
-# =============================================================================
-# Chain: backend (azurerm) → network (vnet) → cluster (aks) → gitops,
-# with dns-zone off backend when ACME is on. Cilium and the cert-manager/
-# external-dns Workload Identity resources are inline on the cluster module.
 terraform:
 
-  # State backend (storage account + container); per-context id isolates state
-  # across contexts in one subscription.
+  # Core provisions the state storage account unless set by terraform.backend.
   - name: backend
     path: backend/azurerm
     when: backend_effective.managed == true
 
-  # VNet at the requested CIDR; AKS attaches to a private subnet. domain_name is
-  # the VNet-linked private DNS zone (dns.private_domain; the public zone lives
-  # in dns-zone below).
   - name: network
     path: network/azure-vnet
     dependsOn:
@@ -62,11 +53,10 @@ terraform:
     inputs:
       region: ${azure.region ?? 'eastus'}
       vnet_cidr: ${network.cidr_block}
+      # The VNet also provisions a linked private DNS zone for this domain.
       domain_name: ${dns.private_domain ?? ""}
 
-  # Public Azure DNS zone, provisioned when dns_zone_effective.cloud is true. Owns its
-  # own resource group so cluster teardown doesn't drag the zone (and NS
-  # delegation) with it.
+  # Public Azure DNS zone for dns.public_domain, in its own resource group.
   - name: dns-zone
     path: dns/zone/azure-dns
     when: "dns_zone_effective.cloud == true"
@@ -75,28 +65,23 @@ terraform:
     inputs:
       domain_name: ${dns.public_domain}
 
-  # AKS cluster. Workload Identity (UAMI + DNS Zone Contributor + Federated
-  # Credential) for cert-manager and external-dns is inline; cert-manager's is
-  # gated on dns.public_domain, external-dns's is on by default. The
-  # *_dns_zone_ids inputs scope each role assignment to the provisioned zone.
+  # AKS, with Cilium and the Workload Identities for cert-manager and external-dns.
   - name: cluster
     path: cluster/azure-aks
     dependsOn:
       - network
     inputs:
-      # Derived from network's own output, not azure.region directly — AKS
-      # must colocate with the VNet regardless of how region was set.
+      # AKS requires the VNet's region.
       region: ${terraform_output('network', 'region')}
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
-      # Single-zone by default; topology: ha spreads pools across zones 1-3.
       availability_zones: "${topology == 'ha' ? ['1','2','3'] : null}"
-      # topology: ha doubles the always-on system pool so a leader-election
-      # standby survives a single node loss; no quorum is needed here.
       default_node_pool:
         node_count: "${topology == 'ha' ? 2 : 1}"
+      # cert-manager identity, only when Azure DNS hosts the public zone.
       create_cert_manager_identity: "${dns_zone_effective.cloud == true}"
+      # The identity's role assignment is limited to the public zone.
       cert_manager_dns_zone_ids: "${dns_zone_effective.cloud == true && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      # Union of both zones' role assignments.
+      # The private zone ID and the public zone ID, whichever exist.
       external_dns_dns_zone_ids: >-
         ${(dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' && dns_zone_effective.cloud == true && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ?
         [terraform_output('network', 'private_zone_id'), terraform_output('dns-zone', 'zone_id')] :
@@ -104,37 +89,30 @@ terraform:
         [terraform_output('network', 'private_zone_id')] :
         (dns_zone_effective.cloud == true && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ?
         [terraform_output('dns-zone', 'zone_id')] : []))}
-      # Portable user pools alongside the inline default (system) pool; defaults
-      # to one general pool. Declaring cluster.pools replaces this.
+      # One general pool unless set by cluster.pools.
       pools: >-
         ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
 
-  # Dependency-edge injector: when ACME is on, cluster must wait for dns-zone so
-  # terraform_output('dns-zone', 'zone_id') resolves before the role assignment
-  # list is rendered (otherwise the guard evaluates false → no zone access).
+  # Adds dns-zone to the cluster's dependsOn when Azure DNS hosts the public zone.
   - name: cluster
     when: "dns_zone_effective.cloud == true"
     dependsOn:
       - dns-zone
 
-  # destroy: false — Flux is tied to the cluster; AKS teardown takes it.
   - name: gitops
     path: gitops/flux
+    # Skipped on destroy, since deleting AKS removes Flux.
     destroy: false
     dependsOn:
       - cluster
     inputs:
       concurrency: 5
 
+# Flux
 # =============================================================================
-# Flux systems — pki install/resources overlay
-# =============================================================================
-# install: patches the cert-manager HelmRelease with Workload Identity so the
-# azureDNS solver can mint Azure AD tokens (ACME only). resources: renders the
-# public ClusterIssuer — selfsigned default, ACME (azuredns) when a zone is set.
 flux:
 
-  # Workload Identity for the cert-manager pod, gated on ACME.
+  # cert-manager Workload Identity, which the azureDNS solver requires for Azure AD tokens.
   - name: pki
     when: "dns_zone_effective.cloud == true"
     install:
@@ -144,6 +122,7 @@ flux:
         cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
         cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
+  # Public ClusterIssuer from pki_effective.issuer_component.
   - name: pki
     resources:
       - components:
@@ -154,15 +133,13 @@ flux:
           acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
-          # Gate dns-zone reads on public_domain: the component isn't registered
-          # in private/selfsigned mode and referencing it is a hard error (?? ''
-          # only defaults an absent output, not an absent component).
+          # The dns-zone resource group, or empty without an Azure DNS public zone.
           acme_dns_zone_resource_group: "${dns_zone_effective.cloud == true ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
           acme_dns_zone_subscription_id: "${dns_zone_effective.cloud == true ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
           cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
           cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
-  # Merges into option-gateway's internal variant for the internal load balancer.
+  # Azure load balancer for the internal Envoy gateway Service.
   - name: gateway
     when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
     resources:
@@ -170,8 +147,7 @@ flux:
         components:
           - envoy/loadbalancer/azure
 
-  # Azure Disk CSI is preinstalled on AKS; this only adds a `single`
-  # StorageClass. StandardSSD_LRS balances cost and performance.
+  # AKS ships the Azure Disk CSI driver. The azure-disk component adds the default StorageClass.
   - name: csi
     install:
       components:
@@ -181,7 +157,8 @@ flux:
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
 
-  # external-dns writes A/CNAME records from Ingress/HTTPRoute into Azure DNS, one instance per zone.
+  # external-dns, one instance per Azure DNS zone: public when dns.public_domain is set,
+  # private when dns.private.driver is cloud.
   - name: dns
     when: "dns_zone_effective.cloud == true || dns.private.driver == 'cloud'"
     install:

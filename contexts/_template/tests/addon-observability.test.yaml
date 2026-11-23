@@ -268,7 +268,8 @@ cases:
                 - grafana/gateway
                 - fluentd/outputs/stdout
               substitutions:
-                private_domain: full.example.com
+                grafana_domain: full.example.com
+                grafana_gateway_name: internal
                 date_full: "YYYY-MM-DD HH:mm:ss"
                 date_interval_second: "HH:mm:ss"
                 date_interval_minute: "HH:mm"
@@ -372,7 +373,8 @@ cases:
               components:
                 - kibana/gateway
               substitutions:
-                private_domain: elk.example.com
+                kibana_domain: elk.example.com
+                kibana_gateway_name: internal
 
   # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
   # aggregator (part of base telemetry) still runs.

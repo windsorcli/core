@@ -6,32 +6,21 @@ metadata:
 
 when: demo.enabled == true
 
-# Single source of truth for demo-db's database name, used by the
-# Instance CR and the AppRole below.
+# Config
+# =============================================================================
 config:
+  # demo-db's database name, used by the Instance CR and the AppRole.
   - name: demo_database_name
     value: demo
-  # Flexible Server names are globally unique in Azure; other drivers
-  # keep the plain literal.
+  # Flexible Server names are globally unique in Azure, so azuredb appends the context id.
   - name: database_instance_name
     value: "${database_effective.cloud_driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
 
+# Flux
 # =============================================================================
-# Flux — demo applications
-# =============================================================================
-#
-# Sample apps reconciled onto the running cluster, a resources-only system.
-# Each demo.resources.* flag toggles one app. database adds a shared
-# namespace plus a driver variant (cloudnativepg, rds, azuredb, or
-# cloudsql), plus the shared app credential. The monitor
-# credential and its exporter are provisioned automatically by the
-# database facet's own WatchOperations, not by this facet.
-# dependsOn follows whichever operator owns the active driver.
-#
-# The three managed drivers read their own terraform outputs directly
-# below; a third-party chart, with no Flux substitution access, has to
-# reconstruct the same naming convention instead.
-#
+# Sample apps, each toggled by a demo.resources.* flag.
+# The database app adds a shared namespace, a driver variant and the shared app credential.
+# addon-database provisions the monitor credential and its exporter.
 flux:
 
   # cloudnativepg driver: shared namespace plus the in-cluster Cluster CR.
@@ -49,8 +38,8 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # rds driver: the Instance CR and its credentials as a named variant.
-  # dependsOn drops the Role/Grant before the Instance goes away.
+  # rds driver: the Instance CR, with its credentials as a named variant.
+  # The credentials depend on demo-resources, so the Role and Grant are removed before the Instance.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
@@ -65,7 +54,7 @@ flux:
           database_instance_name: "${database_instance_name}"
           demo_database_instance_type: "${demo.database.instance_type ?? 'db.t4g.micro'}"
         healthCheckExprs:
-          # Gated on the Instance's own Ready condition, not the CR apply.
+          # Gated on the Instance's Ready condition.
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
@@ -109,7 +98,6 @@ flux:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServerDatabase
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the FlexibleServer's own Ready condition, not the CR apply.
         timeout: 45m
         deleteTimeout: 60m
         interval: 5m
@@ -150,7 +138,6 @@ flux:
           - apiVersion: sql.gcp.upbound.io/v1beta1
             kind: Database
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the DatabaseInstance's own Ready condition, not the CR apply.
         timeout: 45m
         deleteTimeout: 60m
         interval: 5m

@@ -351,8 +351,8 @@ run "install_image_propagates" {
     error_message = "controlplane_bootstrap should receive the controlplane's install_image"
   }
   assert {
-    condition     = module.controlplanes[0].install_image == "ghcr.io/siderolabs/installer:v1.14.6"
-    error_message = "A controlplane without install_image should use the installer at talos_version"
+    condition     = module.controlplanes[0].install_image == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
+    error_message = "A controlplane without install_image should use the stock installer"
   }
   assert {
     condition     = module.workers[0].install_image == "factory.talos.dev/metal-installer/def456:v1.14.6"
@@ -429,8 +429,8 @@ run "overlay_selects_metal_installer" {
     error_message = "Each overlay should use its own schematic"
   }
   assert {
-    condition     = module.workers[1].install_image == "ghcr.io/siderolabs/installer:v1.14.6"
-    error_message = "A node without an overlay or install_image should use the installer at talos_version"
+    condition     = module.workers[1].install_image == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
+    error_message = "A node without an overlay or install_image should use the stock installer"
   }
 }
 
@@ -724,7 +724,7 @@ run "upgrade_resources_per_node" {
     error_message = "One worker upgrade expected"
   }
   assert {
-    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.6"
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
     error_message = "Upgrade must trigger on the installer image for talos_version"
   }
 }
@@ -772,7 +772,7 @@ run "upgrade_uses_node_install_image" {
     error_message = "Worker upgrade must use the node install_image"
   }
   assert {
-    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "ghcr.io/siderolabs/installer:v1.14.6"
+    condition     = terraform_data.upgrade_bootstrap[0].triggers_replace[0] == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
     error_message = "A node without an install image upgrades to the stock installer"
   }
 }
@@ -805,4 +805,29 @@ run "upgrade_offline_timeout_rejects_bad_duration" {
   }
 
   expect_failures = [var.upgrade_offline_timeout]
+}
+
+# A node without an endpoint dials its node address.
+run "endpoint_defaults_to_node" {
+  command = plan
+
+  variables {
+    context_path = "test"
+    controlplanes = [
+      { node = "192.168.1.10" },
+    ]
+    workers = [
+      { node = "192.168.1.20" },
+    ]
+  }
+
+  assert {
+    condition     = module.controlplane_bootstrap.endpoint == "192.168.1.10"
+    error_message = "controlplane endpoint should default to node"
+  }
+
+  assert {
+    condition     = module.workers[0].endpoint == "192.168.1.20"
+    error_message = "worker endpoint should default to node"
+  }
 }

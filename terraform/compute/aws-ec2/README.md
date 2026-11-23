@@ -1,0 +1,94 @@
+---
+title: AWS EC2
+description: Launches Talos Linux nodes on EC2 for the aws platform when the cluster driver is talos.
+---
+
+Launches Talos Linux nodes as EC2 instances in one subnet. Each node boots the
+published Talos AMI for `talos_version`. A node whose `cluster.controlplanes.nodes`
+or `cluster.workers.nodes` entry declares an address launches at that private IP.
+Any other node takes an address from the subnet. The `aws` platform's
+`cluster/talos` step then bootstraps the nodes. A shared security group opens
+the Talos API, the Kubernetes API and NodePorts to the VPC CIDR, and lets the
+nodes reach each other on every port. The metadata service requires IMDSv2
+with a hop limit of 1. Root volumes
+are gp3, sized from each pool's `root_disk_size` at 3000 IOPS and 125 MB/s,
+and encrypted with a KMS key the module creates, or with `kms_key_id` when set. Every
+resource carries the context id tag. When `ephemeral` is true, resources also
+carry `windsorcli.dev/ephemeral` and a fixed `windsorcli.dev/created-at` time
+for cleanup of short-lived nodes.
+
+Enable it with `platform: aws` and `cluster.driver: talos`. Nodes launch in the
+first private subnet of the VPC the `network` step creates, so all nodes share
+one availability zone. The nodes have no public IP, and the cluster endpoint is
+the first control plane node's private address. The machine that runs Windsor
+MUST have a route into the VPC (VPN or bastion) to reach it. Only x86_64, non-burstable
+instance types are supported. The AWS provider authenticates from the context's
+ambient credentials.
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.68.0 |
+| <a name="requirement_http"></a> [http](#requirement\_http) | 3.5.0 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.68.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
+| <a name="provider_time"></a> [time](#provider\_time) | ~> 0.13 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_instance.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/instance) | resource |
+| [aws_kms_alias.ebs](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.ebs](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/kms_key) | resource |
+| [aws_security_group.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/security_group) | resource |
+| [aws_vpc_security_group_egress_rule.all](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/vpc_security_group_egress_rule) | resource |
+| [aws_vpc_security_group_ingress_rule.nodes](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/vpc_security_group_ingress_rule) | resource |
+| [aws_vpc_security_group_ingress_rule.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/vpc_security_group_ingress_rule) | resource |
+| [time_static.created](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/caller_identity) | data source |
+| [aws_subnet.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/subnet) | data source |
+| [aws_vpc.this](https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/data-sources/vpc) | data source |
+| [http_http.talos_images](https://registry.terraform.io/providers/hashicorp/http/3.5.0/docs/data-sources/http) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment; used to name and tag resources. | `string` | `""` | no |
+| <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder. | `string` | `""` | no |
+| <a name="input_controlplane_instance_type"></a> [controlplane\_instance\_type](#input\_controlplane\_instance\_type) | EC2 instance type for control plane nodes. Must be an x86\_64, non-burstable type. | `string` | n/a | yes |
+| <a name="input_controlplane_root_volume"></a> [controlplane\_root\_volume](#input\_controlplane\_root\_volume) | gp3 root volume for control plane nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
+| <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | Control plane nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | n/a | yes |
+| <a name="input_ephemeral"></a> [ephemeral](#input\_ephemeral) | Tags every resource as ephemeral with its creation time, for cleanup of short-lived nodes. | `bool` | `false` | no |
+| <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | KMS key ID, ARN or alias that encrypts the node root volumes. The module creates a key when empty. | `string` | `""` | no |
+| <a name="input_region"></a> [region](#input\_region) | AWS region to launch the nodes in. | `string` | n/a | yes |
+| <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | Subnet to launch the nodes in. Every fixed node address must fall inside it. | `string` | n/a | yes |
+| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version whose published AMI the nodes boot, with or without a leading v. | `string` | n/a | yes |
+| <a name="input_worker_instance_type"></a> [worker\_instance\_type](#input\_worker\_instance\_type) | EC2 instance type for worker nodes. Defaults to the control plane type. Must be an x86\_64, non-burstable type. | `string` | `""` | no |
+| <a name="input_worker_root_volume"></a> [worker\_root\_volume](#input\_worker\_root\_volume) | gp3 root volume for worker nodes: size in GB, IOPS and throughput in MB/s. | <pre>object({<br/>    size       = optional(number, 100)<br/>    iops       = optional(number, 3000)<br/>    throughput = optional(number, 125)<br/>  })</pre> | `{}` | no |
+| <a name="input_workers"></a> [workers](#input\_workers) | Worker nodes to launch. A node without an address takes one from the subnet. | <pre>list(object({<br/>    hostname = string<br/>    node     = optional(string)<br/>  }))</pre> | `[]` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_ami_id"></a> [ami\_id](#output\_ami\_id) | AMI the nodes booted. |
+| <a name="output_controlplanes"></a> [controlplanes](#output\_controlplanes) | Control plane nodes in the format cluster/talos consumes. |
+| <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | KMS key that encrypts every node's root volume. |
+| <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group attached to every node. |
+| <a name="output_workers"></a> [workers](#output\_workers) | Worker nodes in the format cluster/talos consumes. |
+<!-- END_TF_DOCS -->
