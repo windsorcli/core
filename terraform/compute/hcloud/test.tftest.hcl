@@ -174,6 +174,11 @@ run "node_identity_patches" {
   }
 
   assert {
+    condition     = strcontains(output.controlplanes[0].config_patches, "\"$patch\": \"delete\"")
+    error_message = "The HostnameConfig patch should delete the generated auto field."
+  }
+
+  assert {
     condition     = strcontains(output.workers[0].config_patches, "\"hostname\": \"worker-1-test123\"")
     error_message = "Worker patches should pin the hostname to the server name."
   }
