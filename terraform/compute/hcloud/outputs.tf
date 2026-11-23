@@ -1,11 +1,14 @@
 locals {
-  # Per-node kubelet provider-id (hcloud://<server-id>) so the cluster can map
-  # nodes to their hcloud servers without running cloud-provider=external.
-  provider_id_patches = {
-    for k, s in hcloud_server.this : k => yamlencode({
-      machine = { kubelet = { extraArgs = { "provider-id" = "hcloud://${s.id}" } } }
-    })
+  # Per-node patches: kubelet provider-id (hcloud://<server-id>) and a static HostnameConfig set to the server name.
+  node_patches = {
+    for k, s in hcloud_server.this : k => join("\n---\n", [
+      yamlencode({ machine = { kubelet = { extraArgs = { "provider-id" = "hcloud://${s.id}" } } } }),
+      yamlencode({ apiVersion = "v1alpha1", kind = "HostnameConfig", hostname = s.name }),
+    ])
   }
+
+  # Installer with the hcloud platform kernel argument baked in.
+  install_image = "factory.talos.dev/hcloud-installer/${var.talos_schematic_id}:v${var.talos_version}"
 
   # Talos-shaped node records. endpoint is the Talos API (port 50000) on the
   # public IP; node is the public IP cluster/talos applies config to.
@@ -19,7 +22,8 @@ locals {
       ipv6           = hcloud_server.this[k].ipv6_address
       private_ipv4   = local.private_ips[k]
       server_type    = v.server_type
-      config_patches = local.provider_id_patches[k]
+      install_image  = local.install_image
+      config_patches = local.node_patches[k]
     }
   ]
 
@@ -33,7 +37,8 @@ locals {
       ipv6           = hcloud_server.this[k].ipv6_address
       private_ipv4   = local.private_ips[k]
       server_type    = v.server_type
-      config_patches = local.provider_id_patches[k]
+      install_image  = local.install_image
+      config_patches = local.node_patches[k]
     }
   ]
 }
