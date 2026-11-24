@@ -198,6 +198,6 @@ tasks:
       - scripts/umbrella-index.sh --check kustomize
 
   docs:no-future-work:
-    desc: Fail if any doc uses future-work framing (a "not covered yet" heading, roadmap/TODO phrasing) outside ADRs and roadmap files
+    desc: Fail if any doc uses future-work framing (a "not covered yet" heading, roadmap/TODO phrasing)
     cmds:
       - scripts/no-future-work.sh
