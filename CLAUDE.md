@@ -10,7 +10,7 @@ Comments exist only to clarify code that is not self-evident. They MUST NOT narr
 - A comment MUST NOT justify: no rationale for a value, no "what breaks without it", no what upstream does internally, no tradeoffs, no alternatives considered, no debugging story. That belongs in a design doc, not a comment.
 - A comment MUST NOT narrate migration or WIP history: never "now lives in X", "moved to Y", "used to be Z", "previously".
 - A comment MUST NOT describe the diff. It explains the file as it stands. Reviewers read the diff; the comment outlives it.
-- A comment MUST NOT reference ADRs: no links, no "See docs/adr/0003". ADRs are internal and gitignored.
+- A comment MUST NOT reference ADRs: no links, no ADR numbers, no paths.
 - A comment MUST NOT use AI-punchy prose: no em-dash as rhetoric, no antithesis ("not X, but Y"), no bold-headword bullets, no quotable fragments.
 
 Default: no comment. Add one only when its absence would leave the code genuinely unclear.

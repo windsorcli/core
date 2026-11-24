@@ -4,9 +4,6 @@
 # covered yet"-style heading, or roadmap/TODO phrasing about unfinished
 # work on the doc's own subject. Docs describe what's true right now.
 #
-# ADRs and roadmap files are the deliberate exception (see EXCLUDE_PATHSPECS
-# below) — discussing what's deferred is their actual job, not a doc smell.
-#
 # Usage:
 #   scripts/no-future-work.sh          # lint every tracked markdown file
 #   scripts/no-future-work.sh <files>  # lint specific files
@@ -14,9 +11,6 @@
 set -euo pipefail
 
 EXCLUDE_PATHSPECS=(
-  ':!docs/adr/**'
-  ':!docs/adrs/**'
-  ':!**/roadmap-*.md'
   ':!.claude/**'
   ':!**/.terraform/**'
 )
