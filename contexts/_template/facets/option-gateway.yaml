@@ -77,14 +77,14 @@ requires:
       ((gateway.internal.tls.cert ?? '') == '') != ((gateway.internal.tls.key ?? '') == '')
     message: A supplied gateway certificate needs both gateway.<name>.tls.cert and gateway.<name>.tls.key.
   - when: >-
-      gateway.enabled == true && dev != true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
+      gateway.enabled == true && dev != true && gateway_external_effective.domain != '' && (gateway.external.https ?? true) == true &&
       (tunnel.driver ?? '') == '' && (gateway.external.tls.cert ?? '') == '' && tls_effective.external_override == '' &&
       tls_effective.public_zone_writable != true && tls_effective.internal_acme != true
     message: >-
       The external gateway has no certificate source. Set dns.public.driver, pki.acme.server,
       gateway.external.tls.cert, or gateway.external.tls.issuer.
   - when: >-
-      gateway.enabled == true && (dns.public_domain ?? '') != '' && (gateway.external.https ?? true) == true &&
+      gateway.enabled == true && gateway_external_effective.domain != '' && (gateway.external.https ?? true) == true &&
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
     message: gateway.external.tls.issuer acme needs dns.public.driver or pki.acme.server.
   - when: >-
@@ -132,20 +132,21 @@ config:
         (gateway_exposure.external == 'ClusterIP' ? 'clusterip' : 'loadbalancer')}
       # Hetzner is public only and has no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
-      # A gateway exists with its domain, or without one when gateway.<name>.enabled is true.
-      external_enabled: "${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true}"
+      # The external gateway comes from gateway_external_effective. The internal gateway exists with its
+      # domain, or without one when gateway.internal.enabled is true.
+      external_enabled: "${gateway_external_effective.enabled}"
       internal_enabled: >-
         ${platform != 'hetzner' &&
         ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true)}
       # Route target for browser- and remote-facing services: external, else internal, else none.
       public:
         name: >-
-          ${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? 'external' :
+          ${gateway_external_effective.enabled == true ? 'external' :
           (platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
           'internal' : '')}
-        domain: "${(dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? '')}"
+        domain: "${gateway_external_effective.domain != '' ? gateway_external_effective.domain : (dns.private_domain ?? '')}"
         ip: >-
-          ${(dns.public_domain ?? '') != '' || (gateway.external.enabled ?? false) == true ? (gateway.external.ip ?? '') :
+          ${gateway_external_effective.enabled == true ? (gateway.external.ip ?? '') :
           (platform != 'hetzner' && ((dns.private_domain ?? '') != '' || (gateway.internal.enabled ?? false) == true) ?
           (gateway.internal.ip ?? '') : '')}
       # Route target for operator-only services: internal, else none.

@@ -182,7 +182,7 @@ flux:
     path: demo
     when: >-
       demo.resources.bookinfo == true && gateway.enabled == true &&
-      gateway_effective.internal != true && (dns.public_domain ?? '') != ''
+      gateway_effective.internal != true && gateway_external_effective.domain != ''
     resources:
       - dependsOn:
           - gateway-resources-external
@@ -190,4 +190,4 @@ flux:
           - bookinfo/gateway
         substitutions:
           bookinfo_gateway: external
-          bookinfo_domain: ${dns.public_domain}
+          bookinfo_domain: ${gateway_external_effective.domain}

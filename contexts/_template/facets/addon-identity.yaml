@@ -21,8 +21,8 @@ config:
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         (((identity.keycloak.hostname ?? '') == '' ?
         ('https://keycloak.' +
-        ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
-        (workstation.runtime == 'docker-desktop' ? ((dns.public_domain ?? '') == '' ? ':8443' : ':8444') : '')) :
+        (gateway_external_effective.domain == '' ? (dns.private_domain ?? '') : gateway_external_effective.domain) +
+        (workstation.runtime == 'docker-desktop' ? (gateway_external_effective.domain == '' ? ':8443' : ':8444') : '')) :
         identity.keycloak.hostname) +
         '/realms/' + (identity.keycloak.realm ?? 'platform'))}
       # Back-channel issuer for in-cluster token and userinfo calls. With the keycloak driver this is
@@ -100,8 +100,8 @@ flux:
           keycloak_hostname: >-
             ${(identity.keycloak.hostname ?? '') == '' ?
             ('https://keycloak.' +
-            ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
-            (workstation.runtime == 'docker-desktop' ? ((dns.public_domain ?? '') == '' ? ':8443' : ':8444') : '')) :
+            (gateway_external_effective.domain == '' ? (dns.private_domain ?? '') : gateway_external_effective.domain) +
+            (workstation.runtime == 'docker-desktop' ? (gateway_external_effective.domain == '' ? ':8443' : ':8444') : '')) :
             identity.keycloak.hostname}
           # Admin console on the internal gateway's domain.
           keycloak_admin_hostname: >-

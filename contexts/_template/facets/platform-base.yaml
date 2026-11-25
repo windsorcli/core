@@ -236,11 +236,21 @@ config:
           (dns.private.enabled == false || cluster_provisioned != true ||
           ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
 
+  # The external gateway is on with gateway.external.enabled, else when dns.public_domain is set.
+  # domain is dns.public_domain while the gateway is on. zone_only is true when only the domain is set.
+  - name: gateway_external_effective
+    value:
+      enabled: "${gateway.external.enabled ?? ((dns.public_domain ?? '') != '')}"
+  - name: gateway_external_effective
+    value:
+      domain: "${gateway_external_effective.enabled == true ? (dns.public_domain ?? '') : ''}"
+      zone_only: "${(gateway.external.enabled ?? true) == false && (dns.public_domain ?? '') != ''}"
+
   # CoreDNS serves the public zone on platforms without a cloud DNS zone.
   - name: dns_private_effective
     value:
       public_zone: >-
-        ${(dns.public_domain ?? '') != '' && platform != 'aws' && platform != 'azure' && platform != 'gcp' && platform != 'hetzner'}
+        ${gateway_external_effective.domain != '' && platform != 'aws' && platform != 'azure' && platform != 'gcp' && platform != 'hetzner'}
 
   # dns.public_zone false uses public_domain as a hostname with no zone.
   - name: dns_zone_effective
@@ -290,13 +300,13 @@ config:
   - name: tls_effective
     value:
       public_acme: >-
-        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-acme') ||
+        ${(gateway_external_effective.domain != '' && tls_effective.external_issuer == 'public-acme') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-acme')}
       private_acme: >-
-        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'private-acme') ||
+        ${(gateway_external_effective.domain != '' && tls_effective.external_issuer == 'private-acme') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'private-acme')}
       selfsigned: >-
-        ${((dns.public_domain ?? '') != '' && tls_effective.external_issuer == 'public-selfsigned') ||
+        ${(gateway_external_effective.domain != '' && tls_effective.external_issuer == 'public-selfsigned') ||
         ((dns.private_domain ?? '') != '' && tls_effective.internal_issuer == 'public-selfsigned')}
 
   # pki.dns01_resolvers, else public resolvers when public-acme serves dns.private_domain or a

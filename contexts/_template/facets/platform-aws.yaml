@@ -264,7 +264,7 @@ flux:
     when: "cluster.driver == 'eks' && gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     resources:
       - name: external
-        when: (dns.public_domain ?? '') != '' && gateway_exposure.external == 'LoadBalancer'
+        when: gateway_external_effective.domain != '' && gateway_exposure.external == 'LoadBalancer'
         # aws-load-balancer-controller finalizes the NLB Service.
         dependsOn:
           - lb-install

@@ -351,7 +351,7 @@ config:
       public_ca: >-
         ${(cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true &&
         (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.hostname ?? '') == '' &&
-        ((dns.public_domain ?? '') != '' ?
+        (gateway_external_effective.domain != '' ?
         (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' :
         (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme')}
 

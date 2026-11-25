@@ -578,3 +578,36 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  # Both zones: external-dns gets the private zone ID, then the public zone ID.
+  - name: public and private domains grant external-dns both Azure DNS zones
+    values:
+      platform: azure
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: /subscriptions/sub-123/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+        resource_group_name: rg-dns
+        subscription_id: sub-123
+      network:
+        private_zone_id: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
+        subscription_id: sub-123
+        resource_group_name: rg-net
+      cluster:
+        cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+        external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+        tenant_id: 33333333-cccc-cccc-cccc-333333333333
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            external_dns_dns_zone_ids:
+              - /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
+              - /subscriptions/sub-123/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com

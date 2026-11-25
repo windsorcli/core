@@ -752,3 +752,41 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_admin_group: ops-admins
+
+  # A public domain puts Keycloak on the external gateway at :8444 on docker-desktop.
+  - name: public domain sets the keycloak hostname on docker-desktop
+    values:
+      platform: docker
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          tls:
+            issuer: selfsigned
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+              substitutions:
+                keycloak_hostname: https://keycloak.example.com:8444

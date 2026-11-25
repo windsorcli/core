@@ -1183,3 +1183,64 @@ cases:
         workstation_chart_registry:
           key: ""
 
+
+  # public_domain_name carries dns.public_domain to each workstation variant.
+  - name: docker-desktop workstation passes the public domain
+    values:
+      platform: docker
+      workstation:
+        runtime: docker-desktop
+      dns:
+        domain: test.local
+        public_domain: example.com
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            public_domain_name: example.com
+
+  - name: colima docker workstation passes the public domain
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns:
+        domain: test.local
+        public_domain: example.com
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            public_domain_name: example.com
+
+  - name: incus workstation passes the public domain
+    values:
+      platform: incus
+      workstation:
+        runtime: colima
+      dns:
+        domain: test.local
+        public_domain: example.com
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/incus
+          inputs:
+            public_domain_name: example.com
