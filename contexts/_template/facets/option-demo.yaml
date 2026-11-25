@@ -167,7 +167,7 @@ flux:
   # Bookinfo route on the internal gateway.
   - name: demo
     path: demo
-    when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_effective.internal == true
+    when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_endpoints.internal == true
     resources:
       - dependsOn:
           - gateway-resources-internal
@@ -182,7 +182,7 @@ flux:
     path: demo
     when: >-
       demo.resources.bookinfo == true && gateway.enabled == true &&
-      gateway_effective.internal != true && gateway_external_effective.domain != ''
+      gateway_endpoints.internal != true && gateway_external_effective.domain != ''
     resources:
       - dependsOn:
           - gateway-resources-external

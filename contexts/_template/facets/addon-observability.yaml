@@ -35,7 +35,7 @@ config:
   - name: grafana_effective
     value:
       url: >-
-        ${'https://grafana.' + gateway_effective.private.domain +
+        ${'https://grafana.' + gateway_endpoints.private.domain +
         (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
 
 # Flux
@@ -45,7 +45,7 @@ flux:
 
   # With elasticsearch logs, replaces the base telemetry system, with filebeat in place of fluent-bit.
   - name: telemetry
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.private.name != ''
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_endpoints.private.name != ''
     strategy: replace
     install:
       components:
@@ -105,17 +105,17 @@ flux:
     install:
       substitutions:
         grafana_root_url: "${grafana_effective.url}"
-        # The provider label and endpoints come from identity_effective, with overrides under identity.oidc.
-        oidc_name: "${identity_effective.display_name ?? 'SSO'}"
+        # The provider label and endpoints come from identity_provider, with overrides under identity.oidc.
+        oidc_name: "${identity_provider.display_name ?? 'SSO'}"
         oidc_client_id: grafana
         # Dev skips the Grafana login form and goes straight to SSO.
         oidc_auto_login: "${dev == true ? 'true' : 'false'}"
         # The browser redirect uses the external issuer. Token and userinfo use the back-channel issuer.
-        oidc_auth_url: "${(identity.oidc.auth_url ?? '') != '' ? identity.oidc.auth_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/auth')}"
-        oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/token')}"
-        oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/userinfo')}"
-        # Admin for identity_effective.admin_group, else Viewer, unless set by observability.grafana.role_attribute_path.
-        oidc_role_attribute_path: "${observability.grafana.role_attribute_path ?? (\"contains(groups[*], '/\" + (identity_effective.admin_group ?? 'platform-admins') + \"') && 'Admin' || 'Viewer'\")}"
+        oidc_auth_url: "${(identity.oidc.auth_url ?? '') != '' ? identity.oidc.auth_url : ((identity_provider.issuer ?? '') + '/protocol/openid-connect/auth')}"
+        oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_provider.backchannel_issuer ?? '') + '/protocol/openid-connect/token')}"
+        oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_provider.backchannel_issuer ?? '') + '/protocol/openid-connect/userinfo')}"
+        # Admin for identity_provider.admin_group, else Viewer, unless set by observability.grafana.role_attribute_path.
+        oidc_role_attribute_path: "${observability.grafana.role_attribute_path ?? (\"contains(groups[*], '/\" + (identity_provider.admin_group ?? 'platform-admins') + \"') && 'Admin' || 'Viewer'\")}"
 
   # Grafana's OIDC client secret, external oidc driver with a supplied secret.
   - name: observability
@@ -127,16 +127,16 @@ flux:
 
   # Grafana route and Envoy dashboards on the private route target.
   - name: observability
-    when: observability.dashboards == 'grafana' && gateway.enabled == true && gateway_effective.private.name != ''
+    when: observability.dashboards == 'grafana' && gateway.enabled == true && gateway_endpoints.private.name != ''
     resources:
       - dependsOn:
-          - "${'gateway-resources-' + gateway_effective.private.name}"
+          - "${'gateway-resources-' + gateway_endpoints.private.name}"
         components:
           - grafana/gateway
           - "${gateway.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
         substitutions:
-          grafana_domain: "${gateway_effective.private.domain}"
-          grafana_gateway_name: "${gateway_effective.private.name}"
+          grafana_domain: "${gateway_endpoints.private.domain}"
+          grafana_gateway_name: "${gateway_endpoints.private.name}"
 
   # Log storage, one entry per observability.logs_driver. Unset means fluentd with no external store.
 
@@ -175,7 +175,7 @@ flux:
 
   # Elasticsearch and Kibana, with Kibana on the private route target.
   - name: observability
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.private.name != ''
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_endpoints.private.name != ''
     dependsOn:
       - csi-install
     install:
@@ -188,14 +188,14 @@ flux:
         - "${chart_registry != '' ? 'kibana/chart-registry' : ''}"
     resources:
       - dependsOn:
-          - "${'gateway-resources-' + gateway_effective.private.name}"
+          - "${'gateway-resources-' + gateway_endpoints.private.name}"
         timeout: 10m
         interval: 5m
         components:
           - kibana/gateway
         substitutions:
-          kibana_domain: "${gateway_effective.private.domain}"
-          kibana_gateway_name: "${gateway_effective.private.name}"
+          kibana_domain: "${gateway_endpoints.private.domain}"
+          kibana_gateway_name: "${gateway_endpoints.private.name}"
 
 # Messages
 # =============================================================================

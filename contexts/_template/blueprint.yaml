@@ -7,7 +7,7 @@ sources: []
 terraform: []
 kustomize: []
 exports:
-  - gateway_effective
-  - identity_effective
-  - lb_effective
-  - cluster_nodes_effective
+  - gateway_endpoints
+  - identity_provider
+  - load_balancer
+  - cluster_node_counts

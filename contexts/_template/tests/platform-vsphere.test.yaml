@@ -800,7 +800,7 @@ cases:
 
   # kube-vip: the lb flux system's install tier lands when loadbalancer_driver
   # is kube-vip and the CNI is flannel (Cilium uses its own L2 path;
-  # lb_effective.enabled is false when Cilium is the CNI). kube-vip/arp is a
+  # load_balancer.enabled is false when Cilium is the CNI). kube-vip/arp is a
   # patch on the install HelmRelease, so it builds in install; resources has no
   # kube-vip component (only metallb ships an IPAddressPool/L2Advertisement).
   - name: kube-vip lb install lands with explicit flannel CNI

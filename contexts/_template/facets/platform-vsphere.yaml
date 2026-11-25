@@ -270,17 +270,17 @@ flux:
 
   # In-cluster load balancer, kube-vip or MetalLB.
   - name: lb
-    when: lb_effective.enabled
+    when: load_balancer.enabled
     dependsOn:
       - policy-resources
     install:
       components:
-        - ${lb_effective.driver}
+        - ${load_balancer.driver}
         # kube-vip/<mode> patches the kube-vip HelmRelease.
-        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
-        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
-        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
+        - "${load_balancer.driver == 'kube-vip' ? load_balancer.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        - "${load_balancer.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
+        - "${chart_registry != '' && load_balancer.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
+        - "${chart_registry != '' && load_balancer.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
       # The kube-vip cloud-provider reads loadbalancer_ip_range.
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
@@ -289,20 +289,20 @@ flux:
     # The MetalLB IPAddressPool and L2Advertisement.
     resources:
       - components:
-          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          - "${load_balancer.driver == 'metallb' ? load_balancer.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
           # MetalLB address for the internal gateway when it has a fixed IP.
           - >-
-            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal_enabled == true &&
-            gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
+            ${load_balancer.driver == 'metallb' && gateway.enabled == true && gateway_endpoints.internal_enabled == true &&
+            gateway_endpoints.internal_mode == 'loadbalancer' && (gateway_endpoints.internal_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
           # MetalLB address for the external gateway when it has a fixed IP.
           - >-
-            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.external_enabled == true &&
-            gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
+            ${load_balancer.driver == 'metallb' && gateway.enabled == true && gateway_endpoints.external_enabled == true &&
+            gateway_endpoints.external_mode == 'loadbalancer' && (gateway_endpoints.external_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/external-gateway' : ''}
         substitutions:
           loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
-          gateway_internal_ip: "${gateway_effective.internal_ip ?? ''}"
-          gateway_external_ip: "${gateway_effective.external_ip ?? ''}"
+          gateway_internal_ip: "${gateway_endpoints.internal_ip ?? ''}"
+          gateway_external_ip: "${gateway_endpoints.external_ip ?? ''}"
         timeout: 5m
         interval: 5m

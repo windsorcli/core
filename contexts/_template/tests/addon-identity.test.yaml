@@ -557,7 +557,7 @@ cases:
                 - keycloak/realm/clients/kubernetes
 
   # External OIDC issuer (driver oidc): host nothing — no operator, no server, no
-  # realm, no CRDs. Consumers read identity_effective.issuer instead.
+  # realm, no CRDs. Consumers read identity_provider.issuer instead.
   - name: oidc driver hosts nothing and skips keycloak crds
     values:
       platform: metal

@@ -44,8 +44,8 @@ targets instead of choosing a Gateway themselves. Each target has a
 
 | Target | Use for | Gateway |
 |---|---|---|
-| `gateway_effective.public` | Services that browsers and remote machines reach | `external` when it exists, else `internal` |
-| `gateway_effective.private` | Operator-only services | `internal` when it exists, else none |
+| `gateway_endpoints.public` | Services that browsers and remote machines reach | `external` when it exists, else `internal` |
+| `gateway_endpoints.private` | Operator-only services | `internal` when it exists, else none |
 
 `private` never falls back to `external`, so operator-only services stay
 off the internet. A target with no Gateway has an empty `name`, `domain`
@@ -273,7 +273,7 @@ flux:
 | `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal. Empty for a gateway that exists only to admit ListenerSets. |
 | `gateway_tls_secret` | `gateway-resources-external` or `gateway-resources-internal` is composed | Secret the HTTPS listener serves. `<name>-web-tls` from the `certificate` component, or `<name>-supplied-tls` when `gateway.<name>.tls.cert` supplies the certificate. |
 | `gateway_cert_issuer` | `certificate` is composed | TLS `ClusterIssuer` name: `public-acme`, `private-acme`, `private`, or `public-selfsigned`. The facet infers it per gateway unless `gateway.<name>.tls.issuer` sets it. |
-| `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `lb_effective.enabled`, empty otherwise. |
+| `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `load_balancer.enabled`, empty otherwise. |
 | `gateway_loadbalancer_ip` | `lb-address` or `cilium/fixed-ip` is composed | Fixed IP this gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation, the `cilium-pool` block, and the envoy variant's `spec.addresses` patch. Sourced from `gateway.<name>.ip`. |
 | `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
 | `gateway_redirect_port` | `gateway-resources-external` or `gateway-resources-internal` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` internal, `8444` external). |
@@ -334,7 +334,7 @@ Pins this gateway's data-plane Service to `gateway.<name>.ip` with the `lbipam.c
 
 ### `envoy/loadbalancer/aws-nlb`
 
-_Enabled when envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`._
+_Enabled when envoy driver AND platform is AWS AND `load_balancer.mode == 'loadbalancer'`._
 
 Adds NLB annotations onto the Envoy data-plane Service so the AWS Load Balancer Controller provisions an NLB with target-type=ip. Traffic reaches Envoy pods directly, source IP preserved. Scheme comes from `gateway_lb_scheme`.
 
@@ -436,7 +436,7 @@ Patches the internal Gateway with `external-dns.alpha.kubernetes.io/target: ${ga
 
 ### `lb-address`
 
-_Enabled when `lb_effective.enabled: true` AND `gateway.<name>.ip` is set._
+_Enabled when `load_balancer.enabled: true` AND `gateway.<name>.ip` is set._
 
 Patches this Gateway's `spec.addresses` to pin a fixed IPAddress (`${gateway_loadbalancer_ip}`). Skipped when no LB is enabled (NodePort mode picks node IP at apply time).
 
@@ -463,7 +463,7 @@ Removes the `web-https` listener so a `ListenerSet` can take port 443. `web-http
 | Add-on | Required when | Reason |
 |---|---|---|
 | `pki-install` | always | gateway-resources needs cert-manager CRDs reconciling so each Gateway's `Certificate` can be issued before the Gateway is admitted. |
-| `lb-install` | `lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller) | The LB controller must be live so the data-plane Service can get an external IP. |
+| `lb-install` | `load_balancer.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller) | The LB controller must be live so the data-plane Service can get an external IP. |
 | `dns` | `dns.enabled: true` | external-dns must be reconciling so each gateway's hostname is published when it comes up. |
 | `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching. |
 
