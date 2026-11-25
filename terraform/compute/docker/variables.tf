@@ -9,7 +9,7 @@ variable "context" {
 }
 
 variable "context_id" {
-  description = "The windsor context id for this deployment. Typically set implicitly via TF_VAR_context; no need to pass in facet inputs."
+  description = "The windsor context id for this deployment, unique per project. Prefixes the Talos volume names; falls back to context when empty. Typically set implicitly via TF_VAR_context_id; no need to pass in facet inputs."
   type        = string
   default     = ""
 }

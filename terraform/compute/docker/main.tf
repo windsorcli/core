@@ -31,6 +31,9 @@ locals {
   runtime                  = (var.runtime == "colima" || var.runtime == "docker") ? "linux" : var.runtime
   use_localhost_networking = local.runtime == "docker-desktop"
 
+  # Talos volume name prefix: context_id, else context, else none.
+  volume_prefix = var.context_id != "" ? "${var.context_id}_" : (var.context != "" ? "${var.context}_" : "")
+
   # Talos paths persisted as named volumes, without the /etc and /usr/libexec overlays on 1.14+.
   _talos_version_parts = var.cluster_nodes == null ? null : (
     var.cluster_nodes.version == null ? null : split(".", trimprefix(var.cluster_nodes.version, "v"))
@@ -116,7 +119,7 @@ locals {
         { (local.shape.controlplane.env_sku_key) = "${var.cluster_nodes.controlplanes.cpu}CPU-${var.cluster_nodes.controlplanes.memory * 1024}RAM" }
       )
       volumes = concat(
-        [for s in local.shape.controlplane.volume_specs : "controlplane_${i + 1}_${s.name}:${s.path}"],
+        [for s in local.shape.controlplane.volume_specs : "${local.volume_prefix}controlplane_${i + 1}_${s.name}:${s.path}"],
         coalesce(var.cluster_nodes.controlplanes.volumes, [])
       )
     }, local.shape.controlplane), { ports = local._cp_ports_with_auto[i] })],
@@ -134,7 +137,7 @@ locals {
         { (local.shape.worker.env_sku_key) = "${var.cluster_nodes.workers.cpu}CPU-${var.cluster_nodes.workers.memory * 1024}RAM" }
       )
       volumes = concat(
-        [for s in local.shape.worker.volume_specs : "worker_${i + 1}_${s.name}:${s.path}"],
+        [for s in local.shape.worker.volume_specs : "${local.volume_prefix}worker_${i + 1}_${s.name}:${s.path}"],
         coalesce(var.cluster_nodes.workers.volumes, [])
       )
     }, local.shape.worker), { ports = local._worker_ports_with_auto[i] })]
