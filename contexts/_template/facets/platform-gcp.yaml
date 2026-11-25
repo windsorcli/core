@@ -93,7 +93,7 @@ terraform:
       # The public zone name and the private zone name, whichever exist.
       external_dns_dns_zone_names: >-
         ${concat(
-          dns_zone_effective.cloud == true && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : [],
+          dns_zone_effective.cloud == true && gateway_external_effective.domain != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : [],
           (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_name') ?? '') != '' ? [terraform_output('network', 'private_zone_name')] : [])}
       # One general pool unless set by cluster.pools. A custom pool sets its own auto_repair.
       pools: >-

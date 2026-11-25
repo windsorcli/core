@@ -147,10 +147,10 @@ config:
         ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
         (dns.private_domain ?? "") != "" ?
         [gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port] : []}
-      # External gateway NodePorts, with Envoy and dns.public_domain.
+      # External gateway NodePorts, with Envoy and an external gateway domain.
       external_ports: >-
         ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
-        (dns.public_domain ?? "") != "" ?
+        gateway_external_effective.domain != "" ?
         [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port] : []}
 
   - name: nat_effective

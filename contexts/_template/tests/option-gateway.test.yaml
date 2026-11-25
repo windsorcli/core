@@ -2592,3 +2592,35 @@ cases:
               substitutions:
                 flux_ui_domain: private.example.com
                 flux_ui_gateway_name: internal
+
+  - name: pki.acme.server with only a public domain issues the external gateway from the internal ACME server
+    values:
+      email: ops@example.com
+      gateway:
+        external:
+          ip: "10.5.1.11"
+      platform: metal
+      dns:
+        public_domain: example.com
+      pki:
+        acme:
+          server: https://acme.corp.example/directory
+          ca_bundle: CA
+          eab:
+            key_id: kid-1
+            hmac_key: hmac
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: private-acme
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/acme
+                - private-issuer/acme/eab
+                - private-issuer/acme/ca-bundle

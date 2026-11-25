@@ -256,7 +256,7 @@ flux:
 
   # Hetzner LB for the external gateway Service, Cilium or Envoy.
   - name: gateway
-    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && gateway_exposure.external == 'LoadBalancer' && (dns.public_domain ?? '') != ''"
+    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && gateway_exposure.external == 'LoadBalancer' && gateway_external_effective.domain != ''"
     resources:
       - name: external
         # hcloud-ccm finalizes the LB Service.
