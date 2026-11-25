@@ -103,10 +103,12 @@ config:
       cert_rotation:
         kubelet_extra_args:
           rotate-server-certificates: "true"
+        # One approver replica on a one-node cluster, two otherwise.
+        approver_replicas: "${cluster_nodes_effective.controlplanes + cluster_nodes_effective.workers == 1 ? 1 : 2}"
         # Approves the kubelet serving CSRs that rotation requests.
         approver_manifest:
           name: kubelet-csr-approver
-          contents: "${file('../manifests/kubelet-csr-approver.yaml')}"
+          contents: "${replace(file('../manifests/kubelet-csr-approver.yaml'), 'replicas: 2', 'replicas: ' + string(talos_common.cert_rotation.approver_replicas))}"
 
       # Talos machine patch for every node. Platform facets add keys to it.
       common_patch:
