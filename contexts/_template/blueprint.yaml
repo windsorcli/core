@@ -6,3 +6,8 @@ metadata:
 sources: []
 terraform: []
 kustomize: []
+exports:
+  - gateway_effective
+  - identity_effective
+  - lb_effective
+  - cluster_nodes_effective
