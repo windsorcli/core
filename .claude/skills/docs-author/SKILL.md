@@ -50,7 +50,7 @@ The two kinds of docs here use different registers.
 - Load the `technical-writing` skill before drafting or editing any prose here; it's the baseline AI-tell catalog this section only adds to.
 - Never write "shape" for structure, layout, format, schema, or signature. Name the real one.
 - Avoid em dashes. Trading one for a colon or semicolon in the same spot isn't a fix; it keeps the same clause-stitching and just swaps the punctuation. Restructure instead: split the sentence, reorder the clause, or cut what wasn't carrying weight. The only em dashes that stay are `[Page — Section]` link labels and text inside code fences.
-- Never reference an ADR from a guide, README, or skill. ADRs are cleared after each release; restate the rule or behavior itself.
+- Never reference an ADR from a guide, README, or skill. Restate the rule or behavior itself.
 
 ### Callouts
 
@@ -133,7 +133,3 @@ Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi
 - [ ] Catalog guide `## Reference` lists updated by hand if a facet's `terraform:`/`kustomize:` wiring changed for a key that has a guide.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
-
-## Internal architecture note
-
-[windsorcli.github.io `docs/plan.md` on GitHub](https://github.com/windsorcli/windsorcli.github.io/blob/main/docs/plan.md) — maintainer planning only; not published on windsorcli.dev.

@@ -1,4 +1,17 @@
-mock_provider "hcloud" {}
+mock_provider "hcloud" {
+  mock_resource "hcloud_network" {
+    defaults = { id = 1001 }
+  }
+  mock_resource "hcloud_server" {
+    defaults = { id = 2001 }
+  }
+  mock_resource "hcloud_placement_group" {
+    defaults = { id = 3001 }
+  }
+  mock_resource "hcloud_firewall" {
+    defaults = { id = 4001 }
+  }
+}
 mock_provider "imager" {}
 
 variables {
@@ -141,5 +154,37 @@ run "hyphenated_context_id" {
   assert {
     condition     = hcloud_server.this["controlplane-1"].name == "controlplane-1-my-ctx-1"
     error_message = "Server name should keep the hyphenated context_id"
+  }
+}
+
+run "node_identity_patches" {
+  command = apply
+
+  variables {
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 1, server_type = "cx22" },
+      { name = "worker", role = "worker", count = 1, server_type = "cx22" },
+    ]
+    talos_version = "1.14.6"
+  }
+
+  assert {
+    condition     = strcontains(output.controlplanes[0].config_patches, "\"kind\": \"HostnameConfig\"") && strcontains(output.controlplanes[0].config_patches, "\"hostname\": \"controlplane-1-test123\"")
+    error_message = "Control plane patches should pin the hostname to the server name."
+  }
+
+  assert {
+    condition     = strcontains(output.controlplanes[0].config_patches, "\"$patch\": \"delete\"")
+    error_message = "The HostnameConfig patch should delete the generated auto field."
+  }
+
+  assert {
+    condition     = strcontains(output.workers[0].config_patches, "\"hostname\": \"worker-1-test123\"")
+    error_message = "Worker patches should pin the hostname to the server name."
+  }
+
+  assert {
+    condition     = output.controlplanes[0].install_image == "factory.talos.dev/hcloud-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6"
+    error_message = "Nodes should install from the hcloud platform installer."
   }
 }

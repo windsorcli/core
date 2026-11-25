@@ -6,6 +6,8 @@ metadata:
 
 when: (tunnel.driver ?? '') != ''
 
+# Requires
+# =============================================================================
 requires:
   - paths:
       - dns.public_domain
@@ -27,22 +29,22 @@ requires:
   - when: platform in ['aws', 'azure', 'gcp', 'hetzner'] && (dns.public_zone ?? true) == true
     message: A tunnel serves the public domain from its own DNS zone. Set dns.public_zone to false.
 
-# =============================================================================
 # Config
 # =============================================================================
 config:
 
-  # ca_pool: the connector verifies the gateway certificate against the cluster CA.
   - name: tunnel_effective
     value:
       driver: ${tunnel.driver}
+      # The connector verifies the gateway certificate against the cluster CA when the private issuer signs it.
       ca_pool: "${tls_effective.external_issuer == 'private' && (gateway.external.tls.cert ?? '') == ''}"
+      # The external gateway Service, Cilium or Envoy.
       origin_host: "${gateway.driver == 'cilium' ? 'cilium-gateway-external' : 'envoy-external'}.system-gateway.svc.cluster.local"
 
-# =============================================================================
 # Terraform
 # =============================================================================
 terraform:
+  # Cloudflare tunnel routing dns.public_domain to the external gateway.
   - name: tunnel
     path: tunnel/cloudflare
     when: tunnel.driver == 'cloudflare'
@@ -54,9 +56,9 @@ terraform:
       origin_service: https://${tunnel_effective.origin_host}:443
       origin_ca_pool: "${tunnel_effective.ca_pool == true ? '/etc/tunnel/ca/ca.crt' : null}"
 
+# Flux
 # =============================================================================
-# Flux — connector in system-tunnel
-# =============================================================================
+# The tunnel connector runs in system-tunnel.
 flux:
 
   - name: tunnel

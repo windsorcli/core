@@ -6,14 +6,17 @@ metadata:
 
 when: identity.enabled == true
 
+# Config
+# =============================================================================
 config:
-  # The OIDC contract every consumer reads: the effective issuer and the realm.
-  # The derived issuer bakes in the gateway port (docker-desktop :8443 or :8444, else :443).
+  # The OIDC issuer and realm that consumers read.
   - name: identity_effective
     value:
       realm: "${identity.keycloak.realm ?? 'platform'}"
       display_name: "${identity.display_name ?? 'SSO'}"
       admin_group: "${identity.admin_group ?? 'platform-admins'}"
+      # identity.oidc.issuer with the oidc driver. Else https://keycloak.<public or private domain>
+      # with :8443 or :8444 on docker-desktop, unless set by identity.keycloak.hostname.
       issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         (((identity.keycloak.hostname ?? '') == '' ?
@@ -22,39 +25,36 @@ config:
         (workstation.runtime == 'docker-desktop' ? ((dns.public_domain ?? '') == '' ? ':8443' : ':8444') : '')) :
         identity.keycloak.hostname) +
         '/realms/' + (identity.keycloak.realm ?? 'platform'))}
-      # Back-channel issuer for in-cluster consumers' server-side calls (token, userinfo).
-      # The hosted server is reached by its cluster Service (the external URL doesn't
-      # resolve inside the cluster); an external oidc provider is reachable as-is.
+      # Back-channel issuer for in-cluster token and userinfo calls. With the keycloak driver this is
+      # Keycloak's cluster Service, since the external URL doesn't resolve in the cluster.
       backchannel_issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
-      # Admin password for the console admin and the dev SSO admin user.
+      # Password for the console admin and the dev SSO admin user. admin-password in dev unless set.
       admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
 
-  # The hosted server needs CloudNativePG, so the keycloak driver turns it on
-  # by default (on unless explicitly disabled). The oidc driver hosts nothing,
-  # so it leaves the database setting untouched. Unrelated to
-  # database.postgres.cloud, which an app chart opts into independently.
+  # Keycloak requires CloudNativePG, so the keycloak driver turns on database.postgres unless it is false.
+  # The oidc driver leaves database.postgres unchanged.
   - name: database
     value:
       postgres:
         enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
 
-# Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.8.0), owned by the crds:
-# layer, not the operator. Only the hosted keycloak driver needs them.
+# CRDs
+# =============================================================================
+# Vendored Keycloak CRDs, for the keycloak driver only.
 crds:
   # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
   - "${(identity.driver ?? 'keycloak') == 'keycloak' ? 'keycloak-26.8.0' : ''}"
 
+# Flux
 # =============================================================================
-# Flux systems — hosted Keycloak (driver: keycloak). The oidc driver hosts none
-# of this; consumers just read identity_effective.issuer above.
-# =============================================================================
+# Hosted Keycloak, for the keycloak driver. The oidc driver hosts nothing.
 flux:
 
-  # Operator install (Deployment/RBAC). CRDs arrive via the crds: layer.
+  # Keycloak operator, with its Postgres and server in resources.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak'
     install:
@@ -77,7 +77,7 @@ flux:
         timeout: 15m
         interval: 5m
 
-      # Keycloak server CR. The Keycloak CRD comes from the crds: layer.
+      # Keycloak server CR.
       - dependsOn:
           - identity-resources-database
           # The private ClusterIssuer signs Keycloak's serving certificate.
@@ -85,9 +85,8 @@ flux:
         components:
           - keycloak
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
-          # Cilium gateway: restrict Keycloak ingress to the gateway proxy. Without
-          # a gateway there is no proxy identity to allow, so this would block all
-          # traffic to Keycloak, not just external — gate on gateway.enabled too.
+          # Restricts Keycloak ingress to the Cilium gateway proxy.
+          # Gated on gateway.enabled, since without a proxy the policy blocks all traffic.
           - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
           # Bootstrap admin overlay, on when an admin password resolves.
           - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
@@ -96,11 +95,8 @@ flux:
         timeout: 10m
         interval: 5m
         substitutions:
-          # Full frontend URL, since Keycloak can't infer the external port (the
-          # gateway port lives outside the cluster; the proxy forwards a standard one).
-          # docker-desktop reaches the gateway on :8443 (its NodePort host-forward);
-          # loadbalancer/cloud use :443. Set identity.keycloak.hostname to override (e.g. a
-          # plain-NodePort Talos VM on :30443, or a canonical production URL).
+          # https://keycloak.<public or private domain>, with :8443 or :8444 on docker-desktop.
+          # Keycloak can't infer the external port. identity.keycloak.hostname overrides it.
           keycloak_hostname: >-
             ${(identity.keycloak.hostname ?? '') == '' ?
             ('https://keycloak.' +
@@ -111,9 +107,8 @@ flux:
           keycloak_admin_hostname: >-
             ${'https://keycloak-admin.' + (dns.private_domain ?? '') +
             (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
-          # A user-supplied image is assumed pre-built, so start optimized. The stock
-          # default is not augmented, so it builds at boot (startOptimized false).
-          # Custom images must be digest-pinned (system-identity is policy-managed).
+          # The stock image builds at boot. A user-supplied image is assumed pre-built and starts optimized.
+          # A custom image MUST be digest-pinned, since system-identity is policy-managed.
           # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
           keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.8.2@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
@@ -127,7 +122,7 @@ flux:
           - "${gateway_effective.internal == true && gateway_effective.public.name != 'internal' ? 'gateway-resources-internal' : ''}"
         components:
           - keycloak/gateway
-          # Login on the external gateway exposes only the paths a login needs.
+          # Login on the external gateway exposes only the paths a login requires.
           - "${gateway_effective.public.name == 'external' ? 'keycloak/gateway/public-paths' : ''}"
           - "${gateway_effective.internal == true ? 'keycloak/gateway-admin' : ''}"
         timeout: 10m
@@ -138,11 +133,8 @@ flux:
           private_domain: "${dns.private_domain ?? ''}"
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
-  # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
-  # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator
-  # sequences it after the server is up. Consumers target this realm by name; each
-  # consumer's clients/ folder patches its client into the import (Grafana inferred
-  # on when Grafana is enabled).
+  # Platform realm import with the security baseline and RBAC groups.
+  # Each consumer's clients/ component patches its OIDC client into the import.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak'
     resources:
@@ -167,7 +159,7 @@ flux:
           # Dev SSO admin user password.
           dev_admin_password: "${identity_effective.admin_password ?? ''}"
 
-  # Bootstrap admin, supplied case.
+  # Bootstrap admin from identity.keycloak.admin.password.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') != ''
     secrets:
@@ -175,7 +167,7 @@ flux:
         data:
           username: ${identity.keycloak.admin.username ?? 'admin'}
           password: ${identity.keycloak.admin.password}
-  # Bootstrap admin, dev default.
+  # Bootstrap admin with the dev default password.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') == '' && dev == true
     secrets:
@@ -184,7 +176,7 @@ flux:
           username: ${identity.keycloak.admin.username ?? 'admin'}
           password: ${identity_effective.admin_password}
 
-  # Grafana dashboard patch — only when observability is active.
+  # Keycloak Grafana dashboard, with observability enabled.
   - name: observability
     when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true
     resources:

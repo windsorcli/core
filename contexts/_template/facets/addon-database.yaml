@@ -6,13 +6,11 @@ metadata:
 
 when: database.postgres.enabled == true || database.postgres.cloud.enabled == true
 
+# Config
 # =============================================================================
-# Config — derived values consumed by this facet
-# =============================================================================
-# database_effective.cloud_driver: each cloud platform serves exactly one
-# cloud Postgres driver, so it defaults from platform; an explicit
-# database.postgres.cloud.driver overrides it.
 config:
+  # The cloud Postgres driver: rds on aws, azuredb on azure, cloudsql on gcp, unless set by
+  # database.postgres.cloud.driver.
   - name: database_effective
     when: platform == 'aws'
     value:
@@ -30,8 +28,7 @@ config:
     value:
       cloud_driver: "${database.postgres.cloud.driver}"
 
-# database_effective.dedicated_encryption_key: whether a driver's Kyverno
-# policy has a real key to default onto a chart's resource.
+  # True when the driver's Kyverno policy has a real key to default onto a chart's resource.
   - name: database_effective
     when: database.postgres.cloud.encryption.managed == true && ephemeral != true
     value:
@@ -41,10 +38,9 @@ config:
     value:
       dedicated_encryption_key: true
 
+# Terraform
 # =============================================================================
-# Terraform — driver-specific cloud infrastructure and Crossplane identity.
-# network/cluster come from the active platform's own terraform: block.
-# =============================================================================
+# The network and cluster stacks come from the platform facet.
 terraform:
 
   # KMS key and security group for RDS storage.
@@ -55,15 +51,13 @@ terraform:
       - network
       - cluster
     inputs:
-      # Opt-in, and never for ephemeral contexts.
       manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
       key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
       vpc_id: ${terraform_output('network', 'vpc_id')}
-      # Scopes RDS ingress to this cluster's own nodes, not the whole VPC CIDR.
+      # Limits RDS ingress to the cluster's nodes.
       cluster_security_group_id: ${terraform_output('cluster', 'cluster_security_group_id')}
 
-  # IAM role, policy, and Pod Identity association for Crossplane's AWS
-  # provider pods.
+  # IAM role, policy and Pod Identity association for Crossplane's AWS provider pods.
   - name: crossplane-identity
     path: provisioning/crossplane-identity/aws
     when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'"
@@ -80,8 +74,7 @@ terraform:
       resources:
         - rds
 
-  # Resource group, private DNS zone, NSG, and optional customer-managed
-  # key for Flexible Server.
+  # Resource group, private DNS zone, NSG and optional customer-managed key for Flexible Server.
   - name: database
     path: database/azure-postgres
     when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'"
@@ -89,15 +82,12 @@ terraform:
       - network
       - cluster
     inputs:
-      # Derived from network's own output: Flexible Server must colocate
-      # with its delegated subnet.
+      # Flexible Server requires its delegated subnet's region.
       region: ${terraform_output('network', 'region')}
       vnet_id: ${terraform_output('network', 'vnet_id')}
       azuredb_subnet_id: ${terraform_output('network', 'azuredb_subnet_id')}
-      # Scopes Postgres ingress to this cluster's own node subnets rather
-      # than the whole VNet.
+      # Limits Postgres ingress to the cluster's node subnets.
       allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
-      # Opt-in, and never for ephemeral contexts.
       manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
       key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
 
@@ -118,8 +108,7 @@ terraform:
       resources:
         - postgres
 
-  # Private service connection and KMS key for Cloud SQL. Shared across
-  # every database in a context.
+  # Private service connection and KMS key for Cloud SQL, shared by every database in the context.
   - name: database
     path: database/gcp-cloudsql
     when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'"
@@ -130,7 +119,6 @@ terraform:
       project_id: ${gcp.project_id}
       region: ${terraform_output('network', 'region')}
       network_id: ${terraform_output('network', 'network_id')}
-      # Opt-in, and never for ephemeral contexts.
       manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
       key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
 
@@ -148,14 +136,12 @@ terraform:
       resources:
         - postgres
 
-# =============================================================================
-# Flux systems
+# Flux
 # =============================================================================
 flux:
 
-  # CloudNativePG operator. cloud.enabled alone (no CNPG) still needs this
-  # entry to exist so Crossplane's resources tier has an install tier to
-  # depend on, hence the facet-wide when: rather than a per-entry one here.
+  # CloudNativePG operator with database.postgres.enabled. With cloud only, the empty install tier
+  # remains for the Crossplane compositions to depend on.
   - name: database
     dependsOn:
       - "${database.postgres.enabled == true ? 'csi-install' : ''}"
@@ -174,8 +160,7 @@ flux:
           - cloudnativepg/image-catalog
         timeout: 5m
         interval: 10m
-      # Depends on provisioning-resources: gated on the Provider's own
-      # Healthy/Installed conditions.
+      # Cloud Postgres composition per driver, after provisioning-resources reports the Provider healthy.
       - when: database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
         dependsOn:
           - provisioning-resources
@@ -222,8 +207,7 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # Grafana dashboard(s) matching whichever capabilities are active. CNPG
-  # and cloud aren't mutually exclusive, so both can render at once.
+  # Grafana dashboards for CloudNativePG and the cloud postgres-exporter, either or both.
   - name: observability
     when: (database.postgres.enabled == true || database.postgres.cloud.enabled == true) && observability.enabled == true
     resources:
@@ -231,8 +215,7 @@ flux:
           - "${database.postgres.enabled == true ? 'grafana/dashboards/cloudnativepg' : ''}"
           - "${database.postgres.cloud.enabled == true ? 'grafana/dashboards/postgres-exporter' : ''}"
 
-  # Resources tier depends on install: destroy clears the driver's
-  # provider before the Crossplane engine its finalizer needs running.
+  # Crossplane, with the driver's provider, provider-sql and functions in resources.
   - name: provisioning
     when: database.postgres.cloud.enabled == true
     install:
@@ -250,6 +233,7 @@ flux:
           - crossplane/function-python
           - crossplane/app-role
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-monitor' : ''}"
+        # Ready once Providers and Functions are Healthy and Installed, and XRDs are Established.
         healthCheckExprs:
           - apiVersion: pkg.crossplane.io/v1
             kind: Provider

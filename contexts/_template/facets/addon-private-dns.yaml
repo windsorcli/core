@@ -6,6 +6,8 @@ metadata:
 
 when: dns.private.driver in ['coredns', 'pdns', 'pdns-remote']
 
+# Requires
+# =============================================================================
 requires:
   - paths:
       - dns.private_domain
@@ -23,33 +25,34 @@ requires:
       gateway_exposure.internal == 'NodePort'
     message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
-# pdns stores its zones in CloudNativePG.
+# Config
+# =============================================================================
 config:
+  # pdns turns on the in-cluster PostgreSQL for its zones unless database.postgres.enabled is false.
   - name: database
     when: dns.private.driver == 'pdns'
     value:
       postgres:
         enabled: "${database.postgres.enabled != false}"
 
+# Terraform
 # =============================================================================
-# Kustomize — CoreDNS or PowerDNS + external-dns
-# =============================================================================
-#
-# coredns waits for pki-resources (etcd certificates); pdns waits for the database resources tier.
-# The gateway dep is cni under Cilium, gateway-install under Envoy.
-#
-# external-dns has no topology: ha component: no confirmed leader election at the pinned version.
-#
 terraform:
+  # Generates the PowerDNS API key unless set by dns.private.pdns.api_key.
   - name: pdns
     path: dns/pdns-api-key
     when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
 
+# Flux
+# =============================================================================
 flux:
 
+  # CoreDNS or PowerDNS, with one external-dns instance per zone.
   - name: dns
     dependsOn:
+      # coredns waits on pki-resources for its etcd certificates, pdns on the database catalog.
       - "${dns.private.driver == 'coredns' ? 'pki-resources' : (dns.private.driver == 'pdns' ? 'database-resources-catalog' : '')}"
+      # The gateway dependency is cni under Cilium, gateway-install under Envoy.
       - "${dns.private.driver == 'pdns-remote' ? '' : (gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : ''))}"
     install:
       components:
@@ -68,6 +71,7 @@ flux:
       timeout: 20m
       interval: 5m
     # One external-dns instance per zone, writing to the server's backend.
+    # external-dns has no ha component, since leader election is unconfirmed at the pinned version.
     resources:
       - name: account
         components:
@@ -127,7 +131,7 @@ flux:
           pdns_url: "${dns.private.pdns.url ?? ''}"
           pdns_server_id: "${dns.private.pdns.server_id ?? 'localhost'}"
 
-  # PowerDNS API key, supplied case.
+  # The PowerDNS API key from dns.private.pdns.api_key.
   - name: dns
     when: dns.private.driver in ['pdns', 'pdns-remote'] && (dns.private.pdns.api_key ?? '') != ''
     secrets:
@@ -135,7 +139,7 @@ flux:
         data:
           username: ${'pdns'}
           api-key: ${dns.private.pdns.api_key}
-  # PowerDNS API key, generated case.
+  # The generated PowerDNS API key.
   - name: dns
     when: dns.private.driver == 'pdns' && (dns.private.pdns.api_key ?? '') == ''
     secrets:

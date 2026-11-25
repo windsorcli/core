@@ -923,6 +923,67 @@ cases:
               inlineManifests:
                 - name: kubelet-csr-approver
 
+  - name: kubelet-csr-approver runs one replica on a one-node cluster
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        cni:
+          driver: flannel
+    expect:
+      config:
+        talos_common:
+          cert_rotation:
+            approver_replicas: 1
+
+  - name: kubelet-csr-approver runs two replicas with a worker
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      config:
+        talos_common:
+          cert_rotation:
+            approver_replicas: 2
+
+  - name: kubelet-csr-approver runs two replicas with two control planes
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+            controlplane-2:
+              endpoint: 10.5.0.11:50000
+              node: 10.5.0.11
+              hostname: controlplane-2
+        cni:
+          driver: flannel
+    expect:
+      config:
+        talos_common:
+          cert_rotation:
+            approver_replicas: 2
+
   - name: common patch turns off Talos discovery
     values:
       platform: metal

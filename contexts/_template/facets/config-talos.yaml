@@ -4,14 +4,12 @@ metadata:
   name: talos
   description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes, API-server OIDC, NTP servers)
 
-# Only relevant when Talos is the cluster driver. Managed clusters (EKS, AKS)
-# build their own machine images and don't take Talos patches.
 when: cluster.driver == 'talos'
 
+# Requires
+# =============================================================================
 requires:
-  # kube-apiserver fetches the issuer's JWKS itself and clients validate the same
-  # token `iss` claim, both against the hosted Keycloak's gateway URL — without a
-  # gateway neither can reach it.
+  # kube-apiserver and its clients both reach the hosted Keycloak issuer through the gateway.
   - when: >-
       cluster.oidc.enabled == true
       && (cluster.oidc.issuer_url ?? '') == ''
@@ -39,12 +37,9 @@ requires:
       ), # != ''), {let image = #; any(versions, image endsWith ('v' + #) || image contains ('v' + # + '/') || image contains ('v' + # + '@'))}))
     message: With charts.registry set, each image in cluster.controlplanes and cluster.workers MUST use a Talos version this blueprint pins; remove the image or unset charts.registry.
 
+# Config
 # =============================================================================
-# Config — Talos machine patch + extension catalog
-# =============================================================================
-# Everything funnels into talos_common, the single object the cluster/talos
-# terraform module consumes. Platform facets set overrides first; this file
-# layers in the common defaults.
+# talos_common holds the Talos machine patches and extensions that the cluster/talos stacks read.
 config:
 
   # Entries in registries with an endpoint, parsed for the Talos registry documents.
@@ -67,32 +62,30 @@ config:
       auths: "${filter(talos_registries.endpoints, #.username != '')}"
       credentials_conflict: "${len(uniq(map(talos_registries.auths, #.host + ' ' + #.username + ' ' + #.password))) > len(uniq(map(talos_registries.auths, #.host)))}"
 
-  # talos_common defaults: platform facets set platform-specific values first,
-  # then this block fills in anything left.
+  # talos_common defaults, unless set by a platform facet.
   - name: talos_common
     value:
 
-      # Storage driver; incus overrides to 'longhorn' (dedicated block devices).
+      # openebs unless set by cluster.storage.driver. Incus defaults to longhorn.
       storage_driver: "${cluster.storage.driver ?? 'openebs'}"
 
-      # Default Longhorn data disk; platform facets override size/name.
+      # Longhorn data disk, unless a platform facet sets its size and name.
       longhorn_default_disk:
         - name: longhorn
           size: 30
 
-      # single-node forces the control plane to schedule workloads.
+      # Control planes schedule workloads with cluster.controlplanes.schedulable or topology single-node.
       allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology == 'single-node'}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # Pool data disks that Incus compute creates on each node; the longhorn disk by default under longhorn.
+      # Data disks Incus compute creates on each node, by default the longhorn disk under longhorn.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
-      # Reservation tiers keyed on schedulable vs dedicated. Schedulable
-      # competes with real Pods so stays light; dedicated only shares with
-      # DaemonSets so affords more. max is raw millicores/Mi, scaled below.
+      # Control plane reservation maximums in millicores and Mi, for schedulable and dedicated control planes.
+      # Schedulable control planes compete with Pods, so they reserve less.
       cp_tiers:
         schedulable:
           threshold: { cpu: 4, memory: 12 }
@@ -102,8 +95,7 @@ config:
           max: { kubelet_cpu: 500, kubelet_memory: 512, api_cpu: 250, api_memory: 256, cm_cpu: 100, cm_memory: 128, sched_cpu: 100, sched_memory: 128 }
       cp_tier: "${talos_common.allowSchedulingOnControlPlanes ? talos_common.cp_tiers.schedulable : talos_common.cp_tiers.dedicated}"
 
-      # Worker reservation: single tier (workers always run Pods). Anchored
-      # to GKE's kubeReserved formula at a 4 CPU/8GB node (80m, 1843Mi).
+      # Worker reservation maximums, matching GKE's kubeReserved at a 4 CPU, 8 GB node.
       worker_threshold: { cpu: 4, memory: 8 }
       worker_max: { kubelet_cpu: 80, kubelet_memory: 1843 }
 
@@ -111,13 +103,14 @@ config:
       cert_rotation:
         kubelet_extra_args:
           rotate-server-certificates: "true"
+        # One approver replica on a one-node cluster, two otherwise.
+        approver_replicas: "${cluster_nodes_effective.controlplanes + cluster_nodes_effective.workers == 1 ? 1 : 2}"
         # Approves the kubelet serving CSRs that rotation requests.
         approver_manifest:
           name: kubelet-csr-approver
-          contents: "${file('../manifests/kubelet-csr-approver.yaml')}"
+          contents: "${replace(file('../manifests/kubelet-csr-approver.yaml'), 'replicas: 2', 'replicas: ' + string(talos_common.cert_rotation.approver_replicas))}"
 
-      # Machine patch stringified into common_config_patches; platform facets
-      # can merge additional keys into common_patch.
+      # Talos machine patch for every node. Platform facets add keys to it.
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
@@ -127,11 +120,11 @@ config:
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
+      # common_patch plus the registry mirror, auth and TLS documents, as one multi-document string.
       common_config_patches: >-
         ${join(concat([string(talos_common.common_patch)], talos_common.registry_mirror_documents, talos_common.registry_auth_documents, talos_common.registry_tls_documents), "\n---\n")}
 
-      # Extension catalog: driver/feature → required Talos Image Factory
-      # extensions. Add a key for a new driver; the aggregated extensions list picks it up.
+      # Talos Image Factory extensions per storage driver and per GPU driver.
       csi_extensions:
         longhorn:
           - siderolabs/iscsi-tools
@@ -144,6 +137,7 @@ config:
           - siderolabs/i915
           - siderolabs/xe
 
+      # Extensions for cluster.storage.driver, plus each devices.gpu.drivers entry with devices enabled.
       extensions: >-
         ${uniq(concat(get(talos_common.csi_extensions, talos_common.storage_driver) ?? [],
           devices.enabled == true
@@ -183,8 +177,7 @@ config:
           ]))
         )}
 
-  # Reservation tapers linearly from full at the threshold to zero at 2x it,
-  # driven by whichever axis (cpu/memory) is proportionally smaller.
+  # Reservation factor of 1 up to the threshold, tapering to 0 at twice it, on the smaller of the CPU and memory ratios.
   - name: talos_common
     value:
       cp_cpu_ratio: "${cluster_resources_effective.controlplanes.cpu / talos_common.cp_tier.threshold.cpu}"
@@ -201,15 +194,13 @@ config:
       worker_reserve_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
       worker_patch_emit: "${talos_common.worker_reserve_needed || platform == 'docker' || talos_common.storage_driver == 'mayastor'}"
 
-      # Base for worker_patch: platform blocks (docker's systemReserved gap)
-      # and the kubeReserved block below each merge a sibling key into this.
+      # Worker machine patch. Other talos_common blocks add keys to it.
       worker_patch: {}
 
       # Control-plane-only machine config patch.
       controlplane_patch: {}
 
-      # Each role's Talos config patches for the platform's role inputs: core's role patch first, then the
-      # pool's own patches, so the user's settings win where both set the same key.
+      # Each role's Talos config patches. cluster.<role>.config_patches come last and win on a shared key.
       controlplane_config_patches: "${join(concat(len(talos_common.controlplane_patch) > 0 ? [string(talos_common.controlplane_patch)] : [], filter([talos_common.oidc_ca_file_patch ?? ''], # != ''), map(cluster.controlplanes.config_patches ?? [], string(#))), '\\n---\\n')}"
       worker_config_patches: "${join(concat(talos_common.worker_patch_emit ? [string(talos_common.worker_patch)] : [], map(cluster.workers.config_patches ?? [], string(#))), '\\n---\\n')}"
 
@@ -225,9 +216,7 @@ config:
           proxy:
             disabled: true
 
-  # NTP servers: overrides Talos's built-in default (time.cloudflare.com).
-  # Applies to every platform since common_patch flows into every cluster/talos
-  # invocation, not just the ones with a per-platform network patch.
+  # NTP servers on every platform, in place of Talos's default time.cloudflare.com.
   - name: talos_common
     when: len(network.ntp_servers ?? []) > 0
     value:
@@ -236,13 +225,8 @@ config:
           time:
             servers: ${network.ntp_servers}
 
-  # One control plane, with or without workers: no peer controller-manager or
-  # scheduler, and no etcd peer to catch up. Disable leader election (avoids a
-  # ~2s etcd lease write) and enable etcd auto-compaction (upstream default is
-  # off). Scaling to 3 control planes drops this patch from every node, and the
-  # cluster/talos module re-applies the first control plane and waits for its
-  # health check before the new ones get their config, so leader election is
-  # back on before a second controller-manager or scheduler starts.
+  # A single control plane has no peers, so it disables leader election and enables etcd auto-compaction.
+  # Scaling to 3 control planes drops this patch before the new nodes join.
   - name: talos_common
     when: cluster_nodes_effective.controlplanes == 1
     value:
@@ -258,18 +242,12 @@ config:
             extraArgs:
               auto-compaction-mode: "revision"
               auto-compaction-retention: "1000"
-              # 3/3 (default 5/5): no peers to catch up, saves ~128 MiB on disk.
+              # Down from the default 5, saving about 128 MiB of disk.
               max-snapshots: "3"
               max-wals: "3"
 
-  # Small control plane: reserve kubelet/containerd cgroup headroom (otherwise
-  # zero) so bursty pod scheduling during bootstrap doesn't starve them, and
-  # give apiServer/controllerManager/scheduler enough CPU shares that the
-  # kernel favors them under contention. etcd runs outside kubepods.slice
-  # already, so it isn't set here. kubeReserved only, not systemReserved:
-  # docker's own host-quota-gap correction (option-workstation.yaml) already
-  # sets systemReserved on that platform, and a second value on the same key
-  # would just overwrite this one, not add to it.
+  # Small control planes reserve kubelet resources and request CPU for the control plane components.
+  # kubeReserved only, since option-workstation sets systemReserved on docker.
   - name: talos_common
     when: talos_common.resource_constrained
     value:
@@ -307,15 +285,12 @@ config:
                 cpu: ${talos_common.cp_reserve.sched_cpu}
                 memory: ${talos_common.cp_reserve.sched_memory}
 
-  # Merges into worker_patch (base above), not common_patch (shared by every
-  # role): a worker's own size decides this. Later patches override earlier
-  # ones on the same field, so this also corrects the leak from above.
+  # Worker kubeReserved, sized by worker resources.
+  # Overrides the control plane kubeReserved that common_patch applies to workers.
   - name: talos_common
     when: talos_common.worker_reserve_needed
     value:
-      # Recomputes the factor from worker_ratio instead of referencing
-      # worker_factor directly: read cross-block, worker_factor evaluates to
-      # cp_factor's value instead of its own (composer bug, not ours).
+      # Recomputes worker_factor inline, since reading it from another block returns cp_factor.
       worker_reserve:
         kubelet_cpu: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_cpu * f + 0.5)) + 'm'}"
         kubelet_memory: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_memory * f + 0.5)) + 'Mi'}"
@@ -327,8 +302,8 @@ config:
                 cpu: ${talos_common.worker_reserve.kubelet_cpu}
                 memory: ${talos_common.worker_reserve.kubelet_memory}
 
-  # Mayastor: hugepages, the nvme_tcp module, a node label for io-engine.
-  # Its /var/local mount goes through worker_volumes instead, not here (extraMounts replaces rather than merges).
+  # Mayastor hugepages, the nvme_tcp module and the io-engine node label.
+  # Its /var/local mount is in worker_volumes, since extraMounts replaces rather than merges.
   - name: talos_common
     when: talos_common.storage_driver == 'mayastor'
     value:
@@ -355,8 +330,7 @@ config:
                 [plugins."io.containerd.cri.v1.runtime"]
                   device_ownership_from_security_context = true
 
-  # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
-  # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
+  # kube-apiserver --oidc-* flags from cluster.oidc, else the hosted Keycloak issuer and kubernetes client.
   - name: talos_common
     when: cluster.oidc.enabled == true
     value:
@@ -371,7 +345,7 @@ config:
               oidc-username-claim: "${cluster.oidc.username_claim ?? 'sub'}"
               oidc-groups-claim: "${cluster.oidc.groups_claim ?? 'groups'}"
 
-  # public_ca: the hosted Keycloak's gateway serves a Let's Encrypt certificate, verified against system roots.
+  # True when the hosted Keycloak's gateway uses the public-acme issuer, whose certificate system roots verify.
   - name: talos_oidc
     value:
       public_ca: >-
@@ -381,20 +355,8 @@ config:
         (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' :
         (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme')}
 
-  # Trusts the Windsor-managed private CA for OIDC token verification. The
-  # cert comes from the pki/ca terraform step, which runs ahead of this
-  # machine config so it's available at first bootstrap. Without pki
-  # enabled, oidc-ca-file is left unset and the issuer must carry a
-  # publicly-trusted certificate instead.
-  #
-  # oidc_ca_file_patch is a standalone literal-YAML string (cert substituted
-  # inline), fed to controlplane_config_patches rather than merged into
-  # common_patch: terraform_output()'s cert value is deferred until pki/ca
-  # applies, and a deferred plain-string leaf nested inside a map that
-  # common_config_patches later stringifies loses its YAML block-scalar
-  # formatting on resolution. A deferred value substituted directly into
-  # literal text (this pattern, also used by docker's certSANs patch)
-  # doesn't hit that path.
+  # Mounts the pki stack's CA as the apiserver OIDC CA file, unless the issuer uses public-acme.
+  # oidc_ca_file_patch is a literal string, since a deferred cert in common_patch loses its block-scalar formatting.
   - name: talos_common
     when: cluster.oidc.enabled == true && talos_oidc.public_ca != true
     value:
@@ -430,7 +392,7 @@ config:
               ${terraform_output('pki', 'cert')}
               ${join(pki.trusted_cas, '\n')}
 
-  # Pinned Talos version; Renovate watches the string below.
+  # Pinned Talos version.
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
@@ -439,7 +401,7 @@ config:
   - name: talos
     when: platform == 'docker' && workstation.runtime == 'colima'
     value:
-      # Remove once Colima's VM image is Ubuntu 26.04 or newer.
+      # Talos 1.13 on colima until its VM image is Ubuntu 26.04 or newer.
       # artifact: type=image name=ghcr.io/siderolabs/talos
       talos_image_tag: "v1.13.12"
       talos_version: "${trimPrefix(talos.talos_image_tag, 'v')}"

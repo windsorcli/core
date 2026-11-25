@@ -9,7 +9,7 @@
 #   - all
 registries:
   - type: standard
-    ref: v4.590.0 # renovate: depName=aquaproj/aqua-registry
+    ref: v4.591.0 # renovate: depName=aquaproj/aqua-registry
 packages:
   # Pinned to the 1.12 line for OpenTofu compatibility; see required_version "~> 1.12".
   - name: hashicorp/terraform@v1.12.2
@@ -22,10 +22,10 @@ packages:
   - name: golang/go@go1.27.4
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.8.0
-  - name: aws/aws-cli@2.41.2
+  - name: aws/aws-cli@2.42.1
   - name: helm/helm@v4.3.2
   - name: fluxcd/flux2@v2.10.0
-  - name: controlplaneio-fluxcd/flux-operator@v0.63.0
+  - name: controlplaneio-fluxcd/flux-operator@v0.63.1
   - name: hashicorp/vault@v2.2.2
   - name: derailed/k9s@v0.51.0
   - name: getsops/sops@v3.13.3

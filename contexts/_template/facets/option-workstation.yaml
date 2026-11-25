@@ -4,22 +4,19 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-# Active on workstation platforms (docker, incus) when workstation.runtime is
-# set — the single switch enabling DNS, registry mirrors, and git livereload.
 when: "(platform == 'docker' || platform == 'incus') && workstation.runtime != null && workstation.runtime != ''"
 
-# =============================================================================
-# Config — workstation + Talos patch values
+# Config
 # =============================================================================
 config:
 
-  # Normalize runtime/arch defaults; arch picks the Talos Incus image below.
+  # workstation.arch defaults to amd64 and selects the Talos Incus image.
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
-  # Gateway addresses and LB pool on the workstation network, which Windsor creates.
+  # Internal and external gateway IPs and the load balancer IP pool, at fixed hosts in network.cidr_block.
   - name: gateway
     when: >-
       workstation.runtime != 'docker-desktop' && (gateway.internal.ip ?? '') == '' &&
@@ -45,15 +42,14 @@ config:
       loadbalancer_ips:
         end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
-  # Talos image references; only used when the workstation stack runs.
+  # Talos container and Incus image references for talos.talos_version.
   - name: talos
     value:
       docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version}"
       incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
 
-  # Registry pull-through cache: upstream → mirror map used by workstation
-  # Terraform (runs the containers) and Talos registry config (redirects pulls).
-  # Empty when services.registries is false; else registries or defaults.
+  # Mirrors from registries or the default upstreams, plus the local and chart registries.
+  # Empty when workstation.services.registries is false.
   - name: workstation_registries
     value:
       registries: |
@@ -75,8 +71,7 @@ config:
           ? trimSuffix(split(split(trimPrefix(trimPrefix(charts.registry ?? '', 'oci://'), 'http://'), '/')[0], ':')[0], '.' + ((dns.domain ?? '') != '' ? dns.domain : dns.private_domain))
           : ''}
 
-  # Map workstation TF output to Talos registry mirrors. Only entries with both
-  # `remote` and `hostname` are kept; `local` overrides the mirror key.
+  # Talos registry mirrors for each workstation registry with a remote and hostname, keyed by local else upstream.
   - name: talos_registry_mirrors
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -91,16 +86,14 @@ config:
           ]
         ))}
 
-  # talos_common overrides — each block additively merges settings that
-  # config-talos stringifies into the Talos machine patch.
 
-  # Docker only: schedule on control planes when no workers, else honor schedulable.
+  # Schedules workloads on control planes with no workers, else per cluster.controlplanes.schedulable.
   - name: talos_common
     when: cluster.driver == 'talos' && (cluster.enabled ?? true) && platform == 'docker'
     value:
       allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
 
-  # Docker Desktop only: ignore eth0 to avoid fighting its managed interface.
+  # Talos ignores eth0, which Docker Desktop manages.
   - name: talos_common
     when: cluster.driver == 'talos' && (cluster.enabled ?? true) && workstation.runtime == 'docker-desktop'
     value:
@@ -111,8 +104,7 @@ config:
               - ignore: true
                 interface: eth0
 
-  # Docker's own gap against the shared Docker daemon's host, merged as a
-  # sibling of kubeReserved into worker_patch (config-talos.yaml's base).
+  # Worker kubelet systemReserved covers the host CPU and memory beyond the worker quota.
   - name: talos_common
     when: platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -133,36 +125,30 @@ config:
                 cpu: ${talos_common.docker_worker_gap.cpu}
                 memory: ${talos_common.docker_worker_gap.memory}
 
-  # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
-  # skews tests).
+  # Colima on Incus defaults to flannel, since Cilium's eBPF skews storage-driver tests.
   - name: cluster
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
+# Terraform
 # =============================================================================
-# Terraform — workstation services, compute, cluster
-# =============================================================================
-# Dependency chain: workstation (DNS/registries/git) → compute (Talos nodes) →
-# cluster (Talos bootstrap) → gitops (Flux + credentials).
+# Workstation services, then Talos compute, then cluster bootstrap, then Flux.
 terraform:
 
-  # gitops — Flux with workstation credentials. cni/cluster-extensions deps are
-  # merged in by option-cni and option-storage, not referenced here.
+  # Flux with the workstation git credentials. option-cni and option-storage add its
+  # cni and cluster-extensions dependencies.
   - name: gitops
     when: (cluster.enabled ?? true)
     path: gitops/flux
+    # Skipped on destroy, since deleting the cluster removes Flux.
     destroy: false
     dependsOn:
       - cluster
     inputs:
-      # Incus runs the cluster in a nested VM with slower vCPUs, so the
-      # CPU-derived formula overshoots and floods apiserver. Clamp to 2 there.
-      # gitops.concurrency overrides both: the formula assumes the
-      # container's cpu/memory quota is carved from a roomy host, which
-      # doesn't hold on a constrained host (e.g. a CI runner) where the
-      # quota is most of the host's own capacity.
+      # gitops.concurrency, else half the smaller of control plane CPU and memory clamped to 4-10.
+      # Incus uses 2, since its nested VM's slower vCPUs flood the apiserver.
       concurrency: >-
         ${gitops.concurrency ?? (platform == 'incus' ? 2 : max(4, min(
           floor(cluster_resources_effective.controlplanes.cpu / 2),
@@ -173,10 +159,8 @@ terraform:
       git_password: ${workstation.git.password ?? "local"}
       webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
 
-  # workstation — DNS, registries, git-livereload. Three variants by runtime.
 
-  # Docker Desktop: no in-cluster LB. DNS forwards to the first node via
-  # container port 30053 (CoreDNS NodePort) on the shared docker network.
+  # Docker Desktop has no in-cluster load balancer, so DNS forwards to NodePort 30053 on the first node.
   - name: workstation
     when: "platform == 'docker' && workstation.runtime == 'docker-desktop'"
     path: workstation/docker
@@ -197,13 +181,12 @@ terraform:
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
 
-  # Colima/docker/linux: LB exists, so DNS and webhook target the LB IP.
-  # Webhook port 80 when Gateway is active, else NodePort 9292. Module runtime
-  # string is "linux", not "docker".
+  # Colima, docker and linux runtimes target DNS and the webhook at gateway.internal.ip.
   - name: workstation
     when: "platform == 'docker' && workstation.runtime != \"docker-desktop\""
     path: workstation/docker
     inputs:
+      # The module names the docker runtime linux.
       runtime: >-
         ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
       domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
@@ -221,8 +204,7 @@ terraform:
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
 
-  # Incus: uses workstation/incus module. Reuses incusbr0 when running under
-  # colima (colima creates the bridge); creates its own network otherwise.
+  # Incus networking reuses incusbr0 under colima, else creates its own network.
   - name: workstation
     when: "platform == 'incus'"
     path: workstation/incus
@@ -246,18 +228,15 @@ terraform:
       git_username: ${workstation.git.username ?? "local"}
       git_password: ${workstation.git.password ?? "local"}
 
-  # compute — Talos nodes
 
-  # Incus: provision Talos VMs on the workstation network. Controlplane
-  # stays on the `dir` pool for etcd's fsync path; workers use `default` (zfs).
+  # Talos VMs on the workstation network.
   - name: compute
     when: "platform == 'incus' && (cluster.enabled ?? true)"
     path: compute/incus
     strategy: replace
     dependsOn:
       - workstation
-    # Serialized: concurrent instance creation triggers concurrent Talos image
-    # fetches, and images.windsorcli.dev rate-limits those (429).
+    # One instance at a time, since images.windsorcli.dev rate-limits concurrent Talos image fetches.
     parallelism: 1
     inputs:
       create_network: false
@@ -274,6 +253,7 @@ terraform:
           image: ${cluster.controlplanes.image ?? talos.incus_image}
           type: virtual-machine
           description: Talos control plane node
+          # The local dir pool under colima, for etcd's fsync path.
           storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
           root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
           limits:
@@ -281,6 +261,7 @@ terraform:
             memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
+            # The first cluster.controlplanes.nodes hostname in key order, else controlplane-1.
             user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
             environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
@@ -298,12 +279,12 @@ terraform:
             memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
           disks: ${talos_common.worker_disks}
           config:
+            # The first cluster.workers.nodes hostname in key order, else worker-1.
             user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (map(sortBy(toPairs(cluster.workers.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))[0].hostname ?? 'worker-1') : 'worker-1'}"
             environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
-  # Docker: run Talos controlplane/worker containers on the workstation
-  # network. cluster/talos consumes compute outputs via platform-docker.
+  # Talos containers on the workstation network, read by platform-docker's cluster stack.
   - name: compute
     when: "platform == 'docker' && (cluster.enabled ?? true)"
     path: compute/docker
@@ -325,6 +306,7 @@ terraform:
           image: ${cluster.controlplanes.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.controlplanes.cpu}
           memory: ${cluster_resources_effective.controlplanes.memory}
+          # On docker-desktop, cluster.controlplanes.hostports or the default gateway ports, plus listener host ports.
           hostports: >-
             ${workstation.runtime == "docker-desktop" ? concat(
             cluster.controlplanes.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
@@ -335,16 +317,15 @@ terraform:
           image: ${cluster.workers.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.workers.cpu}
           memory: ${cluster_resources_effective.workers.memory}
+          # On docker-desktop, cluster.workers.hostports or the default gateway ports, plus listener host ports.
           hostports: >-
             ${workstation.runtime == "docker-desktop" ? concat(
             cluster.workers.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
             gateway_effective.listener_hostports ?? []) : []}
           volumes: ${cluster.workers.volumes ?? []}
 
-  # cluster — Talos bootstrap/apply
 
-  # Incus: nodes come from compute output, or cluster.*.nodes if compute hasn't
-  # run. Hostname is passthrough — Talos 1.12+ reads it from the VM runtime.
+  # Talos bootstrap on Incus. Talos reads each hostname from the VM runtime.
   - name: cluster
     when: "platform == 'incus' && (cluster.enabled ?? true)"
     path: cluster/talos
@@ -353,6 +334,7 @@ terraform:
       - compute
     parallelism: 1
     inputs:
+      # cluster.endpoint, else https://<first compute control plane host>:6443, or empty before compute has outputs.
       cluster_endpoint: >-
         ${cluster.endpoint ?? (
           len(terraform_output("compute", "controlplanes") ?? []) > 0 && terraform_output("compute", "controlplanes")[0].endpoint != null
@@ -365,10 +347,12 @@ terraform:
       talos_version: ${talos.talos_version}
       upgrade_nodes: ${len(talos_common.extensions ?? []) == 0}
       powercycle_reboot: true
+      # Compute's control planes, else cluster.controlplanes.nodes in key order.
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? terraform_output("compute", "controlplanes")
           : map(sortBy(toPairs(cluster.controlplanes.nodes ?? {}), repeat('0', 63 - len(get(#, 0))) + get(#, 0)), get(#, 1))}
+      # Compute's workers, else cluster.workers.nodes in key order when cluster.workers.count is set.
       workers: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? (terraform_output("compute", "workers") ?? [])
@@ -379,21 +363,16 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # Docker: inject the `compute` dependency; full cluster inputs live in
-  # platform-docker (owns per-node endpoint rewriting for docker-desktop).
+  # Adds the compute dependency to platform-docker's cluster stack.
   - name: cluster
     when: "cluster.enabled == true && platform == 'docker'"
     dependsOn:
       - compute
 
+# Flux
 # =============================================================================
-# Flux systems — docker-desktop DNS override
-# =============================================================================
-# Docker Desktop's LB IP is unreachable, so gateway_dns_target points
-# external-dns at gateway/resources/dns/docker-desktop's fixed-address
-# ClusterIP Service instead. The host answers its own queries separately via
-# the workstation Corefile (terraform/workstation/docker) and never consults
-# this record.
+# Docker Desktop's load balancer IP is unreachable, so external-dns targets the fixed ClusterIP 10.96.0.53.
+# The host resolves through the workstation Corefile and ignores this record.
 flux:
 
   - name: gateway

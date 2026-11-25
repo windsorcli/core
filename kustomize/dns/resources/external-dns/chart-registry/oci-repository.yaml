@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry}/external-dns
   ref:
     # artifact: type=chart name=external-dns repo=https://kubernetes-sigs.github.io/external-dns/
-    tag: 1.23.0
+    tag: 1.24.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip

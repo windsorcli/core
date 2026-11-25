@@ -364,6 +364,11 @@ locals {
     )
   }
 
+  # Network or host bridge for each instance's default NIC, from its member in bridges or else network_name.
+  instance_network_names = {
+    for instance in local.all_instances : instance.name => try(var.bridges[instance.target], local.network_name)
+  }
+
   # Cloud-init network-config v2 per virtual machine with a static ipv4.
   cloud_init_network_configs = {
     for instance in local.all_instances : instance.name => "version: 2\n${yamlencode({
@@ -569,7 +574,7 @@ module "instances" {
   target      = lookup(each.value, "target", null)
   ephemeral   = lookup(each.value, "ephemeral", false)
 
-  network_name     = local.network_name
+  network_name     = local.instance_network_names[each.value.name]
   attach_to_bridge = var.attach_to_bridge
   networks         = lookup(each.value, "networks", [])
   network_config   = lookup(each.value, "network_config", {})
@@ -592,6 +597,9 @@ module "instances" {
   config                 = lookup(each.value, "config", {})
   ipv4_filtering_enabled = lookup(each.value, "ipv4_filtering_enabled", false)
   storage_pool           = lookup(each.value, "storage_pool", "default")
+
+  node_health_check = var.node_health_check
+  node_address      = lookup(each.value, "ipv4", null) != null ? split("/", each.value.ipv4)[0] : null
 
   depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_pool.pools, incus_storage_volume.disks, incus_image.local]
 }

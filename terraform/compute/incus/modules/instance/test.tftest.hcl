@@ -494,3 +494,148 @@ run "invalid_ipv6_address_format" {
 }
 
 
+
+# Verifies that creating an instance with limits runs no restart or health check.
+run "limits_create_skips_restart" {
+  command   = apply
+  state_key = "limits"
+
+  variables {
+    name              = "limits-instance"
+    image             = "ubuntu/22.04"
+    network_name      = "test-network"
+    type              = "virtual-machine"
+    remote            = "loft"
+    ipv4              = "10.5.0.10/24"
+    node_health_check = true
+    limits = {
+      cpu    = "2"
+      memory = "8GB"
+    }
+  }
+
+  assert {
+    condition     = incus_instance.this.config["limits.memory"] == "8GB"
+    error_message = "The instance should be created with its memory limit"
+  }
+
+  assert {
+    condition     = !local.limits_changed && !local.health_check_enabled
+    error_message = "Creating the instance should not restart it or run the health check"
+  }
+}
+
+# Verifies that unchanged limits plan no restart.
+run "limits_unchanged_skips_restart" {
+  command   = plan
+  state_key = "limits"
+
+  variables {
+    name              = "limits-instance"
+    image             = "ubuntu/22.04"
+    network_name      = "test-network"
+    type              = "virtual-machine"
+    remote            = "loft"
+    ipv4              = "10.5.0.10/24"
+    node_health_check = true
+    limits = {
+      cpu    = "2"
+      memory = "8GB"
+    }
+  }
+
+  assert {
+    condition     = !local.limits_changed
+    error_message = "Unchanged limits should not restart the instance"
+  }
+}
+
+# Verifies that a memory decrease leaves the instance config alone and restarts the instance, then checks the node.
+run "limits_decrease_restarts_instance" {
+  command   = plan
+  state_key = "limits"
+
+  variables {
+    name              = "limits-instance"
+    image             = "ubuntu/22.04"
+    network_name      = "test-network"
+    type              = "virtual-machine"
+    remote            = "loft"
+    ipv4              = "10.5.0.10/24"
+    node_health_check = true
+    limits = {
+      cpu    = "2"
+      memory = "4GB"
+    }
+  }
+
+  assert {
+    condition     = incus_instance.this.config["limits.memory"] == "8GB"
+    error_message = "The instance resource should not update limits in place"
+  }
+
+  assert {
+    condition     = local.limits_changed
+    error_message = "A memory decrease should restart the instance"
+  }
+
+  assert {
+    condition     = local.instance_ref == "loft:limits-instance"
+    error_message = "The restart should target the instance on its remote"
+  }
+
+  assert {
+    condition     = local.health_check_enabled && local.health_check_node == "10.5.0.10"
+    error_message = "The health check should target the static IPv4 address"
+  }
+}
+
+# Verifies that node_address takes precedence over ipv4 for the health check.
+run "limits_health_check_node_address" {
+  command   = plan
+  state_key = "limits"
+
+  variables {
+    name              = "limits-instance"
+    image             = "ubuntu/22.04"
+    network_name      = "test-network"
+    type              = "virtual-machine"
+    remote            = "loft"
+    ipv4              = "10.5.0.10/24"
+    node_address      = "192.168.3.21"
+    node_health_check = true
+    limits = {
+      cpu    = "4"
+      memory = "8GB"
+    }
+  }
+
+  assert {
+    condition     = local.limits_changed && local.health_check_node == "192.168.3.21"
+    error_message = "The health check should target node_address"
+  }
+}
+
+# Verifies that the health check is skipped unless node_health_check is set.
+run "limits_health_check_disabled" {
+  command   = plan
+  state_key = "limits"
+
+  variables {
+    name         = "limits-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    type         = "virtual-machine"
+    remote       = "loft"
+    ipv4         = "10.5.0.10/24"
+    limits = {
+      cpu    = "2"
+      memory = "4GB"
+    }
+  }
+
+  assert {
+    condition     = local.limits_changed && !local.health_check_enabled
+    error_message = "The health check should be skipped without node_health_check"
+  }
+}
