@@ -237,7 +237,7 @@ config:
           ((gateway.enabled ?? true) == true && (workstation.runtime ?? '') == '' && gateway_exposure.internal == 'NodePort') ? 'none' : 'coredns')))}
 
   # The external gateway is on with gateway.external.enabled, else when dns.public_domain is set.
-  # domain is dns.public_domain while the gateway is on. zone_only is true when only the domain is set.
+  # domain is dns.public_domain while the gateway is on. zone_only is true when gateway.external.enabled is false and the domain is set.
   - name: gateway_external_effective
     value:
       enabled: "${gateway.external.enabled ?? ((dns.public_domain ?? '') != '')}"
