@@ -30,6 +30,13 @@ x-defaults:
     dns-zone:
       zone_id: zone123
 
+  compute-outputs: &compute-outputs
+    controlplanes:
+      - endpoint: 10.5.0.10:50000
+        node: 10.5.0.10
+        hostname: controlplane-1
+    workers: []
+
 cases:
   - name: cloudflare on metal provisions the zone, external-dns, and the DNS-01 issuer
     values:
@@ -516,6 +523,65 @@ cases:
             api_token: test-token
             zone_name: example.com
     terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+
+  - name: certificate-only mode on vsphere issues the internal certificate from public ACME
+    values:
+      platform: vsphere
+      vsphere:
+        datacenter: dc-prod
+        cluster: cluster-01
+        datastore: datastore-01
+        network: VM Network
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      compute: *compute-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_cert_issuer: public-acme
+
+  - name: certificate-only mode on hyperv issues the internal certificate from public ACME
+    values:
+      platform: hyperv
+      network: *default-network
+      cluster: *default-cluster
+      email: ops@example.com
+      gateway:
+        internal:
+          ip: "10.5.1.11"
+      dns:
+        private_domain: home.example.com
+        public:
+          driver: cloudflare
+          cloudflare:
+            api_token: test-token
+            zone_name: example.com
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      compute: *compute-outputs
     expect:
       flux:
         - name: gateway
