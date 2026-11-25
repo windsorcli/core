@@ -613,9 +613,11 @@ flux:
           hmac-key: ${pki.acme.eab.hmac_key}
 
   # fluentd log aggregator, in the observability namespace where fluent-operator has RBAC.
-  # Off with observability.logs_driver elasticsearch, which uses filebeat.
+  # Off when filebeat ships logs to Elasticsearch.
   - name: observability
-    when: telemetry.logs.driver == 'fluentd' && (observability.logs_driver ?? '') != 'elasticsearch'
+    when: >-
+      telemetry.logs.driver == 'fluentd' && !((observability.logs_driver ?? '') == 'elasticsearch' &&
+      gateway.enabled == true && gateway_effective.private.name != '')
     dependsOn:
       - telemetry-install
     install:

@@ -453,6 +453,44 @@ cases:
             components:
               - fluentbit
 
+  # Edge: a public-only gateway keeps fluent-bit and skips filebeat and ELK.
+  - name: elasticsearch with only a public domain keeps fluent-bit and skips ELK stack
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+      gateway:
+        external:
+          tls:
+            issuer: selfsigned
+          ip: "10.5.1.11"
+      network: *default-network
+      cluster: *default-cluster
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
+    expect:
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - fluentbit
+        - name: observability
+          install:
+            components:
+              - fluentd
+    exclude:
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - filebeat
+        - name: observability
+          install:
+            components:
+              - elasticsearch
+              - kibana
+
   # Edge: Envoy gateway mode uses Gateway API route components for Grafana and Kibana.
   - name: elasticsearch observability with envoy uses gateway routes
     values:

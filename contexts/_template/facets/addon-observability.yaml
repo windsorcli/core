@@ -45,7 +45,7 @@ flux:
 
   # With elasticsearch logs, replaces the base telemetry system, with filebeat in place of fluent-bit.
   - name: telemetry
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.private.name != ''
     strategy: replace
     install:
       components:
