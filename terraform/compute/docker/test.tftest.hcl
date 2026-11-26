@@ -17,6 +17,16 @@ override_data {
   }
 }
 
+# Applies to every run below: no existing cluster mounts unprefixed volumes.
+override_data {
+  target = data.external.unprefixed_volumes
+  values = {
+    result = {
+      found = "false"
+    }
+  }
+}
+
 # Minimal: required for cluster path — context, network_cidr, create_network, cluster_nodes (1 cp, 0 workers). Default runtime colima.
 run "minimal_configuration" {
   command = plan
@@ -328,8 +338,16 @@ run "talos_114_volumes" {
   }
 
   assert {
-    condition     = !contains(keys(docker_volume.named), "controlplane_1_etc_kubernetes")
+    condition     = !contains(keys(docker_volume.named), "test_controlplane_1_etc_kubernetes")
     error_message = "Talos 1.14+ must not create an /etc/kubernetes volume"
+  }
+
+  assert {
+    condition = toset(keys(docker_volume.named)) == toset([
+      "test_controlplane_1_system_state", "test_controlplane_1_var", "test_controlplane_1_opt",
+      "test_worker_1_system_state", "test_worker_1_var", "test_worker_1_opt",
+    ])
+    error_message = "Talos 1.14+ must create exactly three prefixed volumes per node"
   }
 }
 
@@ -475,5 +493,231 @@ run "start_ip_sets_first_node_ip" {
   assert {
     condition     = local.container_ipv4["controlplane-1"] == "10.5.0.20/16" && local.container_ipv4["worker-1"] == "10.5.0.21/16"
     error_message = "Nodes must take sequential IPs from start_ip"
+  }
+}
+
+# Volumes carry the context_id, so two projects never share a volume.
+run "volume_names_use_context_id" {
+  command = plan
+
+  variables {
+    context        = "local"
+    context_id     = "w4k9x2ab"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition = toset(keys(docker_volume.named)) == toset([
+      "w4k9x2ab_controlplane_1_system_state", "w4k9x2ab_controlplane_1_var", "w4k9x2ab_controlplane_1_opt",
+      "w4k9x2ab_worker_1_system_state", "w4k9x2ab_worker_1_var", "w4k9x2ab_worker_1_opt",
+    ])
+    error_message = "Talos volume names must start with the context_id"
+  }
+
+  assert {
+    condition     = !contains(keys(docker_volume.named), "controlplane_1_system_state")
+    error_message = "The unprefixed Talos volume names must not be created when context_id is set"
+  }
+}
+
+# Two projects with the same context name get disjoint volumes.
+run "volume_names_differ_per_context_id" {
+  command = plan
+
+  variables {
+    context        = "local"
+    context_id     = "wzzzzzzz"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition     = !contains(keys(docker_volume.named), "w4k9x2ab_controlplane_1_system_state")
+    error_message = "A different context_id must give different volume names"
+  }
+
+  assert {
+    condition     = contains(keys(docker_volume.named), "wzzzzzzz_controlplane_1_system_state")
+    error_message = "Volume names must follow the context_id"
+  }
+}
+
+# Without a context_id, the context name is the prefix.
+run "volume_names_fall_back_to_context" {
+  command = plan
+
+  variables {
+    context        = "local"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "v1.13.11"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition = toset(keys(docker_volume.named)) == toset([
+      "local_controlplane_1_system_state", "local_controlplane_1_var", "local_controlplane_1_etc_cni",
+      "local_controlplane_1_etc_kubernetes", "local_controlplane_1_usr_libexec_kubernetes", "local_controlplane_1_opt",
+    ])
+    error_message = "Without a context_id, Talos < 1.14 volume names must start with the context"
+  }
+}
+
+# With no context_id and no context, the legacy unprefixed names remain.
+run "volume_names_unprefixed_without_context" {
+  command = plan
+
+  variables {
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition     = toset(keys(docker_volume.named)) == toset(["controlplane_1_system_state", "controlplane_1_var", "controlplane_1_opt"])
+    error_message = "Empty context_id and context must leave the volume names unprefixed"
+  }
+}
+
+# Volumes a user names in cluster_nodes.volumes keep their name.
+run "user_named_volume_not_prefixed" {
+  command = plan
+
+  variables {
+    context        = "local"
+    context_id     = "w4k9x2ab"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2", volumes = ["mydata:/data"] }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition     = contains(keys(docker_volume.named), "mydata")
+    error_message = "A user-named volume must keep its name"
+  }
+}
+
+# An existing cluster with unprefixed volumes keeps its volume names on upgrade.
+run "existing_cluster_keeps_unprefixed_names" {
+  command = plan
+
+  override_data {
+    target = data.external.unprefixed_volumes
+    values = {
+      result = {
+        found = "true"
+      }
+    }
+  }
+
+  variables {
+    context         = "local"
+    context_id      = "w4k9x2ab"
+    compose_project = "workstation-windsor-local"
+    network_cidr    = "10.5.0.0/16"
+    create_network  = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition = toset(keys(docker_volume.named)) == toset([
+      "controlplane_1_system_state", "controlplane_1_var", "controlplane_1_opt",
+      "worker_1_system_state", "worker_1_var", "worker_1_opt",
+    ])
+    error_message = "An existing cluster must keep its unprefixed volume names"
+  }
+}
+
+# The check for unprefixed volumes filters on this project's compose label.
+run "unprefixed_check_filters_on_compose_project" {
+  command = plan
+
+  variables {
+    context         = "local"
+    context_id      = "w4k9x2ab"
+    compose_project = "workstation-windsor-local"
+    network_cidr    = "10.5.0.0/16"
+    create_network  = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = strcontains(data.external.unprefixed_volumes[0].program[2], "label=com.docker.compose.project=workstation-windsor-local")
+    error_message = "The unprefixed volume check must filter on the compose project label"
+  }
+
+  assert {
+    condition     = data.external.unprefixed_volumes[0].program[0] == "sh"
+    error_message = "The unprefixed volume check must use sh on unix"
+  }
+}
+
+# Windows hosts run the check in PowerShell.
+run "unprefixed_check_uses_powershell_on_windows" {
+  command = plan
+
+  variables {
+    context        = "local"
+    context_id     = "w4k9x2ab"
+    os_type        = "windows"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = data.external.unprefixed_volumes[0].program[0] == "powershell"
+    error_message = "The unprefixed volume check must use PowerShell on windows"
+  }
+}
+
+# Without a prefix there is nothing to migrate, so the check does not run.
+run "unprefixed_check_skipped_without_prefix" {
+  command = plan
+
+  variables {
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = length(data.external.unprefixed_volumes) == 0
+    error_message = "The unprefixed volume check must not run without a prefix"
   }
 }
