@@ -47,7 +47,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history so the terraform-docs check can diff against the PR base.
+          # Full history so the terraform-docs check can find the merge base.
           fetch-depth: 0
 
       # br_netfilter is not loaded by default on this runner.
@@ -130,9 +130,12 @@ jobs:
 
       # Regenerate terraform-docs and fail only on drift in modules this PR changed.
       - name: Validate terraform module docs
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD -- terraform \
+          changed="$(git diff --name-only "$BASE_REF...$HEAD_SHA" -- terraform \
             | grep -E '\.tf$' | xargs -rn1 dirname | sort -u || true)"
           if [ -z "$changed" ]; then
             echo "No terraform modules changed; skipping docs drift check."
