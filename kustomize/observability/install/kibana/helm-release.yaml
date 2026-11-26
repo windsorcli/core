@@ -23,7 +23,7 @@ spec:
   values:
     image: docker.elastic.co/kibana/kibana
     # artifact: type=image name=docker.elastic.co/kibana/kibana referrers=false
-    imageTag: 9.5.6@sha256:c7ed45da5c3cfea020fc6c99ce027f4d21d19dab330379c5115d5eb95f6ecebc
+    imageTag: 9.5.7@sha256:e34ecf8da9b5d858cbdff21a9049b4f21ee99e1039933b20c4fbdf8b500eabf5
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]
