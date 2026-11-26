@@ -182,7 +182,7 @@ config:
 # Gateway API CRDs with the gateway enabled. Envoy Gateway CRDs with the envoy driver only.
 crds:
   # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-  - "${gateway.enabled == true ? 'gateway-api-experimental-1.6.3' : ''}"
+  - "${gateway.enabled == true ? 'gateway-api-experimental-1.7.0' : ''}"
   # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
   - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.10.0' : ''}"
 
