@@ -12,7 +12,7 @@ variable "kubernetes_version" {
   # artifact: type=image name=registry.k8s.io/kube-scheduler
   # artifact: type=image name=ghcr.io/siderolabs/kubelet
   # artifact: type=image name=registry.k8s.io/kube-proxy
-  default = "v1.37.2"
+  default = "v1.37.3"
   validation {
     condition     = can(regex("^v?1\\.\\d+\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in semantic version format like '1.30.3' or 'v1.30.3'."

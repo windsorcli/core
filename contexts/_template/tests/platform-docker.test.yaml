@@ -536,7 +536,7 @@ cases:
           path: cluster/talos
           inputs:
             talos_version: "1.13.12"
-            kubernetes_version: "1.36.5"
+            kubernetes_version: "1.36.7"
 
   # docker and docker-desktop pin Talos below 1.14.
   - name: Docker Desktop pins Talos below 1.14
@@ -563,4 +563,4 @@ cases:
           path: cluster/talos
           inputs:
             talos_version: "1.13.12"
-            kubernetes_version: "1.36.5"
+            kubernetes_version: "1.36.7"

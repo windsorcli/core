@@ -328,7 +328,7 @@ variable "kubernetes_version" {
   # artifact: type=image name=registry.k8s.io/kube-controller-manager
   # artifact: type=image name=registry.k8s.io/kube-scheduler
   # artifact: type=image name=ghcr.io/siderolabs/kubelet
-  default = "v1.37.2"
+  default = "v1.37.3"
 }
 
 variable "common_config_patches" {

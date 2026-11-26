@@ -410,7 +410,7 @@ config:
       # artifact: type=image name=registry.k8s.io/kube-scheduler
       # artifact: type=image name=ghcr.io/siderolabs/kubelet
       # artifact: type=image name=registry.k8s.io/kube-proxy
-      kubernetes_image_tag: "v1.36.5"
+      kubernetes_image_tag: "v1.36.7"
       kubernetes_version: "${trimPrefix(talos.kubernetes_image_tag, 'v')}"
 
   # Sets the CoreDNS image from the talos_images entry of the Talos version.
