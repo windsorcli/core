@@ -1,0 +1,16 @@
+# Grafana values for the client fragment.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-realm
+  namespace: system-identity
+spec:
+  template:
+    spec:
+      containers:
+        - name: import
+          env:
+            - name: GRAFANA_URL
+              value: ${grafana_url}
+            - name: GRAFANA_REDIRECT_URI
+              value: ${grafana_redirect_uri}

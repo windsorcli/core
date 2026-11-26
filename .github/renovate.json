@@ -221,6 +221,11 @@
       "enabled": false
     },
     {
+      "description": "task keycloak-config-cli:image sets the keycloak-config-cli image version, tag and digest",
+      "matchPackageNames": ["ghcr.io/windsorcli/keycloak-config-cli"],
+      "enabled": false
+    },
+    {
       "description": "Track windsorcli/action@main for edge validation; don't pin or update",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["windsorcli/action"],

@@ -123,6 +123,10 @@ jobs:
       - name: Validate utils image tag
         run: task utils:image:check
 
+      # Fail if a keycloak-config-cli image reference under kustomize/ differs from images/keycloak-config-cli/VERSION.
+      - name: Validate keycloak-config-cli image tag
+        run: task keycloak-config-cli:image:check
+
       # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
       - name: Validate kustomize README index
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
@@ -228,6 +232,14 @@ jobs:
         gpg --batch --pinentry-mode loopback --passphrase probe -d /tmp/probe.gpg
         openssl rand -hex 4
 
+  keycloak-config-cli-image:
+    name: keycloak-config-cli Image
+    uses: ./.github/workflows/image.yaml
+    with:
+      name: keycloak-config-cli
+      builder: apko
+      script: scripts/keycloak-config-cli-image.sh
+
   # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
   # then applies HEAD on top without reinit. registry runs fresh with every
   # chart and image pulled from a workstation registry.
@@ -237,7 +249,7 @@ jobs:
   integration:
     name: Integration (${{ matrix.name }})
     runs-on: ubuntu-latest
-    needs: [grafana-plugins, utils-image]
+    needs: [grafana-plugins, utils-image, keycloak-config-cli-image]
     timeout-minutes: ${{ matrix.mode == 'registry' && 90 || 45 }}
     strategy:
       fail-fast: false

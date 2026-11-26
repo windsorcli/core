@@ -56,6 +56,16 @@ tasks:
     cmds:
       - scripts/utils-image.sh --check
 
+  keycloak-config-cli:image:
+    desc: Lock the keycloak-config-cli image packages, then set images/keycloak-config-cli/VERSION and the image tag and digest
+    cmds:
+      - scripts/keycloak-config-cli-image.sh
+
+  keycloak-config-cli:image:check:
+    desc: Verify the keycloak-config-cli image tag matches images/keycloak-config-cli/VERSION (CI guard)
+    cmds:
+      - scripts/keycloak-config-cli-image.sh --check
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true
