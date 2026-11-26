@@ -6,7 +6,7 @@ mock_provider "null" {
 
 variables {
   context_path  = "/tmp/test"
-  talos_version = "1.14.6"
+  talos_version = "1.14.7"
 }
 
 # Verifies that no upgrade runs without extensions
