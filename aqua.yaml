@@ -30,7 +30,7 @@ packages:
   - name: derailed/k9s@v0.51.0
   - name: getsops/sops@v3.13.3
   - name: 1password/cli@v2.30.3
-  - name: evilmartians/lefthook@v2.2.3
+  - name: evilmartians/lefthook@v2.2.4
   - name: mikefarah/yq@v4.54.3
   - name: chainguard-dev/apko@v1.5.2
   - name: bridgecrewio/checkov@3.4.11
