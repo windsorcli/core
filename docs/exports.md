@@ -9,12 +9,24 @@ Core lists these config blocks under `exports:` in `contexts/_template/blueprint
 | `internal_ip` | string | Internal gateway address, empty when unset |
 | `external_ip` | string | External gateway address, empty when unset |
 | `internal_mode` | string | `nodeport` or `loadbalancer` |
-| `external_mode` | string | `nodeport` or `loadbalancer` |
+| `external_mode` | string | `nodeport`, `clusterip` or `loadbalancer` |
+| `internal` | bool | An internal gateway exists |
 | `internal_enabled` | bool | Internal gateway is on |
 | `external_enabled` | bool | External gateway is on |
 | `external_https` | bool | External gateway serves HTTPS |
 | `internal_https` | bool | Internal gateway serves HTTPS |
 | `cilium_lb` | bool | Cilium assigns the pool addresses |
+| `public` | object | Route target for browser- and remote-facing services |
+| `public.name` | string | `external`, `internal`, or empty when no gateway serves |
+| `public.domain` | string | Domain for public routes |
+| `public.ip` | string | Address of the public route target, empty when unset |
+| `private` | object | Route target for operator-only services |
+| `private.name` | string | `internal`, or empty when no internal gateway exists |
+| `private.domain` | string | Domain for private routes, empty when no internal gateway exists |
+| `private.ip` | string | Address of the private route target, empty when unset |
+| `listener_hostports` | list of strings | Docker-desktop host port mappings, `port:port/tcp` entries |
+| `external_listener_ports` | string | One-line JSON array of Service ports for the external gateway's `node_ports` |
+| `internal_listener_ports` | string | One-line JSON array of Service ports for the internal gateway's `node_ports` |
 
 ## identity_provider
 
