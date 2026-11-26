@@ -145,7 +145,7 @@ variable "ready_gate_image" {
   description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
   type        = string
   # artifact: type=image name=ghcr.io/windsorcli/utils
-  default  = "ghcr.io/windsorcli/utils:1.37.2-r1@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e"
+  default  = "ghcr.io/windsorcli/utils:1.37.2-r2@sha256:b110d3232d20896f6ba314553dad5b29665a5facbaa5b211aee5e2774c6b7b18"
   nullable = false
 
   validation {
