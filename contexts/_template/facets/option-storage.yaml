@@ -37,21 +37,21 @@ config:
     value:
       tags:
         # artifact: type=image name=docker.io/openebs/mayastor-agent-core
-        agent_core: develop@sha256:53e7e80f315ff58ea6c8cf036e2cf30e7ecca46df3d844acc81e1cd52bf4f4cd
+        agent_core: develop@sha256:81ae2af99798e8f1249d3c80cfb9c83d43dbd3fc79ba48affb860f257fecfded
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-cluster
-        agent_ha_cluster: develop@sha256:e7d7e9842a89fae13b29128f8489a9cb8684081b82d227d37d932d383b140260
+        agent_ha_cluster: develop@sha256:f5a11970bdbe71ecec9a5e9d8865971957e8ab22aad6cf95c365c9ab2050c3e6
         # artifact: type=image name=docker.io/openebs/mayastor-agent-ha-node
-        agent_ha_node: develop@sha256:324ca9da97f192b8fb4821d0f1d1e795c389df7b3d8498b8f00a94ef73632e52
+        agent_ha_node: develop@sha256:bff0c48ca1822af2c96f6c8270c359b52d1e8924321ccbde23cfc1ae30c7b02d
         # artifact: type=image name=docker.io/openebs/mayastor-api-rest
-        api_rest: develop@sha256:a2b477728769cd6e9e914ed53015f44c75eae87f5036555679cef577dc4b7e6b
+        api_rest: develop@sha256:61d815e45f1f23f6b472a9fa560a62291822d32a1ed9662f32e5b2aff8e59006
         # artifact: type=image name=docker.io/openebs/mayastor-csi-controller
-        csi_controller: develop@sha256:06ed1c780b0786aed404e7270148954ef8d9c42b853dc22a9442981078ed4427
+        csi_controller: develop@sha256:5e8c9b7302b781f23bffc1eba1b490368d3c7f8854f7fc16f75a8a047c1c6bf8
         # artifact: type=image name=docker.io/openebs/mayastor-csi-node
-        csi_node: develop@sha256:033893cd0ff05410cf83a4dd8f76aefff569a44562f24838e4bffb81a2e2c94f
+        csi_node: develop@sha256:030f2c7a7283b8444da8ae1431342a441c384e67759369b9c786f713237b326d
         # artifact: type=image name=docker.io/openebs/mayastor-io-engine
         io_engine: develop@sha256:32e684716dff54bfb0e8e56d89d9a9368fa5328a5642e8a0f18336e34c6bc1c9
         # artifact: type=image name=docker.io/openebs/mayastor-operator-diskpool
-        operator_diskpool: develop@sha256:20378bfaa8649714f4b3fb5ae86aa02cfd652d1aa46c94b8a339fe3b93bfe4ce
+        operator_diskpool: develop@sha256:c2468d854b6e1dd17d4b6b6d47d7ee930399ffe85c032cd0fd3ac2440292cd37
 
   # DiskPool disks require a persistent devlink, since Mayastor rejects /dev/sdb.
   # On incus, this derives the QEMU by-id path. Other platforms set disks[].device to a by-id path.
