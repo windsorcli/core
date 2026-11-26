@@ -17,6 +17,16 @@ override_data {
   }
 }
 
+# Applies to every run below: no existing cluster mounts unprefixed volumes.
+override_data {
+  target = data.external.unprefixed_volumes
+  values = {
+    result = {
+      found = "false"
+    }
+  }
+}
+
 # Minimal: required for cluster path — context, network_cidr, create_network, cluster_nodes (1 cp, 0 workers). Default runtime colima.
 run "minimal_configuration" {
   command = plan
@@ -606,5 +616,108 @@ run "user_named_volume_not_prefixed" {
   assert {
     condition     = contains(keys(docker_volume.named), "mydata")
     error_message = "A user-named volume must keep its name"
+  }
+}
+
+# An existing cluster with unprefixed volumes keeps its volume names on upgrade.
+run "existing_cluster_keeps_unprefixed_names" {
+  command = plan
+
+  override_data {
+    target = data.external.unprefixed_volumes
+    values = {
+      result = {
+        found = "true"
+      }
+    }
+  }
+
+  variables {
+    context         = "local"
+    context_id      = "w4k9x2ab"
+    compose_project = "workstation-windsor-local"
+    network_cidr    = "10.5.0.0/16"
+    create_network  = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition = toset(keys(docker_volume.named)) == toset([
+      "controlplane_1_system_state", "controlplane_1_var", "controlplane_1_opt",
+      "worker_1_system_state", "worker_1_var", "worker_1_opt",
+    ])
+    error_message = "An existing cluster must keep its unprefixed volume names"
+  }
+}
+
+# The check for unprefixed volumes filters on this project's compose label.
+run "unprefixed_check_filters_on_compose_project" {
+  command = plan
+
+  variables {
+    context         = "local"
+    context_id      = "w4k9x2ab"
+    compose_project = "workstation-windsor-local"
+    network_cidr    = "10.5.0.0/16"
+    create_network  = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = strcontains(data.external.unprefixed_volumes[0].program[2], "label=com.docker.compose.project=workstation-windsor-local")
+    error_message = "The unprefixed volume check must filter on the compose project label"
+  }
+
+  assert {
+    condition     = data.external.unprefixed_volumes[0].program[0] == "sh"
+    error_message = "The unprefixed volume check must use sh on unix"
+  }
+}
+
+# Windows hosts run the check in PowerShell.
+run "unprefixed_check_uses_powershell_on_windows" {
+  command = plan
+
+  variables {
+    context        = "local"
+    context_id     = "w4k9x2ab"
+    os_type        = "windows"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = data.external.unprefixed_volumes[0].program[0] == "powershell"
+    error_message = "The unprefixed volume check must use PowerShell on windows"
+  }
+}
+
+# Without a prefix there is nothing to migrate, so the check does not run.
+run "unprefixed_check_skipped_without_prefix" {
+  command = plan
+
+  variables {
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = length(data.external.unprefixed_volumes) == 0
+    error_message = "The unprefixed volume check must not run without a prefix"
   }
 }

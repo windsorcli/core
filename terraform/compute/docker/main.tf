@@ -32,7 +32,7 @@ locals {
   use_localhost_networking = local.runtime == "docker-desktop"
 
   # Talos volume name prefix: context_id, else context, else none.
-  volume_prefix = var.context_id != "" ? "${var.context_id}_" : (var.context != "" ? "${var.context}_" : "")
+  _volume_prefix_scoped = var.context_id != "" ? "${var.context_id}_" : (var.context != "" ? "${var.context}_" : "")
 
   # Talos paths persisted as named volumes, without the /etc and /usr/libexec overlays on 1.14+.
   _talos_version_parts = var.cluster_nodes == null ? null : (
@@ -252,7 +252,27 @@ data "external" "docker_host" {
   program = ["docker", "info", "--format", "{\"ncpu\":\"{{.NCPU}}\",\"memtotal\":\"{{.MemTotal}}\"}"]
 }
 
+# A controlplane-1 of this project that still mounts an unprefixed Talos volume.
+data "external" "unprefixed_volumes" {
+  count = var.cluster_nodes != null && local._volume_prefix_scoped != "" ? 1 : 0
+  program = var.os_type == "windows" ? [
+    "powershell", "-NoProfile", "-Command",
+    "if (docker container ls -aq ${local._unprefixed_filters}) { '{\"found\":\"true\"}' } else { '{\"found\":\"false\"}' }"
+    ] : [
+    "sh", "-c",
+    "if [ -n \"$(docker container ls -aq ${local._unprefixed_filters})\" ]; then echo '{\"found\":\"true\"}'; else echo '{\"found\":\"false\"}'; fi"
+  ]
+}
+
 locals {
+  _unprefixed_filters = join(" ", concat(
+    ["--filter 'name=^controlplane-1$'", "--filter 'volume=controlplane_1_system_state'"],
+    var.compose_project != null ? ["--filter 'label=com.docker.compose.project=${var.compose_project}'"] : []
+  ))
+
+  # An existing cluster keeps its unprefixed volume names.
+  volume_prefix = try(data.external.unprefixed_volumes[0].result.found, "false") == "true" ? "" : local._volume_prefix_scoped
+
   host_cpu    = tonumber(data.external.docker_host.result.ncpu)
   host_memory = floor(tonumber(data.external.docker_host.result.memtotal) / pow(1024, 3))
 }

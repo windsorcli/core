@@ -38,6 +38,7 @@ No modules.
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/network) | resource |
 | [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/volume) | resource |
 | [external_external.docker_host](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external) | data source |
+| [external_external.unprefixed_volumes](https://registry.terraform.io/providers/hashicorp/external/2.4.2/docs/data-sources/external) | data source |
 
 ## Inputs
 
@@ -53,6 +54,7 @@ No modules.
 | <a name="input_network_cidr"></a> [network\_cidr](#input\_network\_cidr) | CIDR of the network. When create\_network is false (e.g. workstation), use terraform\_output(workstation, network\_cidr). When set with start\_ip, containers get sequential IPs from start\_ip. | `string` | `null` | no |
 | <a name="input_network_driver"></a> [network\_driver](#input\_network\_driver) | Docker network driver (bridge, overlay, etc.) | `string` | `"bridge"` | no |
 | <a name="input_network_name"></a> [network\_name](#input\_network\_name) | Name of the network to use. When create\_network is false (e.g. attaching to workstation network), use terraform\_output(workstation, network\_name). When create\_network is true this network is created; empty defaults to windsor-{context}. | `string` | `""` | no |
+| <a name="input_os_type"></a> [os\_type](#input\_os\_type) | Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF\_VAR\_os\_type; older CLIs leave it at the unix default | `string` | `"unix"` | no |
 | <a name="input_project_root"></a> [project\_root](#input\_project\_root) | Project root path for bind mounts (e.g. Talos /var/mnt/local). When set, facets can pass project\_root + '/.volumes:/var/mnt/local' in instance volumes. | `string` | `null` | no |
 | <a name="input_runtime"></a> [runtime](#input\_runtime) | Docker host runtime: docker-desktop (localhost-only networking, no VM control) or colima/docker/linux (advanced networking, IP routing). 'colima' and 'docker' are aliases for 'linux'. Standardized with workstation/docker. | `string` | `"linux"` | no |
 | <a name="input_start_ip"></a> [start\_ip](#input\_start\_ip) | First container IP for sequential assignment. When create\_network is false (e.g. workstation), use terraform\_output(workstation, next\_ip). With network\_cidr, all containers get sequential IPs from this address. | `string` | `null` | no |
