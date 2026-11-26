@@ -78,7 +78,7 @@ spec:
       containers:
         - name: pdns
           # artifact: type=image name=docker.io/powerdns/pdns-auth-51
-          image: docker.io/powerdns/pdns-auth-51:5.1.5@sha256:77ff4efdbb9ec30e9309c8a1cbed6121a67fa3be25c848bbbfa756fc75bf9a27
+          image: docker.io/powerdns/pdns-auth-51:5.1.7@sha256:a8e7fafd960caec0253d63cb0bac5ee0620d5e8ea34e942b023240f19fcdc556
           env:
             - name: TEMPLATE_FILES
               value: gpgsql
