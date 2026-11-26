@@ -50,7 +50,7 @@ vendors:
 
   - name: fluent-operator
     # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
-    version: 4.3.0
+    version: 4.4.0
     helm:
       repo: oci://ghcr.io/fluent/helm-charts
       chart: fluent-operator
