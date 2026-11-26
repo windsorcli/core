@@ -93,7 +93,7 @@ spec:
           registry: docker.io
           repository: longhornio/livenessprobe
           # artifact: type=image name=docker.io/longhornio/livenessprobe
-          tag: v2.20.0@sha256:d1199b77452bfc11cfc62feb8a266758fe8d72953e97faac8065941e3767f1a3
+          tag: v2.20.1@sha256:8a582886ea522df0088c412fefe0a145a3d98d900dd4e256525a2f0870fe193d
     defaultSettings:
       # /var/mnt/longhorn is where Talos UserVolumeConfig auto-mounts the dedicated disk (name: longhorn).
       # Multi-disk configurations require manual Longhorn Node CRD configuration.
