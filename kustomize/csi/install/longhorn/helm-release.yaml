@@ -88,7 +88,7 @@ spec:
           registry: docker.io
           repository: longhornio/csi-snapshotter
           # artifact: type=image name=docker.io/longhornio/csi-snapshotter
-          tag: v8.7.0@sha256:540c1e04e5e0206015f0552fc86efb1f9e292b1f9892b8439a6f091255857148
+          tag: v8.7.1@sha256:0a4dda6fde3f18ffb65761fd561026ab4a501945be1c01406a7c298755bf3b1d
         livenessProbe:
           registry: docker.io
           repository: longhornio/livenessprobe
