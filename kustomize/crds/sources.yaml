@@ -106,6 +106,6 @@ manifests:
 
   - name: intel-gpu-plugin
     # renovate: datasource=github-releases depName=intel/intel-device-plugins-for-kubernetes package=intel/intel-device-plugins-for-kubernetes
-    version: 0.37.1
+    version: 0.37.2
     url: https://raw.githubusercontent.com/intel/intel-device-plugins-for-kubernetes/v${version}/deployments/gpu_plugin/base/intel-gpu-plugin.yaml
     dest: kustomize/devices/install/intel-gpu-plugin/daemonset.yaml
