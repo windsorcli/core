@@ -45,7 +45,7 @@ variable "image_tags" {
     # artifact: type=image name=quay.io/cilium/operator-generic
     operator = "v1.20.5@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4"
     # artifact: type=image name=quay.io/cilium/cilium-envoy
-    envoy = "v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f@sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef"
+    envoy = "v1.39.6-1794557904-dee711ff0e84b106edd0abcdd71961af1b870359@sha256:bdef13043ebaa7b9dcd8e3a86be41080bb5369e017cd759a12daf89e2b8fafe7"
     # artifact: type=image name=quay.io/cilium/certgen
     certgen = "v0.4.14@sha256:2f89929b7474b739d5225d69f44bd70d9e28067ff6dc7fdbe0f6407828fb8395"
   }

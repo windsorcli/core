@@ -45,6 +45,7 @@ layer. Links from there land here.
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/pdns-api-key](dns/pdns-api-key/) | Generated API key for the in-cluster PowerDNS server and its external-dns provider. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
+| [dns/zone/cloudflare](dns/zone/cloudflare/) | Looks up or creates a public Cloudflare zone. |
 | [dns/zone/gcp-dns](dns/zone/gcp-dns/) | DNS zone on Google Cloud DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
 | [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |

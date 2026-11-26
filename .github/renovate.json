@@ -190,6 +190,11 @@
       "enabled": false
     },
     {
+      "description": "Set the cilium-envoy tag by hand to the envoy.image tag in the values.yaml of the Cilium chart, since the agent rejects any other Envoy build",
+      "matchPackageNames": ["quay.io/cilium/cilium-envoy"],
+      "enabled": false
+    },
+    {
       "description": "Review Flux Mirror bumps by hand, since PR checks skip the registry leg that runs it",
       "matchPackageNames": ["fluxcd/flux-mirror"],
       "automerge": false

@@ -108,12 +108,12 @@ spec:
       alertmanagerSpec:
         priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/alertmanager package=prometheus/alertmanager
-        version: v0.35.0
+        version: v0.35.1
         image:
           registry: quay.io
           repository: prometheus/alertmanager
           # artifact: type=image name=quay.io/prometheus/alertmanager
-          tag: v0.35.0@sha256:5f6e66c01bd610aef6dd671642a52eee775fd3a89bd8788ebada33efaf373d10
+          tag: v0.35.1@sha256:03d4e362b9948eee910802ddac55f9175b320862a2de1fdef5206c3213875a09
     nodeExporter:
       enabled: true
       replicas: 1

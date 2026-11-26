@@ -9,9 +9,20 @@ variable "context" {
 }
 
 variable "context_id" {
-  description = "The windsor context id for this deployment. Typically set implicitly via TF_VAR_context; no need to pass in facet inputs."
+  description = "The windsor context id for this deployment, unique per project. Prefixes the Talos volume names; falls back to context when empty. Typically set implicitly via TF_VAR_context_id; no need to pass in facet inputs."
   type        = string
   default     = ""
+}
+
+variable "os_type" {
+  description = "Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF_VAR_os_type; older CLIs leave it at the unix default"
+  type        = string
+  default     = "unix"
+
+  validation {
+    condition     = contains(["windows", "unix"], var.os_type)
+    error_message = "os_type must be \"windows\" or \"unix\"."
+  }
 }
 
 variable "project_root" {
