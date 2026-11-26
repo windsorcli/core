@@ -62,7 +62,7 @@ spec:
           registry: docker.io
           repository: longhornio/support-bundle-kit
           # artifact: type=image name=docker.io/longhornio/support-bundle-kit
-          tag: v0.0.98@sha256:e64a01db35396f967175adcfd0177d2a50e75765c51efe86e55f13f49095d1ae
+          tag: v0.0.99@sha256:daab3a78b1eab8ea6e4d46eff6c71a5dc5cde62f0c59593830e898417b07e1bb
       csi:
         attacher:
           registry: docker.io
