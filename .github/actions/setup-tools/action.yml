@@ -163,7 +163,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=apko package=chainguard-dev/apko
-        APKO_VERSION: v1.5.2
+        APKO_VERSION: v1.5.3
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/chainguard-dev/apko/releases/download/${APKO_VERSION}"
