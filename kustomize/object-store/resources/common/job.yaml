@@ -18,7 +18,7 @@ spec:
       containers:
       - name: generate-creds
         # artifact: type=image name=ghcr.io/windsorcli/utils
-        image: ghcr.io/windsorcli/utils:1.37.2-r1@sha256:fe4838c4687df97b318d83138801592e07fcaab9df091a883bb121045958b38e
+        image: ghcr.io/windsorcli/utils:1.37.2-r2@sha256:b110d3232d20896f6ba314553dad5b29665a5facbaa5b211aee5e2774c6b7b18
         command: ["/bin/sh", "-c"]
         args:
         - |
