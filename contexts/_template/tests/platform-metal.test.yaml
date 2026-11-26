@@ -339,7 +339,7 @@ cases:
           nodes:
             controlplane-1:
               <<: *cp1-node
-              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
+              install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.7
         workers:
           count: 1
           volumes:
@@ -356,14 +356,14 @@ cases:
               - endpoint: 10.5.0.10:50000
                 node: 10.5.0.10
                 hostname: controlplane-1
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.7
         - name: cluster-extensions
           path: cluster/talos/extensions
           inputs:
             controlplanes:
               - node: 10.5.0.10
                 endpoint: 10.5.0.10:50000
-                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.6
+                install_image: factory.talos.dev/metal-installer/a636242df247ad4aad2e36d1026d8d4727b716a3061749bd7b19651e548f65e4:v1.14.7
 
   # A pool's board gives its nodes the board's Image Factory overlay, for the cluster and extensions steps.
   - name: pool board sets the overlay on the pool's nodes
@@ -448,7 +448,7 @@ cases:
             worker-2:
               endpoint: 10.5.0.21:50000
               node: 10.5.0.21
-              install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6
+              install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.7
           volumes:
             - /var/mnt/local
     expect:
@@ -468,7 +468,7 @@ cases:
                   image: siderolabs/sbc-raspberrypi
               - endpoint: 10.5.0.21:50000
                 node: 10.5.0.21
-                install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.6
+                install_image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.7
                 overlay:
                   name: rpi_5
                   image: siderolabs/sbc-raspberrypi
