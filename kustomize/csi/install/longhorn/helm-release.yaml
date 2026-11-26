@@ -68,7 +68,7 @@ spec:
           registry: docker.io
           repository: longhornio/csi-attacher
           # artifact: type=image name=docker.io/longhornio/csi-attacher
-          tag: v4.13.0@sha256:fef34c2d823b78da7d6c29fdf0f80d236293b0ac06944d14e8c366add880a4c8
+          tag: v4.13.1@sha256:dc5ec19c6fe06ce01d3ac91bc5e8cf097a359973c75034687c94a59e08448838
         provisioner:
           registry: docker.io
           repository: longhornio/csi-provisioner
