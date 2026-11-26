@@ -5,7 +5,7 @@ stack_name: LB
 ---
 
 The cluster's LoadBalancer-Service provider, gated on
-`lb_effective.enabled` and selected by `lb_effective.driver`. Three
+`load_balancer.enabled` and selected by `load_balancer.driver`. Three
 drivers ship.
 
 On EKS, `aws-lb-controller` provisions real AWS NLB and ALB resources.
@@ -35,7 +35,7 @@ even though it doesn't.
 ## Recipes
 
 Exactly one driver is wired per cluster, selected by
-`lb_effective.driver`. The gateway add-on's data-plane Service gets
+`load_balancer.driver`. The gateway add-on's data-plane Service gets
 its external IP from whichever driver is on.
 
 ### AWS (EKS)
@@ -70,7 +70,7 @@ flux:
 ```
 
 There's no `resources` block because AWS LB Controller handles address
-management through the cloud API. `lb_effective.controller_required` is
+management through the cloud API. `load_balancer.controller_required` is
 true for this driver, so gateway-install depends on lb-install.
 
 ### MetalLB (docker / incus / metal)
@@ -165,13 +165,13 @@ Helm release of the AWS Load Balancer Controller in `system-lb`. Watches `Servic
 
 ### `metallb`
 
-_Enabled when `lb_effective.driver == 'metallb'`._
+_Enabled when `load_balancer.driver == 'metallb'`._
 
 Helm release of MetalLB in `system-lb`. Installs the controller and speaker DaemonSet. The address pool and advertisement mode come from `lb-resources` (`metallb-arp` or `metallb-layer2`).
 
 ### `kube-vip`
 
-_Enabled when `lb_effective.driver == 'kube-vip'`, the default with the flannel CNI on metal, vsphere, hyperv, incus, and proxmox._
+_Enabled when `load_balancer.driver == 'kube-vip'`, the default with the flannel CNI on metal, vsphere, hyperv, incus, and proxmox._
 
 Helm release of kube-vip in `system-lb`. Announces the addresses of LoadBalancer Services; pairs with `kube-vip/arp` for L2 advertisement.
 

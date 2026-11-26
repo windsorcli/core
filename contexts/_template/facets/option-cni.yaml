@@ -44,11 +44,11 @@ flux:
     when: gateway.enabled == true && gateway.driver == 'cilium'
     resources:
       - name: external
-        when: gateway_effective.external_enabled == true
+        when: gateway_endpoints.external_enabled == true
         dependsOn:
           - cni-install
       - name: internal
-        when: gateway_effective.internal_enabled == true
+        when: gateway_endpoints.internal_enabled == true
         dependsOn:
           - cni-install
 
@@ -66,10 +66,10 @@ flux:
         - cilium/talos
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy, off when an lb-install controller serves the Gateway Service.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && load_balancer.driver == 'cilium' && load_balancer.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
-        - "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium/l2' : ''}"
+        - "${load_balancer.driver == 'cilium' && load_balancer.controller_required != true ? 'cilium/l2' : ''}"
         # Encryption, on by default outside a workstation unless set by cluster.cni.encryption.
         - "${(cluster.cni.encryption ?? ((workstation.runtime ?? '') == '')) == true ? 'cilium/encryption' : ''}"
       substitutions:
@@ -82,7 +82,7 @@ flux:
 
   # LBIPAM pool and L2 announcement policy, whose CRDs come from the chart.
   - name: cni
-    when: talos_enabled && lb_effective.driver == 'cilium' && lb_effective.controller_required != true
+    when: talos_enabled && load_balancer.driver == 'cilium' && load_balancer.controller_required != true
     resources:
       - components:
           - cilium/l2
@@ -92,7 +92,7 @@ flux:
 
   # IP range for the Cilium LBIPAM pool, present only with the cilium/l2/pool component.
   - name: cni
-    when: talos_enabled && lb_effective.driver == 'cilium' && lb_effective.controller_required != true && (network.loadbalancer_ips.start ?? '') != ''
+    when: talos_enabled && load_balancer.driver == 'cilium' && load_balancer.controller_required != true && (network.loadbalancer_ips.start ?? '') != ''
     resources:
       - substitutions:
           loadbalancer_start_ip: "${network.loadbalancer_ips.start}"
@@ -106,7 +106,7 @@ flux:
         - cilium
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy, off when an lb-install controller serves the Gateway Service.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && load_balancer.driver == 'cilium' && load_balancer.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
         # Encryption, on by default outside a workstation unless set by cluster.cni.encryption.

@@ -67,7 +67,7 @@ flux:
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns_private_effective.public_zone == true ? dns.public_domain : ''}"
-        dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
+        dns_loadbalancer_ip: "${gateway_endpoints.internal_ip ?? ''}"
       timeout: 20m
       interval: 5m
     # One external-dns instance per zone, writing to the server's backend.

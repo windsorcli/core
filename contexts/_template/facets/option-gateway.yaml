@@ -53,8 +53,8 @@ requires:
     message: The cloud load balancer assigns the gateway address; remove gateway.<name>.ip.
   - when: >-
       gateway.enabled == true && platform in ['metal', 'vsphere', 'hyperv', 'incus', 'proxmox'] &&
-      ((gateway_effective.external_enabled == true && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
-      (gateway_effective.internal_enabled == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
+      ((gateway_endpoints.external_enabled == true && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
+      (gateway_endpoints.internal_enabled == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
     message: On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer gateway needs gateway.<name>.ip.
   - when: >-
       gateway.enabled == true &&
@@ -88,7 +88,7 @@ requires:
       (gateway.external.tls.cert ?? '') == '' && tls_effective.external_issuer == 'public-acme' && tls_effective.public_zone_writable != true
     message: gateway.external.tls.issuer acme needs dns.public.driver or pki.acme.server.
   - when: >-
-      gateway.enabled == true && gateway_effective.internal == true && (gateway.internal.https ?? true) == true &&
+      gateway.enabled == true && gateway_endpoints.internal == true && (gateway.internal.https ?? true) == true &&
       (gateway.internal.tls.cert ?? '') == '' && tls_effective.internal_issuer == 'public-acme' &&
       dns_zone_effective.certificate_only != true &&
       (tls_effective.private_subdomain != true || tls_effective.public_zone_writable != true)
@@ -109,9 +109,9 @@ requires:
     message: gateway.<name>.tls applies only to a gateway with https; remove it or set gateway.<name>.https to true.
   - when: >-
       gateway.enabled == true &&
-      ((gateway_effective.external_enabled == true && (dns.public_domain ?? '') == '' &&
+      ((gateway_endpoints.external_enabled == true && (dns.public_domain ?? '') == '' &&
       (gateway.external.https ?? true) == true && (gateway.external.tls.cert ?? '') == '') ||
-      (gateway_effective.internal_enabled == true && (dns.private_domain ?? '') == '' &&
+      (gateway_endpoints.internal_enabled == true && (dns.private_domain ?? '') == '' &&
       (gateway.internal.https ?? true) == true && (gateway.internal.tls.cert ?? '') == ''))
     message: A gateway without a domain needs gateway.<name>.tls.cert, or gateway.<name>.https set to false.
 
@@ -119,10 +119,10 @@ requires:
 # =============================================================================
 config:
 
-  - name: gateway_effective
+  - name: gateway_endpoints
     value:
       # Cilium assigns the pool addresses when it is the LB driver and no cloud LB controller does.
-      cilium_lb: "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true}"
+      cilium_lb: "${load_balancer.driver == 'cilium' && load_balancer.controller_required != true}"
       internal_ip: "${gateway.internal.ip ?? ''}"
       external_ip: "${gateway.external.ip ?? ''}"
       internal_mode: "${gateway_exposure.internal == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
@@ -208,49 +208,49 @@ flux:
       interval: 5m
     resources:
       - name: external
-        when: gateway_effective.external_enabled == true
+        when: gateway_endpoints.external_enabled == true
         dependsOn:
           - pki-resources
         components:
           # Cilium LBIPAM patch, skipped when an lb-install controller owns the address.
-          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
+          - "${gateway.driver == 'cilium' && load_balancer.controller_required != true ? 'cilium' : ''}"
           - >-
-            ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
-            (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${gateway_effective.external_https == true && (gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
-          - "${gateway_effective.external_https != true ? 'no-web-https' : ''}"
+            ${gateway.driver == 'cilium' && load_balancer.controller_required != true &&
+            (gateway_endpoints.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${gateway_endpoints.external_https == true && (gateway.external.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_endpoints.external_https != true ? 'no-web-https' : ''}"
           # Admits ListenerSets from labeled namespaces on a LoadBalancer gateway, or a NodePort gateway with node_ports.
           - >-
-            ${gateway_effective.external_mode == 'loadbalancer' || len(gateway.external.node_ports ?? {}) > 0 ?
+            ${gateway_endpoints.external_mode == 'loadbalancer' || len(gateway.external.node_ports ?? {}) > 0 ?
             'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
-          - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.external_mode : ''}"
+          - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_endpoints.external_mode : ''}"
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'loadbalancer' &&
-            lb_effective.enabled == true && (gateway_effective.external_ip ?? '') != '' ?
-            'envoy/loadbalancer/' + lb_effective.driver + '-ip' : ''}
+            ${gateway.driver == 'envoy' && gateway_endpoints.external_mode == 'loadbalancer' &&
+            load_balancer.enabled == true && (gateway_endpoints.external_ip ?? '') != '' ?
+            'envoy/loadbalancer/' + load_balancer.driver + '-ip' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'loadbalancer' &&
-            gateway_effective.cilium_lb == true && (gateway_effective.external_ip ?? '') != '' ?
+            ${gateway.driver == 'envoy' && gateway_endpoints.external_mode == 'loadbalancer' &&
+            gateway_endpoints.cilium_lb == true && (gateway_endpoints.external_ip ?? '') != '' ?
             'envoy/loadbalancer/cilium-ip' : ''}
           - >-
-            ${gateway_effective.cilium_lb == true && gateway_effective.external_mode == 'loadbalancer' &&
-            (gateway_effective.external_ip ?? '') != '' ? 'cilium-pool' : ''}
+            ${gateway_endpoints.cilium_lb == true && gateway_endpoints.external_mode == 'loadbalancer' &&
+            (gateway_endpoints.external_ip ?? '') != '' ? 'cilium-pool' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.external_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.external_mode == 'nodeport' &&
             len(gateway.external.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           # Points the Gateway at its EnvoyProxy, for the Envoy data-plane Service config.
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           # Catch-all 404 for unmatched HTTPRoutes, Envoy only.
-          - "${gateway.driver != 'cilium' && gateway_effective.external_https == true ? 'envoy/default-404' : ''}"
+          - "${gateway.driver != 'cilium' && gateway_endpoints.external_https == true ? 'envoy/default-404' : ''}"
           - >-
-            ${gateway.driver != 'cilium' && gateway_effective.external_https == true && (dns.public_domain ?? '') != '' &&
+            ${gateway.driver != 'cilium' && gateway_endpoints.external_https == true && (dns.public_domain ?? '') != '' &&
             (tunnel.driver ?? '') == '' ? 'envoy/default-404/external-dns' : ''}
           - >-
-            ${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
+            ${load_balancer.enabled == true && gateway_endpoints.external_mode == 'loadbalancer' && (gateway_endpoints.external_ip ?? '') != '' ?
             'lb-address' : ''}
         substitutions:
           gateway_name: external
@@ -260,68 +260,68 @@ flux:
           gateway_cert_issuer: "${tls_effective.external_issuer}"
           gateway_lb_scheme: internet-facing
           gateway_loadbalancer_ip: >-
-            ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.external_mode == 'loadbalancer' ?
-            gateway_effective.external_ip : ''}
-          gateway_dns_target: "${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' ? gateway_effective.external_ip : ''}"
+            ${(load_balancer.enabled == true || gateway_endpoints.cilium_lb == true) && gateway_endpoints.external_mode == 'loadbalancer' ?
+            gateway_endpoints.external_ip : ''}
+          gateway_dns_target: "${load_balancer.enabled == true && gateway_endpoints.external_mode == 'loadbalancer' ? gateway_endpoints.external_ip : ''}"
           # 8444 on docker-desktop, which forwards to a host port, else 443.
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.external_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.external_node_port}
-          gateway_listener_ports: ${gateway_effective.external_listener_ports}
+          gateway_listener_ports: ${gateway_endpoints.external_listener_ports}
           gateway_host_http_port: 8081
           gateway_host_https_port: 8444
         timeout: 10m
         interval: 5m
 
       - name: internal
-        when: gateway_effective.internal_enabled == true
+        when: gateway_endpoints.internal_enabled == true
         dependsOn:
           - pki-resources
         components:
-          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
+          - "${gateway.driver == 'cilium' && load_balancer.controller_required != true ? 'cilium' : ''}"
           - >-
-            ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
-            (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${gateway_effective.internal_https == true && (gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
-          - "${gateway_effective.internal_https != true ? 'no-web-https' : ''}"
+            ${gateway.driver == 'cilium' && load_balancer.controller_required != true &&
+            (gateway_endpoints.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
+          - "${gateway_endpoints.internal_https == true && (gateway.internal.tls.cert ?? '') == '' ? 'certificate' : ''}"
+          - "${gateway_endpoints.internal_https != true ? 'no-web-https' : ''}"
           - >-
-            ${gateway_effective.internal_mode == 'loadbalancer' || len(gateway.internal.node_ports ?? {}) > 0 ?
+            ${gateway_endpoints.internal_mode == 'loadbalancer' || len(gateway.internal.node_ports ?? {}) > 0 ?
             'allowed-listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
-          - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_effective.internal_mode : ''}"
+          - "${gateway.driver == 'envoy' ? 'envoy/' + gateway_endpoints.internal_mode : ''}"
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'loadbalancer' &&
-            lb_effective.enabled == true && (gateway_effective.internal_ip ?? '') != '' ?
-            'envoy/loadbalancer/' + lb_effective.driver + '-ip' : ''}
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'loadbalancer' &&
+            load_balancer.enabled == true && (gateway_endpoints.internal_ip ?? '') != '' ?
+            'envoy/loadbalancer/' + load_balancer.driver + '-ip' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'loadbalancer' &&
-            gateway_effective.cilium_lb == true && (gateway_effective.internal_ip ?? '') != '' ?
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'loadbalancer' &&
+            gateway_endpoints.cilium_lb == true && (gateway_endpoints.internal_ip ?? '') != '' ?
             'envoy/loadbalancer/cilium-ip' : ''}
           - >-
-            ${gateway_effective.cilium_lb == true && gateway_effective.internal_mode == 'loadbalancer' &&
-            (gateway_effective.internal_ip ?? '') != '' ? 'cilium-pool' : ''}
+            ${gateway_endpoints.cilium_lb == true && gateway_endpoints.internal_mode == 'loadbalancer' &&
+            (gateway_endpoints.internal_ip ?? '') != '' ? 'cilium-pool' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'nodeport' &&
             dns.private.driver in ['coredns', 'pdns'] ? 'envoy/nodeport/dns' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'nodeport' &&
             (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
           - >-
-            ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
+            ${gateway.driver == 'envoy' && gateway_endpoints.internal_mode == 'nodeport' &&
             len(gateway.internal.node_ports ?? {}) > 0 ? 'envoy/nodeport/listeners' : ''}
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
-          - "${gateway.driver != 'cilium' && gateway_effective.internal_https == true ? 'envoy/default-404' : ''}"
+          - "${gateway.driver != 'cilium' && gateway_endpoints.internal_https == true ? 'envoy/default-404' : ''}"
           - >-
-            ${gateway.driver != 'cilium' && gateway_effective.internal_https == true && (dns.private_domain ?? '') != '' ?
+            ${gateway.driver != 'cilium' && gateway_endpoints.internal_https == true && (dns.private_domain ?? '') != '' ?
             'envoy/default-404/external-dns' : ''}
           - >-
             ${gateway.driver != 'cilium' && dns.private.driver in ['coredns', 'pdns'] && (dns.private_domain ?? '') != '' ?
             'dns' : ''}
           - >-
-            ${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
+            ${load_balancer.enabled == true && gateway_endpoints.internal_mode == 'loadbalancer' && (gateway_endpoints.internal_ip ?? '') != '' ?
             'lb-address' : ''}
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
@@ -332,13 +332,13 @@ flux:
           gateway_cert_issuer: "${tls_effective.internal_issuer}"
           gateway_lb_scheme: internal
           gateway_loadbalancer_ip: >-
-            ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) && gateway_effective.internal_mode == 'loadbalancer' ?
-            gateway_effective.internal_ip : ''}
-          gateway_dns_target: "${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' ? gateway_effective.internal_ip : ''}"
+            ${(load_balancer.enabled == true || gateway_endpoints.cilium_lb == true) && gateway_endpoints.internal_mode == 'loadbalancer' ?
+            gateway_endpoints.internal_ip : ''}
+          gateway_dns_target: "${load_balancer.enabled == true && gateway_endpoints.internal_mode == 'loadbalancer' ? gateway_endpoints.internal_ip : ''}"
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
           gateway_nodeport_http: ${gateway_exposure.internal_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.internal_node_port}
-          gateway_listener_ports: ${gateway_effective.internal_listener_ports}
+          gateway_listener_ports: ${gateway_endpoints.internal_listener_ports}
           gateway_host_http_port: 8080
           gateway_host_https_port: 8443
         timeout: 10m
@@ -346,7 +346,7 @@ flux:
 
   # Supplied certificate for each gateway, in place of a cert-manager Certificate.
   - name: gateway
-    when: gateway.enabled == true && gateway_effective.external_enabled == true && (gateway.external.tls.cert ?? '') != ''
+    when: gateway.enabled == true && gateway_endpoints.external_enabled == true && (gateway.external.tls.cert ?? '') != ''
     secrets:
       external-supplied-tls:
         namespaces: [system-gateway]
@@ -356,7 +356,7 @@ flux:
           tls.key: ${gateway.external.tls.key}
 
   - name: gateway
-    when: gateway.enabled == true && gateway_effective.internal_enabled == true && (gateway.internal.tls.cert ?? '') != ''
+    when: gateway.enabled == true && gateway_endpoints.internal_enabled == true && (gateway.internal.tls.cert ?? '') != ''
     secrets:
       internal-supplied-tls:
         namespaces: [system-gateway]

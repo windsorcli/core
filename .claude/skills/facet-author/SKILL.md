@@ -275,7 +275,7 @@ The `config` section sets computed/effective values that downstream expressions 
 
 ```yaml
 config:
-- name: gateway_effective
+- name: gateway_endpoints
   value:
     enabled: ${gateway.enabled ?? ingress.enabled ?? true}
     driver: "${gateway.driver ?? 'nginx'}"

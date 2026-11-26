@@ -21,7 +21,7 @@ requires:
       dns_zone_effective.certificate_only == true &&
       !hasSuffix(dns.private_domain ?? '', '.' + (dns.public.cloudflare.zone_name ?? ''))
     message: Set dns.private_domain to a name under dns.public.cloudflare.zone_name.
-  - when: dns_zone_effective.certificate_only == true && (gateway.enabled != true || gateway_effective.internal != true)
+  - when: dns_zone_effective.certificate_only == true && (gateway.enabled != true || gateway_endpoints.internal != true)
     message: Set gateway.enabled to true on a platform with an internal gateway, or set dns.public_domain.
   - when: >-
       dns_zone_effective.certificate_only == true &&

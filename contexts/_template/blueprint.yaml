@@ -6,3 +6,8 @@ metadata:
 sources: []
 terraform: []
 kustomize: []
+exports:
+  - gateway_endpoints
+  - identity_provider
+  - load_balancer
+  - cluster_node_counts

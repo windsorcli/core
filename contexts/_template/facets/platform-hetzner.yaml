@@ -188,12 +188,12 @@ terraform:
       instances:
         - name: controlplane
           role: controlplane
-          count: ${cluster_nodes_effective.controlplanes}
+          count: ${cluster_node_counts.controlplanes}
           # cpx31 by default, available in every location.
           server_type: ${cluster.controlplanes.instance_type ?? 'cpx31'}
         - name: worker
           role: worker
-          count: ${cluster_nodes_effective.workers}
+          count: ${cluster_node_counts.workers}
           server_type: ${cluster.workers.instance_type ?? 'cpx31'}
 
   # Public Hetzner DNS zone for dns.public_domain.
@@ -256,7 +256,7 @@ flux:
 
   # Hetzner LB for the external gateway Service, Cilium or Envoy.
   - name: gateway
-    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && gateway_exposure.external == 'LoadBalancer' && gateway_external_effective.domain != ''"
+    when: "gateway.enabled == true && load_balancer.mode == 'loadbalancer' && gateway_exposure.external == 'LoadBalancer' && gateway_external_effective.domain != ''"
     resources:
       - name: external
         # hcloud-ccm finalizes the LB Service.
