@@ -131,6 +131,12 @@
       "groupName": "mayastor develop digests"
     },
     {
+      "description": "Group the Mayastor image version bumps into one PR",
+      "matchPackageNames": ["/^docker\\.io/openebs/mayastor-/"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "groupName": "mayastor"
+    },
+    {
       "description": "Update Flux and the Flux Operator in one PR, reviewed by hand; controller image tags MUST match flux_version",
       "matchDepNames": [
         "flux",
