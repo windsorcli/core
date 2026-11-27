@@ -30,6 +30,8 @@ config:
       backchannel_issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
+      # Name of the Secret holding the initial admin credentials.
+      admin_secret: "${((identity.keycloak.admin.password ?? '') != '' || dev == true) ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
 
   # Admin credentials stay inside core and are not exported.
   - name: identity_admin

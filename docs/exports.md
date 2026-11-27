@@ -37,6 +37,7 @@ Core lists these config blocks under `exports:` in `contexts/_template/blueprint
 | `admin_group` | string | Group granted cluster admin |
 | `issuer` | string | OIDC issuer URL for external consumers |
 | `backchannel_issuer` | string | OIDC issuer URL for in-cluster calls |
+| `admin_secret` | string | Name of the Secret holding the initial admin credentials: `keycloak-bootstrap-admin` when an admin password is set or in dev, else `keycloak-initial-admin` |
 
 Admin credentials are not exported.
 
