@@ -17,7 +17,7 @@ spec:
     spec:
       chart: cluster-autoscaler
       # artifact: type=chart name=cluster-autoscaler repo=https://kubernetes.github.io/autoscaler
-      version: 9.60.0
+      version: 9.60.1
       sourceRef:
         kind: HelmRepository
         name: cluster-autoscaler
