@@ -36,13 +36,13 @@ A signed or brought-your-own CA follows its signer's rotation process.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_tls"></a> [tls](#requirement\_tls) | 4.4.1 |
+| <a name="requirement_tls"></a> [tls](#requirement\_tls) | 4.4.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.4.1 |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.4.2 |
 
 ## Modules
 
@@ -52,9 +52,9 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [tls_cert_request.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.1/docs/resources/cert_request) | resource |
-| [tls_private_key.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.1/docs/resources/private_key) | resource |
-| [tls_self_signed_cert.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.1/docs/resources/self_signed_cert) | resource |
+| [tls_cert_request.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.2/docs/resources/cert_request) | resource |
+| [tls_private_key.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.2/docs/resources/private_key) | resource |
+| [tls_self_signed_cert.ca](https://registry.terraform.io/providers/hashicorp/tls/4.4.2/docs/resources/self_signed_cert) | resource |
 
 ## Inputs
 
