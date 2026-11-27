@@ -529,13 +529,13 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
-              version: "1.13.12"
+              version: "1.13.13"
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.12
+                image: ghcr.io/siderolabs/talos:v1.13.13
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.12"
+            talos_version: "1.13.13"
             kubernetes_version: "1.36.7"
 
   # docker and docker-desktop pin Talos below 1.14.
@@ -556,11 +556,11 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
-              version: "1.13.12"
+              version: "1.13.13"
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.12
+                image: ghcr.io/siderolabs/talos:v1.13.13
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.12"
+            talos_version: "1.13.13"
             kubernetes_version: "1.36.7"
