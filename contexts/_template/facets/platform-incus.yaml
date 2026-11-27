@@ -89,7 +89,7 @@ config:
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : (cluster_node_counts.workers > 0 ? filter(cluster_node_entries.workers, # != null) : []),
+            : (cluster_nodes_effective.workers > 0 ? filter(cluster_node_entries.workers, # != null) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # Incus limits and the TALOSSKU string per role.
@@ -129,8 +129,8 @@ config:
   - name: incus_controlplanes
     value:
       instances: >-
-        ${map(1..int(cluster_node_counts.controlplanes), fromPairs([
-          ["name", int(cluster_node_counts.controlplanes) > 1 ? "controlplane-" + string(# - 1) : "controlplane"],
+        ${map(1..int(cluster_nodes_effective.controlplanes), fromPairs([
+          ["name", int(cluster_nodes_effective.controlplanes) > 1 ? "controlplane-" + string(# - 1) : "controlplane"],
           ["role", "controlplane"],
           ["count", 1],
           ["target", (cluster_node_entries.controlplanes[# - 1] ?? {}).placement
@@ -161,8 +161,8 @@ config:
   - name: incus_workers
     value:
       instances: >-
-        ${map(1..int(cluster_node_counts.workers), fromPairs([
-          ["name", int(cluster_node_counts.workers) > 1 ? "worker-" + string(# - 1) : "worker"],
+        ${map(1..int(cluster_nodes_effective.workers), fromPairs([
+          ["name", int(cluster_nodes_effective.workers) > 1 ? "worker-" + string(# - 1) : "worker"],
           ["role", "worker"],
           ["count", 1],
           ["target", (cluster_node_entries.workers[# - 1] ?? {}).placement
@@ -246,7 +246,7 @@ terraform:
       # Compute's control planes, else declared nodes.
       controlplanes: "${terraform_output(\"compute\", \"controlplanes\") ?? filter(cluster_node_entries.controlplanes, # != null)}"
       # Compute's workers, else declared nodes.
-      workers: "${terraform_output(\"compute\", \"workers\") ?? (cluster_node_counts.workers > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
+      workers: "${terraform_output(\"compute\", \"workers\") ?? (cluster_nodes_effective.workers > 0 ? filter(cluster_node_entries.workers, # != null) : [])}"
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: ${talos_common.controlplane_config_patches}
       worker_config_patches: ${talos_common.worker_config_patches}

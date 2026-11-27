@@ -10,7 +10,7 @@ when: identity.enabled == true
 # =============================================================================
 config:
   # The OIDC issuer and realm that consumers read.
-  - name: identity_provider
+  - name: identity_effective
     value:
       realm: "${identity.keycloak.realm ?? 'platform'}"
       display_name: "${identity.display_name ?? 'SSO'}"
@@ -30,12 +30,8 @@ config:
       backchannel_issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
-
-  # Admin credentials stay inside core and are not exported.
-  - name: identity_admin
-    value:
       # Password for the console admin and the dev SSO admin user. admin-password in dev unless set.
-      password: >-
+      admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
 
@@ -93,7 +89,7 @@ flux:
           # Gated on gateway.enabled, since without a proxy the policy blocks all traffic.
           - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
           # Bootstrap admin overlay, on when an admin password resolves.
-          - "${(identity_admin.password ?? '') != '' ? 'keycloak/admin' : ''}"
+          - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
           # Server + user-event metrics, and the operator's own ServiceMonitor.
           - "${telemetry.metrics.enabled ? 'keycloak/prometheus' : ''}"
         timeout: 10m
@@ -119,21 +115,21 @@ flux:
 
   # Login on the public route target, admin console on the internal gateway.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && gateway_endpoints.public.name != ''
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && gateway_effective.public.name != ''
     resources:
       - dependsOn:
-          - "${'gateway-resources-' + gateway_endpoints.public.name}"
-          - "${gateway_endpoints.internal == true && gateway_endpoints.public.name != 'internal' ? 'gateway-resources-internal' : ''}"
+          - "${'gateway-resources-' + gateway_effective.public.name}"
+          - "${gateway_effective.internal == true && gateway_effective.public.name != 'internal' ? 'gateway-resources-internal' : ''}"
         components:
           - keycloak/gateway
           # Login on the external gateway exposes only the paths a login requires.
-          - "${gateway_endpoints.public.name == 'external' ? 'keycloak/gateway/public-paths' : ''}"
-          - "${gateway_endpoints.internal == true ? 'keycloak/gateway-admin' : ''}"
+          - "${gateway_effective.public.name == 'external' ? 'keycloak/gateway/public-paths' : ''}"
+          - "${gateway_effective.internal == true ? 'keycloak/gateway-admin' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
-          keycloak_domain: "${gateway_endpoints.public.domain}"
-          keycloak_gateway_name: "${gateway_endpoints.public.name}"
+          keycloak_domain: "${gateway_effective.public.domain}"
+          keycloak_gateway_name: "${gateway_effective.public.name}"
           private_domain: "${dns.private_domain ?? ''}"
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
@@ -156,12 +152,12 @@ flux:
         interval: 5m
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
-          keycloak_admin_group: "${identity_provider.admin_group}"
+          keycloak_admin_group: "${identity_effective.admin_group}"
           # Grafana client fields for the realm-client patch.
           grafana_url: "${grafana_effective.url ?? ''}"
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
           # Dev SSO admin user password.
-          dev_admin_password: "${identity_admin.password ?? ''}"
+          dev_admin_password: "${identity_effective.admin_password ?? ''}"
 
   # Bootstrap admin from identity.keycloak.admin.password.
   - name: identity
@@ -178,7 +174,7 @@ flux:
       keycloak-bootstrap-admin:
         data:
           username: ${identity.keycloak.admin.username ?? 'admin'}
-          password: ${identity_admin.password}
+          password: ${identity_effective.admin_password}
 
   # Keycloak Grafana dashboard, with observability enabled.
   - name: observability

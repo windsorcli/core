@@ -104,7 +104,7 @@ config:
         kubelet_extra_args:
           rotate-server-certificates: "true"
         # One approver replica on a one-node cluster, two otherwise.
-        approver_replicas: "${cluster_node_counts.controlplanes + cluster_node_counts.workers == 1 ? 1 : 2}"
+        approver_replicas: "${cluster_nodes_effective.controlplanes + cluster_nodes_effective.workers == 1 ? 1 : 2}"
         # Approves the kubelet serving CSRs that rotation requests.
         approver_manifest:
           name: kubelet-csr-approver
@@ -228,7 +228,7 @@ config:
   # A single control plane has no peers, so it disables leader election and enables etcd auto-compaction.
   # Scaling to 3 control planes drops this patch before the new nodes join.
   - name: talos_common
-    when: cluster_node_counts.controlplanes == 1
+    when: cluster_nodes_effective.controlplanes == 1
     value:
       controlplane_patch:
         cluster:
@@ -334,7 +334,7 @@ config:
   - name: talos_common
     when: cluster.oidc.enabled == true
     value:
-      oidc_issuer_url: "${cluster.oidc.issuer_url ?? (identity.enabled == true ? identity_provider.issuer : '')}"
+      oidc_issuer_url: "${cluster.oidc.issuer_url ?? (identity.enabled == true ? identity_effective.issuer : '')}"
       oidc_client_id: "${cluster.oidc.client_id ?? ((identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak') ? 'kubernetes' : '')}"
       controlplane_patch:
         cluster:

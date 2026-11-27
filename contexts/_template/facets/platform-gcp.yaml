@@ -191,7 +191,7 @@ flux:
 
   # GCP load balancer for the internal Envoy gateway Service.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && load_balancer.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
     resources:
       - name: internal
         components:

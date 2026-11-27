@@ -310,7 +310,7 @@ terraform:
           hostports: >-
             ${workstation.runtime == "docker-desktop" ? concat(
             cluster.controlplanes.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
-            gateway_endpoints.listener_hostports ?? []) : []}
+            gateway_effective.listener_hostports ?? []) : []}
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
@@ -321,7 +321,7 @@ terraform:
           hostports: >-
             ${workstation.runtime == "docker-desktop" ? concat(
             cluster.workers.hostports ?? ["8080:30080/tcp", "8443:30443/tcp", "8081:30081/tcp", "8444:30444/tcp"],
-            gateway_endpoints.listener_hostports ?? []) : []}
+            gateway_effective.listener_hostports ?? []) : []}
           volumes: ${cluster.workers.volumes ?? []}
 
 

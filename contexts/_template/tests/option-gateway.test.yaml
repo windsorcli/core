@@ -331,7 +331,7 @@ cases:
 
   # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
   # metal single-node cluster with no cluster LB). Network omits
-  # loadbalancer_driver so load_balancer.enabled is false — proves the nodeport
+  # loadbalancer_driver so lb_effective.enabled is false — proves the nodeport
   # component is selected purely from gateway.service_type.
   - name: explicit gateway.service_type NodePort selects nodeport variant on metal with no LB
     values:
@@ -360,11 +360,11 @@ cases:
                 - envoy/default-404/external-dns
                 - flux-webhook
 
-  # NodePort must suppress load_balancer.enabled even when loadbalancer_driver
+  # NodePort must suppress lb_effective.enabled even when loadbalancer_driver
   # is configured: a NodePort service will never get a LoadBalancer IP, so
   # lb-address (which patches the Gateway with that IP) and gateway_dns_target
   # must not apply. Uses *default-network which has loadbalancer_driver set,
-  # and flannel CNI so load_balancer.enabled would otherwise be true.
+  # and flannel CNI so lb_effective.enabled would otherwise be true.
   - name: explicit NodePort suppresses lb-address even when loadbalancer_driver is set
     values:
       platform: metal
@@ -686,7 +686,7 @@ cases:
                 - webhook
                 - webhook/gateway
 
-  # lb-address: included when load_balancer.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
+  # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
     values:
       platform: metal
@@ -717,7 +717,7 @@ cases:
                 gateway_class_name: envoy
                 gateway_loadbalancer_ip: "10.5.1.11"
 
-  # AWS uses a cloud-managed LB (load_balancer.enabled == false) and is not cilium,
+  # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
   # so gateway_loadbalancer_ip and gateway_dns_target both evaluate to "" and are
   # omitted from output. Only gateway_class_name remains.
   - name: aws envoy gateway-resources omits loadbalancer substitutions
@@ -2279,7 +2279,7 @@ cases:
       cluster: *default-cluster
     expect:
       config:
-        gateway_endpoints:
+        gateway_effective:
           public:
             name: external
             domain: public.example.com
@@ -2347,7 +2347,7 @@ cases:
       cluster: *default-cluster
     expect:
       config:
-        gateway_endpoints:
+        gateway_effective:
           public:
             name: internal
             domain: private.example.com
@@ -2422,7 +2422,7 @@ cases:
         zone_id: zone123
     expect:
       config:
-        gateway_endpoints:
+        gateway_effective:
           public:
             name: internal
             domain: home.example.com
@@ -2490,7 +2490,7 @@ cases:
         workers: []
     expect:
       config:
-        gateway_endpoints:
+        gateway_effective:
           public:
             name: external
             domain: example.com
@@ -2551,7 +2551,7 @@ cases:
       cluster: *default-cluster
     expect:
       config:
-        gateway_endpoints:
+        gateway_effective:
           public:
             name: external
             domain: private.example.com

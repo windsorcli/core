@@ -61,19 +61,19 @@ config:
               ["hostname", #.hostname],
               ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
             ]))
-          : map(1..int(cluster_node_counts.controlplanes), fromPairs([
+          : map(1..int(cluster_nodes_effective.controlplanes), fromPairs([
               ["hostname", "controlplane-" + string(#)],
               ["node", nil]
             ]))}
       workers: >-
-        ${cluster_node_counts.workers == 0
+        ${cluster_nodes_effective.workers == 0
           ? []
           : (len(cluster.workers.nodes ?? {}) > 0
             ? map(values(cluster.workers.nodes), fromPairs([
                 ["hostname", #.hostname],
                 ["node", #.node ?? (#.endpoint == nil ? nil : split(#.endpoint, ":")[0])]
               ]))
-            : map(1..int(cluster_node_counts.workers), fromPairs([
+            : map(1..int(cluster_nodes_effective.workers), fromPairs([
                 ["hostname", "worker-" + string(#)],
                 ["node", nil]
               ])))}
@@ -101,7 +101,7 @@ config:
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # No in-cluster load balancer unless set by network.loadbalancer_driver.
-  - name: load_balancer
+  - name: lb_effective
     when: cluster.driver == 'talos'
     value:
       driver: "${network.loadbalancer_driver ?? 'none'}"
@@ -261,7 +261,7 @@ flux:
 
   # NLBs for the Envoy gateway Services, one external and one internal.
   - name: gateway
-    when: "cluster.driver == 'eks' && gateway.enabled == true && gateway.driver == 'envoy' && load_balancer.mode == 'loadbalancer'"
+    when: "cluster.driver == 'eks' && gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     resources:
       - name: external
         when: gateway_external_effective.domain != '' && gateway_exposure.external == 'LoadBalancer'

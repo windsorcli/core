@@ -32,9 +32,9 @@ requires:
       - pki.acme.eab.key_id
       - pki.acme.eab.hmac_key
     message: ACME external account binding needs both pki.acme.eab.key_id and pki.acme.eab.hmac_key.
-  - when: load_balancer.driver == 'cilium' && cluster.cni.driver != 'cilium'
+  - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
     message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
-  - when: cluster.cni.driver == 'cilium' && (load_balancer.driver == 'kube-vip' || load_balancer.driver == 'metallb')
+  - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
     message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
   - when: cluster.vip == true
     paths:
@@ -42,7 +42,7 @@ requires:
     message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
   - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv', 'metal'])
     message: cluster.vip is supported on incus, proxmox, vsphere, hyperv, and metal.
-  - when: load_balancer.driver == 'metallb'
+  - when: lb_effective.driver == 'metallb'
     paths:
       - network.loadbalancer_ips.start
       - network.loadbalancer_ips.end
@@ -70,7 +70,7 @@ config:
     value:
       runtime: "${workstation.runtime ?? ''}"
 
-  - name: cluster_node_counts
+  - name: cluster_nodes_effective
     value:
       controlplanes: "${max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))}"
       # cluster.workers.count, else the size of cluster.workers.nodes. Hetzner defaults to 1 worker.
@@ -81,12 +81,12 @@ config:
     value:
       controlplanes: >-
         ${map(
-          1..int(cluster_node_counts.controlplanes),
+          1..int(cluster_nodes_effective.controlplanes),
           get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
         )}
       workers: >-
         ${map(
-          1..int(cluster_node_counts.workers),
+          1..int(cluster_nodes_effective.workers),
           get(cluster.workers.nodes ?? {}, "worker-" + string(#))
         )}
 
@@ -116,7 +116,7 @@ config:
       cni:
         driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))) == 'talos' ? 'cilium' : '')}"
       # The control plane is schedulable with one control plane and no workers.
-      # Copies the cluster_node_counts counts to avoid a cycle.
+      # Copies the cluster_nodes_effective counts to avoid a cycle.
       controlplanes:
         schedulable: >-
           ${cluster.controlplanes.schedulable
@@ -140,7 +140,7 @@ config:
         # 4 by default, since docker rejects more CPUs than the host has.
         cpu: "${cluster.controlplanes.cpu ?? 4}"
         # 12 when the control plane is schedulable or there are no workers, else 8.
-        memory: "${cluster.controlplanes.memory ?? ((cluster_node_counts.workers == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
+        memory: "${cluster.controlplanes.memory ?? ((cluster_nodes_effective.workers == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
       workers:
         cpu: "${cluster.workers.cpu ?? 4}"
         memory: "${cluster.workers.memory ?? 8}"
@@ -159,22 +159,22 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  - name: load_balancer
+  - name: lb_effective
     value:
       driver: "${network.loadbalancer_driver ?? (cluster.cni.driver == 'cilium' ? 'cilium' : 'kube-vip')}"
       mode: loadbalancer
 
   # kube-vip or MetalLB, on for metal, vsphere, hyperv, incus and proxmox, or when set by
   # network.loadbalancer_driver.
-  - name: load_balancer
+  - name: lb_effective
     value:
       enabled: >-
-        ${(load_balancer.driver == 'kube-vip' || load_balancer.driver == 'metallb') &&
+        ${(lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb') &&
         ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
         platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
 
   # Off on Docker Desktop, which has no routable node network.
-  - name: load_balancer
+  - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
@@ -196,12 +196,12 @@ config:
     value:
       nodeport: ${gateway_exposure.external == 'NodePort' && gateway_exposure.internal == 'NodePort'}
 
-  - name: load_balancer
+  - name: lb_effective
     value:
       mode: "${gateway_exposure.nodeport ? 'nodeport' : 'loadbalancer'}"
 
   # No in-cluster load balancer with both gateways on NodePort.
-  - name: load_balancer
+  - name: lb_effective
     when: >-
       (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
       (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
@@ -210,9 +210,9 @@ config:
 
   # True where an lb-install controller runs: EKS, hetzner, or an enabled kube-vip or MetalLB.
   # A platform facet that adds an lb-install MUST be added here.
-  - name: load_balancer
+  - name: lb_effective
     value:
-      controller_required: "${(platform == 'aws' && (cluster.driver ?? 'eks') == 'eks') || platform == 'hetzner' || load_balancer.enabled == true}"
+      controller_required: "${(platform == 'aws' && (cluster.driver ?? 'eks') == 'eks') || platform == 'hetzner' || lb_effective.enabled == true}"
 
   - name: dns
     value:
@@ -333,9 +333,9 @@ config:
       ${
         topology
         ?? (
-          (cluster_node_counts.controlplanes + cluster_node_counts.workers) == 1
+          (cluster_nodes_effective.controlplanes + cluster_nodes_effective.workers) == 1
             ? 'single-node'
-            : (cluster_node_counts.controlplanes >= 3 ? 'ha' : 'multi-node')
+            : (cluster_nodes_effective.controlplanes >= 3 ? 'ha' : 'multi-node')
         )
       }
 
@@ -476,36 +476,36 @@ flux:
 
   # In-cluster load balancer, kube-vip or MetalLB.
   - name: lb
-    when: load_balancer.enabled && workstation.runtime != 'docker-desktop'
+    when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
     install:
       components:
-        - ${load_balancer.driver}
-        - "${load_balancer.driver == 'kube-vip' ? load_balancer.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        - "${load_balancer.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
-        - "${load_balancer.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
-        - "${chart_registry != '' && load_balancer.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
-        - "${chart_registry != '' && load_balancer.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
+        - ${lb_effective.driver}
+        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
+        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' ? 'kube-vip/chart-registry' : ''}"
+        - "${chart_registry != '' && lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider/chart-registry' : ''}"
       substitutions:
         loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
     resources:
       - components:
-          - "${load_balancer.driver == 'metallb' ? load_balancer.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
           # MetalLB address for the internal gateway when it has a fixed IP.
           - >-
-            ${load_balancer.driver == 'metallb' && gateway.enabled == true && gateway_endpoints.internal_enabled == true &&
-            gateway_endpoints.internal_mode == 'loadbalancer' && (gateway_endpoints.internal_ip ?? '') != '' ?
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal_enabled == true &&
+            gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
           # MetalLB address for the external gateway when it has a fixed IP.
           - >-
-            ${load_balancer.driver == 'metallb' && gateway.enabled == true && gateway_endpoints.external_enabled == true &&
-            gateway_endpoints.external_mode == 'loadbalancer' && (gateway_endpoints.external_ip ?? '') != '' ?
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.external_enabled == true &&
+            gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
             'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/external-gateway' : ''}
         substitutions:
           loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
-          gateway_internal_ip: "${gateway_endpoints.internal_ip ?? ''}"
-          gateway_external_ip: "${gateway_endpoints.external_ip ?? ''}"
+          gateway_internal_ip: "${gateway_effective.internal_ip ?? ''}"
+          gateway_external_ip: "${gateway_effective.external_ip ?? ''}"
         timeout: 5m
         interval: 5m
 
@@ -627,7 +627,7 @@ flux:
   - name: observability
     when: >-
       telemetry.logs.driver == 'fluentd' && !((observability.logs_driver ?? '') == 'elasticsearch' &&
-      gateway.enabled == true && gateway_endpoints.private.name != '')
+      gateway.enabled == true && gateway_effective.private.name != '')
     dependsOn:
       - telemetry-install
     install:
@@ -651,12 +651,12 @@ flux:
     when: (gitops.mode ?? 'push') == 'push'
     # The webhook HTTPRoute attaches to the internal Gateway.
     dependsOn:
-      - "${gateway.enabled == true && gateway_endpoints.internal == true ? 'gateway-resources-internal' : ''}"
+      - "${gateway.enabled == true && gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
     resources:
       - components:
           - webhook
-          - "${gateway.enabled == true && gateway_endpoints.internal == true ? 'webhook/gateway' : ''}"
-          - "${gateway.enabled == true && gateway_endpoints.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+          - "${gateway.enabled == true && gateway_effective.internal == true ? 'webhook/gateway' : ''}"
+          - "${gateway.enabled == true && gateway_effective.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
         timeout: 5m
@@ -665,16 +665,16 @@ flux:
   # Flux web UI on the private gateway.
   - name: gitops
     path: gitops
-    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_endpoints.private.name != ''
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.private.name != ''
     dependsOn:
-      - "${'gateway-resources-' + gateway_endpoints.private.name}"
+      - "${'gateway-resources-' + gateway_effective.private.name}"
     resources:
       - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          flux_ui_domain: "${gateway_endpoints.private.domain}"
-          flux_ui_gateway_name: "${gateway_endpoints.private.name}"
+          flux_ui_domain: "${gateway_effective.private.domain}"
+          flux_ui_gateway_name: "${gateway_effective.private.name}"
         timeout: 5m
         interval: 5m
 
