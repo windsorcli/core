@@ -35,7 +35,7 @@ spec:
           image:
             repository: quay.io/cilium/hubble-ui
             # artifact: type=image name=quay.io/cilium/hubble-ui
-            tag: v0.13.6@sha256:049a80a03585c043d0c3121bdc518c72b0fd42bae07e4bcce0fdb8f1e88041d0
+            tag: v0.13.7@sha256:1773bca237e3fc3d922b50f6d0e40ef17f8eca3fe5cd1abc6620eef88a640346
             useDigest: false
         backend:
           image:
