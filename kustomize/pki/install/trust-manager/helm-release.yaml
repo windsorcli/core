@@ -28,7 +28,7 @@ spec:
       name: trust-pkg-debian-trixie
       repository: quay.io/jetstack/trust-pkg-debian-trixie
       # artifact: type=image name=quay.io/jetstack/trust-pkg-debian-trixie
-      tag: 20250419.1@sha256:17084a794d1e75065c9047438e2a6167907771fe78d7e4b5d4373a4b1d4e0494
+      tag: 20250419.2@sha256:3093d4f6634fbd9eaf6a70a06d809132850d7cae30da82396d3b1f884c1135e7
     app:
       trust:
         namespace: system-pki-trust
