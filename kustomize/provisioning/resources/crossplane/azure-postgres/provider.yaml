@@ -5,7 +5,7 @@ metadata:
   name: provider-azure-dbforpostgresql
 spec:
   # artifact: type=image name=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql
-  package: xpkg.upbound.io/upbound/provider-azure-dbforpostgresql:v2.8.4@sha256:08b15900e2db382dbe2f2d3e7868c55c355a9494c106cd092bf7a13f6ce95688
+  package: xpkg.upbound.io/upbound/provider-azure-dbforpostgresql:v2.8.5@sha256:fb25b48eb64af64014cb2fede4b98197050b74e0ef267053be91ae795b0869d6
   # provider-family-azure.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true
   runtimeConfigRef:
