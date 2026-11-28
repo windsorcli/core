@@ -10,7 +10,7 @@ spec:
   url: ${chart_registry}/crossplane
   ref:
     # artifact: type=chart name=crossplane repo=https://charts.crossplane.io/stable
-    tag: 2.4.3
+    tag: 2.5.0
   insecure: ${chart_registry_insecure:=false}
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
