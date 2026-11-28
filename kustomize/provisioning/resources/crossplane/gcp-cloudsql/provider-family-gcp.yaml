@@ -7,4 +7,4 @@ metadata:
   name: provider-family-gcp
 spec:
   # artifact: type=image name=xpkg.upbound.io/upbound/provider-family-gcp
-  package: xpkg.upbound.io/upbound/provider-family-gcp:v3.1.3@sha256:bc7c1ccc324acf29bd4648ec3a8262d24d6954402f9649e5a912cb7b73f9277f
+  package: xpkg.upbound.io/upbound/provider-family-gcp:v3.1.4@sha256:02b76d86ae8d2490c4841a76ca338c18c8e1fa6b3b5c5a5086f5780aa32c75df
