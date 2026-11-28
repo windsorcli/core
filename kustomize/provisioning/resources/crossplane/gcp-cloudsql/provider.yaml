@@ -5,7 +5,7 @@ metadata:
   name: provider-gcp-sql
 spec:
   # artifact: type=image name=xpkg.upbound.io/upbound/provider-gcp-sql
-  package: xpkg.upbound.io/upbound/provider-gcp-sql:v3.1.3@sha256:67c20e29bb5471b072f5897c4d3d8044cab785ddbead63f970e8313ef7cb56ee
+  package: xpkg.upbound.io/upbound/provider-gcp-sql:v3.1.4@sha256:9dd872a31ac27a0ae37ee01df9e7155875a04aa829f393e684dc69bf89f0f885
   # provider-family-gcp.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true
   runtimeConfigRef:
