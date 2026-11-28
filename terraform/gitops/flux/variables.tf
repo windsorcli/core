@@ -8,7 +8,7 @@ variable "flux_operator_version" {
   description = "The version of the flux-operator Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-operator repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.63.1"
+  default = "0.64.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
@@ -20,7 +20,7 @@ variable "flux_instance_version" {
   description = "The version of the flux-instance Helm chart to install"
   type        = string
   # artifact: type=chart name=flux-instance repo=oci://ghcr.io/controlplaneio-fluxcd/charts
-  default = "0.63.1"
+  default = "0.64.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_instance_version))
@@ -68,7 +68,7 @@ variable "operator_image_tag" {
   description = "Tag of the flux-operator image, with its digest."
   type        = string
   # artifact: type=image name=ghcr.io/controlplaneio-fluxcd/flux-operator
-  default  = "v0.63.1@sha256:460cc140dba2958261b05466acca40dfbee3addd1a6c33b885c1cd4e4e5d0489"
+  default  = "v0.64.0@sha256:7f60122c5f07c51972ba86635783c5bcc6d450dea5d6f8291362efb1d81463e8"
   nullable = false
 }
 
