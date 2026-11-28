@@ -23,7 +23,7 @@ spec:
     image:
       repository: quay.io/jetstack/trust-manager
       # artifact: type=image name=quay.io/jetstack/trust-manager
-      tag: v0.25.0@sha256:0521921c2a46d14d0417336b20bcde69215ef3164f2977cc939d53c6e5224a17
+      tag: v0.26.0@sha256:783afe31d39f122a811b96ac3aedab9f358488088df21622ae5b057b4a38b5c2
     defaultPackageImage:
       name: trust-pkg-debian-trixie
       repository: quay.io/jetstack/trust-pkg-debian-trixie
