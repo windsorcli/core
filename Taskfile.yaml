@@ -56,6 +56,11 @@ tasks:
     cmds:
       - scripts/utils-image.sh --check
 
+  terraform:min:check:
+    desc: Verify the Terraform minimum pins match the required_version floor in terraform/ (CI guard)
+    cmds:
+      - scripts/terraform-min.sh --check
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

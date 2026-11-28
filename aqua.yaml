@@ -11,7 +11,7 @@ registries:
   - type: standard
     ref: v4.591.0 # renovate: depName=aquaproj/aqua-registry
 packages:
-  # Pinned to the 1.12 line for OpenTofu compatibility; see required_version "~> 1.12".
+  # Matches the required_version floor in terraform/; task terraform:min:check enforces it.
   - name: hashicorp/terraform@v1.12.2
   - name: prometheus/prometheus@v3.15.1
   - name: siderolabs/talos@v1.14.7
