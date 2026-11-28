@@ -107,6 +107,10 @@ jobs:
       - name: Validate chart sources
         run: task charts:check
 
+      # Fail if the Terraform minimum pin differs from the required_version floor in terraform/.
+      - name: Validate Terraform minimum version
+        run: task terraform:min:check
+
       # Fail if the talos_images table in config-talos.yaml has drifted from the pinned Talos versions.
       - name: Validate Talos image table
         run: task talos:images:check
@@ -174,9 +178,13 @@ jobs:
   # Unit Tests
   # ===========================================================================
   tests:
-    name: Tests
+    name: Tests (Terraform ${{ matrix.terraform }})
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform: ${{ fromJSON(github.event_name == 'schedule' && '["latest"]' || '["min","latest"]') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -185,15 +193,43 @@ jobs:
         uses: ./.github/actions/setup-tools
         with:
           tools: terraform,task,yq,promtool
+          terraform_version: ${{ matrix.terraform }}
 
       - name: Install Windsor CLI
+        if: matrix.terraform == 'min'
         uses: windsorcli/action@main
         with:
           ref: main
           context: local
 
       - name: Run Tests
+        if: matrix.terraform == 'min'
         run: task test
+
+      - name: Run Terraform Tests
+        if: matrix.terraform != 'min'
+        run: task test:terraform
+
+  # Opens one issue for a failed nightly latest-Terraform run and comments on it for each later failure.
+  report-terraform-latest:
+    name: Report Terraform Latest Failure
+    runs-on: ubuntu-latest
+    needs: tests
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly Terraform latest test run failed"
+          number="$(gh issue list --state open --search "$title in:title" --json number,title --jq "map(select(.title == \"$title\"))[0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$RUN_URL"
+          else
+            gh issue create --title "$title" --body "$RUN_URL"
+          fi
 
   # ===========================================================================
   # Integration (fresh | upgrade)

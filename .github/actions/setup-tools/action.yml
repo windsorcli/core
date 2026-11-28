@@ -19,16 +19,38 @@ inputs:
   tools:
     description: Comma-separated list of tools to install (e.g. "terraform,flux,kubectl").
     required: true
+  terraform_version:
+    description: Terraform version to install. "min" installs the pinned minimum, "latest" the newest release, or give an exact version.
+    default: min
 
 runs:
   using: composite
   steps:
+    - name: Resolve Terraform version
+      id: terraform
+      if: contains(format(',{0},', inputs.tools), ',terraform,')
+      shell: bash
+      env:
+        # Equals the required_version floor in terraform/; task terraform:min:check enforces it.
+        TERRAFORM_MIN: 1.12.2
+        REQUESTED: ${{ inputs.terraform_version }}
+      run: |
+        if [ "$REQUESTED" = "min" ]; then
+          echo "version=$TERRAFORM_MIN" >> "$GITHUB_OUTPUT"
+        else
+          echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Setup Terraform
       if: contains(format(',{0},', inputs.tools), ',terraform,')
       uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       with:
-        # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-        terraform_version: 1.12.2
+        terraform_version: ${{ steps.terraform.outputs.version }}
+
+    - name: Print Terraform version
+      if: contains(format(',{0},', inputs.tools), ',terraform,')
+      shell: bash
+      run: terraform version
 
     - name: Install Task
       if: contains(format(',{0},', inputs.tools), ',task,')
