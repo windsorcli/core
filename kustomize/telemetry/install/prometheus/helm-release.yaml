@@ -50,7 +50,7 @@ spec:
           registry: quay.io
           repository: prometheus-operator/prometheus-config-reloader
           # artifact: type=image name=quay.io/prometheus-operator/prometheus-config-reloader
-          tag: v0.94.1@sha256:06b52bd4dbe3ed6dd5905aadaf8b9987d9da4c31d37bb86deaadae68cee2d26b
+          tag: v0.95.2@sha256:cc74ddedad4ab1c49446971f6d51302ad4303d8660a2018af925c7f62c114304
       admissionWebhooks:
         patch:
           image:
