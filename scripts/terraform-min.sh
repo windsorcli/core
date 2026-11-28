@@ -10,6 +10,13 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+others="$(grep -rn --include='*.tf' 'required_version' terraform | grep -vE 'required_version *= *">= *[0-9]+\.[0-9]+\.[0-9]+"' || true)"
+if [ -n "$others" ]; then
+  echo "::error::required_version MUST be \">= X.Y.Z\" in every module:"
+  echo "$others"
+  exit 1
+fi
+
 floors="$(grep -rhoE --include='*.tf' 'required_version *= *">= *[0-9.]+"' terraform | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u)"
 if [ -z "$floors" ] || [ "$(echo "$floors" | wc -l)" -ne 1 ]; then
   echo "::error::terraform/ modules do not share one required_version floor: ${floors:-none found}"
